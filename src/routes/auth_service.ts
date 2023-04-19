@@ -10,7 +10,9 @@ async function createClient(redirect: string) {
       redirect_uri: redirect,
       audience: config.audience,
       scope: "timelogger:read"
-    }
+    },
+    useRefreshTokens: false,
+    cacheLocation: 'localstorage'
   });
 
   return auth0Client;

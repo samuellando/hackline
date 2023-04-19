@@ -1,4 +1,4 @@
-async function call(apiUrl: string, path: string, method: string, data: any, accessToken: string | undefined = undefined) {
+async function call(apiUrl: string, path: string, method: string, data: any, accessToken: string | undefined = undefined, pre = "api/") {
   let headers: any = {};
   let body: any = undefined;
   if (data != undefined) {
@@ -7,16 +7,16 @@ async function call(apiUrl: string, path: string, method: string, data: any, acc
   if (accessToken != undefined) {
     headers.Authorization = "Bearer " + accessToken;
   }
-  const result = await fetch(apiUrl + "/api/" + path, {
+  const result = await fetch(apiUrl + "/" + pre + path, {
     method: method,
     headers: headers,
     body: body
   });
-  const json = await result.json();
-  console.log(json);
+  return await result.json();
 }
 
-export async function get(apiUrl: string, path: string, accessToken: string | undefined = undefined) {
+export async function get(apiUrl: string, path: string, data: any, accessToken: string | undefined = undefined) {
+  path = path + "?" + new URLSearchParams(data);
   return await call(apiUrl, path, "GET", undefined, accessToken);
 }
 
@@ -35,3 +35,12 @@ export async function put(apiUrl: string, path: string, data: any, accessToken: 
 export async function del(apiUrl: string, path: string, accessToken: string | undefined = undefined) {
   return await call(apiUrl, path, "DELETE", undefined, accessToken);
 }
+
+export async function getApiKey(apiUrl: string, accessToken: string | undefined = undefined) {
+  return await call(apiUrl, "", "GET", undefined, accessToken, "api-key");
+}
+
+export async function deleteApiKey(apiUrl: string, accessToken: string | undefined = undefined) {
+  return await call(apiUrl, "", "DELETE", undefined, accessToken, "api-key")
+}
+

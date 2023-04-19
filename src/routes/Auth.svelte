@@ -10,6 +10,9 @@
 
 	onMount(async () => {
 		authClient = await createAuthClient(window.location.origin);
+		accessToken = await authClient.getTokenSilently();
+		isAuthenticated = await authClient.isAuthenticated();
+		userProfile = await authClient.getUser();
 
 		if (
 			location.search.includes('state=') &&

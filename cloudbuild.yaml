@@ -2,11 +2,9 @@ steps:
   - name: node
     entrypoint: npm
     args: ['install']
-    dir: 'the-librarians-nook'
   - name: node
     entrypoint: npm
     args: ['run', 'build']
-    dir: 'the-librarians-nook'
   - name: gcr.io/cloud-builders/docker
     args:
       - build
@@ -16,7 +14,7 @@ steps:
         $_AR_HOSTNAME/$PROJECT_ID/cloud-run-source-deploy/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA
       - the-librarians-nook
       - '-f'
-      - the-librarians-nook/Dockerfile
+      - Dockerfile
     id: Build
   - name: gcr.io/cloud-builders/docker
     args:

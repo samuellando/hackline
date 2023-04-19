@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import Auth from './Auth.svelte';
 	import type { User } from '@auth0/auth0-spa-js';
-	import { get, post, patch, put, del } from './Api';
+	import { get, post, patch, put, del, getApiKey, deleteApiKey } from './Api';
 	let apiUrl = '';
 
 	var isAuthenticated: boolean;
@@ -16,44 +16,133 @@
 		}
 	});
 
-	let path: string = 'test';
-	let method = 'GET';
-	let data: string = '{"message": "test"}';
-
-	function call() {
-		let d = JSON.parse(data);
-		switch (method) {
-			case 'GET':
-				get(apiUrl, path, accessToken);
-				break;
-			case 'POST':
-				post(apiUrl, path, d, accessToken);
-				break;
-			case 'PATCH':
-				patch(apiUrl, path, d, accessToken);
-				break;
-			case 'PUT':
-				put(apiUrl, path, d, accessToken);
-				break;
-			case 'DELETE':
-				del(apiUrl, path, accessToken);
-				break;
-		}
+	var apikey = '';
+	async function wGetApiKey() {
+		apikey = (await getApiKey(apiUrl, accessToken))['api-key'];
 	}
+
+	async function wDeleteApiKey() {
+		await deleteApiKey(apiUrl, accessToken);
+		apikey = '';
+	}
+
+	var start = new Date().toISOString().slice(0, -1);
+	var end = new Date(new Date().getTime() + 30 * 60000).toISOString().slice(0, -1);
+	var duration = 25;
+	var title = 'coding';
+
+	function startLog() {
+		const data = {
+			title: title
+		};
+		post(apiUrl, 'run', data, accessToken);
+	}
+
+	function enterLog() {
+		const data = {
+			start: Date.parse(start),
+			end: Date.parse(end),
+			title: title
+		};
+		post(apiUrl, 'logs', data, accessToken);
+	}
+
+	function enterDurationLog() {
+		const data = {
+			duration: duration * 60 * 1000,
+			title: title
+		};
+		post(apiUrl, 'logs', data, accessToken);
+	}
+
+	var logs: log[] = [];
+
+	interface log {
+		title: string;
+		start: number;
+		end: number;
+	}
+
+	var summary: any[] = [];
+	function getSummary(logs: log[]) {
+		let s: any = {};
+		logs.forEach((log) => {
+			if (log.title in s) {
+				s[log.title]['time'] += log.end - log.start;
+			} else {
+				s[log.title] = {};
+				s[log.title]['time'] = log.end - log.start;
+				s[log.title]['title'] = log.title;
+			}
+		});
+		return Object.values(s);
+	}
+
+	var rangeStartD = new Date();
+	rangeStartD.setUTCHours(0, 0, 0, 0);
+	var rangeStart = rangeStartD.toISOString().slice(0, -1);
+	var rangeEnd = new Date(rangeStartD.getTime() + 24 * 60 * 60 * 1000).toISOString().slice(0, -1);
+
+	$: rangeStartM = Date.parse(rangeStart);
+	$: rangeEndM = Date.parse(rangeEnd);
+
+	async function getData() {
+		var timeline = await get(
+			apiUrl,
+			'timeline',
+			{ start: rangeStartM, end: rangeEndM },
+			accessToken
+		);
+		logs = timeline;
+	}
+
+	$: summary = getSummary(logs);
 </script>
 
-<h1>Bootstrap</h1>
+<h1>Time Logger</h1>
 <p>Backend URL is : {apiUrl}</p>
+<p>API key is : {apikey}</p>
+<button on:click={wGetApiKey}>get</button>
+<button on:click={wDeleteApiKey}>delete</button><br />
+
 <Auth bind:accessToken bind:userProfile bind:isAuthenticated /> <br />
-<label>path: <input bind:value={path} /></label><br />
-<label
-	>path: <select bind:value={method}>
-		<option value="GET">GET</option>
-		<option value="POST">POST</option>
-		<option value="PATCH">PUT</option>
-		<option value="PUT">PUT</option>
-		<option value="DELETE">DELETE</option>
-	</select><br />
-</label><br />
-<label>data: <input bind:value={data} /></label><br />
-<button on:click={call}>call</button>
+
+<input type="text" bind:value={title} />
+<input type="datetime-local" bind:value={start} />
+<input type="datetime-local" bind:value={end} />
+<button on:click={startLog}>start</button><br />
+<button on:click={enterLog}>enter</button><br />
+<input type="number" bind:value={duration} />
+<button on:click={enterDurationLog}>enter</button><br />
+
+<h1>Data</h1>
+<input type="datetime-local" bind:value={rangeStart} />
+<input type="datetime-local" bind:value={rangeEnd} />
+
+<button on:click={getData}>get</button><br />
+
+<h2>Summary</h2>
+{#each summary as log}
+	<h3>
+		{log.title}
+	</h3>
+	<p>time: {log.time / 3600000} hours</p>
+{/each}
+
+<h2>Logs</h2>
+
+<div id="graph" />
+
+{#each logs as log}
+	<h3>
+		{log.title}
+	</h3>
+	<p>start: {new Date(log.start)}</p>
+	<p>
+		end: {new Date(log.end)}
+	</p>
+	<p>duration: {(log.end - log.start) / 60000} minutes</p>
+	{#if log.id}
+		<button on:click={() => del(apiUrl, 'logs/' + log.id, accessToken)}>delete</button><br />
+	{/if}
+{/each}
