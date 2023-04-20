@@ -11,7 +11,7 @@ async function createClient(redirect: string) {
       audience: config.audience,
       scope: "timelogger:read"
     },
-    useRefreshTokens: false,
+    useRefreshTokens: true,
     cacheLocation: 'localstorage'
   });
 

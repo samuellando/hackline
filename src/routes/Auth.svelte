@@ -9,10 +9,14 @@
 	export var accessToken: string;
 
 	onMount(async () => {
-		authClient = await createAuthClient(window.location.origin);
-		accessToken = await authClient.getTokenSilently();
-		isAuthenticated = await authClient.isAuthenticated();
-		userProfile = await authClient.getUser();
+		try {
+			authClient = await createAuthClient(window.location.origin);
+			accessToken = await authClient.getTokenSilently();
+			isAuthenticated = await authClient.isAuthenticated();
+			userProfile = await authClient.getUser();
+		} catch {
+			console.log('Login required.');
+		}
 
 		if (
 			location.search.includes('state=') &&

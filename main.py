@@ -45,7 +45,8 @@ def getTimeline():
     end = float(args.get("end"))
     cur = ar["GET"]("run")
     logs = []
-    for k, v in ar["GET"]("logs").items():
+    logsdb = ar["GET"]("logs")
+    for k, v in logsdb.items():
         v["id"] = k
         logs.append(v)
 
@@ -55,6 +56,9 @@ def getTimeline():
         logs.append(c[0])
 
     logs = cutOverlaps(logs, start, end)
+
+    for log in logs:
+        log["duration"] = log["end"] - log["start"]
     return logs
 
 def cutOverlaps(intervals, start=None, end=None):
@@ -110,3 +114,5 @@ if __name__ == '__main__':
     from flask_cors import CORS
     CORS(app)
     app.run(host='127.0.0.1', port=8080, debug=True)
+    #client = app.test_client()
+    #client.get("/api/timeline?start=1681876800000&end=1681963200000", headers={"api-key": ""})

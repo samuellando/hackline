@@ -3,6 +3,7 @@
 	import Auth from './Auth.svelte';
 	import type { User } from '@auth0/auth0-spa-js';
 	import { get, post, patch, put, del, getApiKey, deleteApiKey } from './Api';
+
 	let apiUrl = '';
 
 	var isAuthenticated: boolean;
@@ -29,7 +30,7 @@
 	var start = new Date().toISOString().slice(0, -1);
 	var end = new Date(new Date().getTime() + 30 * 60000).toISOString().slice(0, -1);
 	var duration = 25;
-	var title = 'coding';
+	var title = 'productive';
 
 	function startLog() {
 		const data = {
@@ -60,7 +61,10 @@
 	interface log {
 		title: string;
 		start: number;
+		duration: number;
 		end: number;
+		color?: string;
+		percent?: number;
 	}
 
 	var summary: any[] = [];
@@ -76,6 +80,23 @@
 			}
 		});
 		return Object.values(s);
+	}
+
+	function getTimeline(logs: log[]) {
+		var total = rangeEndM - rangeStartM;
+
+		var colors = ['red', 'green'];
+		var i = 0;
+		var colormap: any = {};
+
+		return logs.map((e) => {
+			if (!(e.title in colormap)) {
+				colormap[e.title] = colors[i++];
+			}
+			e.color = colormap[e.title];
+			e.percent = (e.duration / total) * 100;
+			return e;
+		});
 	}
 
 	var rangeStartD = new Date();
@@ -97,6 +118,7 @@
 	}
 
 	$: summary = getSummary(logs);
+	$: timeline = getTimeline(logs);
 </script>
 
 <h1>Time Logger</h1>
@@ -121,6 +143,12 @@
 
 <button on:click={getData}>get</button><br />
 
+<div style="background-color: grey; height: 100px; display: flex">
+	{#each timeline as e}
+		<div style="background-color: {e.color}; height: 100px; width: {e.percent}%" />
+	{/each}
+</div>
+
 <h2>Summary</h2>
 {#each summary as log}
 	<h3>
@@ -130,8 +158,6 @@
 {/each}
 
 <h2>Logs</h2>
-
-<div id="graph" />
 
 {#each logs as log}
 	<h3>
