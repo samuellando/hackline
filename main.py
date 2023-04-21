@@ -55,38 +55,33 @@ def getTimeline():
         c[0]["end"] = time.time() * 1000
         logs.append(c[0])
 
+    from datetime import datetime
     logs = cutOverlaps(logs, start, end)
 
     for log in logs:
         log["duration"] = log["end"] - log["start"]
     return logs
 
-def cutOverlaps(intervals, start=None, end=None):
+def cutOverlaps(all, start=None, end=None):
+    intervals = []
 
-    intervals = sorted(intervals, key=lambda x: x["start"])
-
-
-    s = 0
-    e = len(intervals)
-
-    if start is not None:
-        for i in intervals:
+    for i in all:
+        insert = True
+        if start is not None:
             if i["end"] < start:
-                s += 1
+                insert = False
             elif i["start"] < start:
                 i["start"] = start
-            else:
-                break
-    if end is not None:
-        for i in reversed(intervals):
+        if end is not None:
             if i["start"] > end:
-                e -= 1
+                insert = False
             elif i["end"] > end:
                 i["end"] = end
-            else:
-                break
 
-    intervals = intervals[s:e]
+        if insert:
+            intervals.append(i)
+
+    intervals = sorted(intervals, key=lambda x: x["start"])
 
     result = [intervals[0]]
     for interval in intervals[1:]:

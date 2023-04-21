@@ -15,6 +15,10 @@
 		if (import.meta.env.DEV) {
 			apiUrl = 'http://localhost:8080';
 		}
+		/*var logsS = localStorage.getItem('logs');
+		if (logsS != null) {
+			logs = JSON.parse(logsS);
+		}*/
 	});
 
 	var apikey = '';
@@ -63,6 +67,7 @@
 		start: number;
 		duration: number;
 		end: number;
+		id: string;
 		color?: string;
 		percent?: number;
 	}
@@ -84,6 +89,7 @@
 
 	function getTimeline(logs: log[]) {
 		var total = rangeEndM - rangeStartM;
+		console.log(total, logs.length);
 
 		var colors = ['red', 'green'];
 		var i = 0;
@@ -100,21 +106,39 @@
 	}
 
 	var rangeStartD = new Date();
-	rangeStartD.setUTCHours(0, 0, 0, 0);
-	var rangeStart = rangeStartD.toISOString().slice(0, -1);
-	var rangeEnd = new Date(rangeStartD.getTime() + 24 * 60 * 60 * 1000).toISOString().slice(0, -1);
+	rangeStartD.setHours(0, 0, 0, 0);
+	var rangeEndD = new Date(rangeStartD.getTime() + 24 * 60 * 60 * 1000);
 
-	$: rangeStartM = Date.parse(rangeStart);
-	$: rangeEndM = Date.parse(rangeEnd);
+	function toDateTimeString(now: Date) {
+		let month = '' + (now.getMonth() + 1);
+		let day = '' + now.getDate();
+		let year = now.getFullYear();
+
+		if (month.length < 2) month = '0' + month;
+		if (day.length < 2) day = '0' + day;
+
+		return [year, month, day].join('-') + 'T' + now.toLocaleTimeString();
+	}
+
+	var rangeStart = toDateTimeString(rangeStartD);
+	var rangeEnd = toDateTimeString(rangeEndD);
+
+	var rangeStartM = Date.parse(rangeStart);
+	var rangeEndM = Date.parse(rangeEnd);
+
+	function rangeScroll(e: WheelEvent) {
+		e.preventDefault();
+		rangeStartM -= 100 * e.deltaY;
+		rangeEndM += 100 * e.deltaY;
+	}
+
+	$: rangeStart = toDateTimeString(new Date(rangeStartM));
+	$: rangeEnd = toDateTimeString(new Date(rangeEndM));
 
 	async function getData() {
-		var timeline = await get(
-			apiUrl,
-			'timeline',
-			{ start: rangeStartM, end: rangeEndM },
-			accessToken
-		);
-		logs = timeline;
+		console.log(rangeStartM, rangeEndM);
+		logs = await get(apiUrl, 'timeline', { start: rangeStartM, end: rangeEndM }, accessToken);
+		localStorage.setItem('logs', JSON.stringify(logs));
 	}
 
 	$: summary = getSummary(logs);
@@ -143,9 +167,21 @@
 
 <button on:click={getData}>get</button><br />
 
-<div style="background-color: grey; height: 100px; display: flex">
+<div
+	style="background-color: grey; height: 100px; display: flex"
+	on:mousewheel={(e) => {
+		rangeScroll(e);
+		getTimeline(logs);
+	}}
+>
 	{#each timeline as e}
-		<div style="background-color: {e.color}; height: 100px; width: {e.percent}%" />
+		<div style="background-color: {e.color}; height: 100px; width: {e.percent}%" class="event">
+			<span>
+				{e.title} <br />
+				{new Date(e.start).toLocaleTimeString()} - {new Date(e.end).toLocaleTimeString()} <br />
+				{Math.round(e.duration / 60000)} mins
+			</span>
+		</div>
 	{/each}
 </div>
 
@@ -172,3 +208,35 @@
 		<button on:click={() => del(apiUrl, 'logs/' + log.id, accessToken)}>delete</button><br />
 	{/if}
 {/each}
+
+<style>
+	/* Tooltip container */
+	.event {
+		position: relative;
+		display: inline-block;
+		border-bottom: 1px dotted black; /* If you want dots under the hoverable text */
+	}
+
+	/* Tooltip text */
+	.event span {
+		visibility: hidden;
+		width: 120px;
+		background-color: black;
+		color: #fff;
+		text-align: center;
+		padding: 5px 0;
+		border-radius: 6px;
+
+		/* Position the tooltip text - see examples below! */
+		position: absolute;
+		z-index: 1;
+		bottom: 100%;
+		left: 50%;
+		margin-left: -60px; /* Use half of the width (120/2 = 60), to center the tooltip */
+	}
+
+	/* Show the tooltip text when you mouse over the tooltip container */
+	.event:hover span {
+		visibility: visible;
+	}
+</style>
