@@ -15,10 +15,10 @@
 		if (import.meta.env.DEV) {
 			apiUrl = 'http://localhost:8080';
 		}
-		/*var logsS = localStorage.getItem('logs');
+		var logsS = localStorage.getItem('logs');
 		if (logsS != null) {
 			logs = JSON.parse(logsS);
-		}*/
+		}
 	});
 
 	var apikey = '';
@@ -70,6 +70,7 @@
 		id: string;
 		color?: string;
 		percent?: number;
+		draw?: boolean;
 	}
 
 	var summary: any[] = [];
@@ -87,22 +88,53 @@
 		return Object.values(s);
 	}
 
+	var colormap: any = {};
 	function getTimeline(logs: log[]) {
 		var total = rangeEndM - rangeStartM;
-		console.log(total, logs.length);
 
-		var colors = ['red', 'green'];
+		var colors = ['red', 'green', 'yellow', 'blue'];
 		var i = 0;
-		var colormap: any = {};
 
-		return logs.map((e) => {
+		var clone = logs.map((e) => e);
+		if (logs.length > 0) {
+			var start = logs[logs.length - 1].end;
+			var end = rangeEndM;
+
+			clone.push({
+				title: 'unlogged',
+				start: start,
+				end: end,
+				duration: end - start,
+				id: 'NA'
+			});
+		}
+
+		timeline = clone.map((e) => {
 			if (!(e.title in colormap)) {
 				colormap[e.title] = colors[i++];
 			}
 			e.color = colormap[e.title];
-			e.percent = (e.duration / total) * 100;
+
+			var start;
+			var end;
+			if (e.start < rangeStartM) {
+				start = rangeStartM;
+			} else {
+				start = e.start;
+			}
+			if (e.end > rangeEndM) {
+				end = rangeEndM;
+			} else {
+				end = e.end;
+			}
+
+			e.draw = start < end;
+
+			e.percent = ((end - start) / total) * 100;
 			return e;
 		});
+
+		console.log(timeline.length);
 	}
 
 	var rangeStartD = new Date();
@@ -123,26 +155,30 @@
 	var rangeStart = toDateTimeString(rangeStartD);
 	var rangeEnd = toDateTimeString(rangeEndD);
 
-	var rangeStartM = Date.parse(rangeStart);
-	var rangeEndM = Date.parse(rangeEnd);
+	$: rangeStartM = Date.parse(rangeStart);
+	$: rangeEndM = Date.parse(rangeEnd);
 
 	function rangeScroll(e: WheelEvent) {
 		e.preventDefault();
-		rangeStartM -= 100 * e.deltaY;
-		rangeEndM += 100 * e.deltaY;
-	}
+		rangeStartM -= ((rangeEndM - rangeStartM) / 1000) * e.deltaY;
+		if (rangeEndM < new Date().getTime()) {
+			rangeEndM += ((rangeEndM - rangeStartM) / 1000) * e.deltaY;
+		}
 
-	$: rangeStart = toDateTimeString(new Date(rangeStartM));
-	$: rangeEnd = toDateTimeString(new Date(rangeEndM));
+		rangeStart = toDateTimeString(new Date(rangeStartM));
+		rangeEnd = toDateTimeString(new Date(rangeEndM));
+		getTimeline(logs);
+	}
 
 	async function getData() {
 		console.log(rangeStartM, rangeEndM);
-		logs = await get(apiUrl, 'timeline', { start: rangeStartM, end: rangeEndM }, accessToken);
+		logs = await get(apiUrl, 'timeline', null, accessToken);
 		localStorage.setItem('logs', JSON.stringify(logs));
 	}
 
 	$: summary = getSummary(logs);
-	$: timeline = getTimeline(logs);
+	var timeline: log[];
+	$: getTimeline(logs);
 </script>
 
 <h1>Time Logger</h1>
@@ -167,21 +203,17 @@
 
 <button on:click={getData}>get</button><br />
 
-<div
-	style="background-color: grey; height: 100px; display: flex"
-	on:mousewheel={(e) => {
-		rangeScroll(e);
-		getTimeline(logs);
-	}}
->
+<div style="background-color: grey; height: 100px; display: flex" on:mousewheel={rangeScroll}>
 	{#each timeline as e}
-		<div style="background-color: {e.color}; height: 100px; width: {e.percent}%" class="event">
-			<span>
-				{e.title} <br />
-				{new Date(e.start).toLocaleTimeString()} - {new Date(e.end).toLocaleTimeString()} <br />
-				{Math.round(e.duration / 60000)} mins
-			</span>
-		</div>
+		{#if e.draw}
+			<div style="background-color: {e.color}; height: 100px; width: {e.percent}%" class="event">
+				<span>
+					{e.title} <br />
+					{new Date(e.start).toLocaleTimeString()} - {new Date(e.end).toLocaleTimeString()} <br />
+					{Math.round(e.duration / 60000)} mins
+				</span>
+			</div>
+		{/if}
 	{/each}
 </div>
 

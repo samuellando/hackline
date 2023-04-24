@@ -41,8 +41,12 @@ def log():
 @app.route('/api/timeline', methods=["GET"])
 def getTimeline():
     args = request.args;
-    start = float(args.get("start"))
-    end = float(args.get("end"))
+    start = None
+    end = None
+    if "start" in args:
+        start = float(args.get("start"))
+    if "end" in args:
+        end = float(args.get("end"))
     cur = ar["GET"]("run")
     logs = []
     logsdb = ar["GET"]("logs")

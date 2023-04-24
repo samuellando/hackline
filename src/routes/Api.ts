@@ -16,7 +16,9 @@ async function call(apiUrl: string, path: string, method: string, data: any, acc
 }
 
 export async function get(apiUrl: string, path: string, data: any, accessToken: string | undefined = undefined) {
-  path = path + "?" + new URLSearchParams(data);
+  if (data !== null) {
+    path = path + "?" + new URLSearchParams(data);
+  }
   return await call(apiUrl, path, "GET", undefined, accessToken);
 }
 
