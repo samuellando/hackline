@@ -77,12 +77,26 @@
 	function getSummary(logs: log[]) {
 		let s: any = {};
 		logs.forEach((log) => {
-			if (log.title in s) {
-				s[log.title]['time'] += log.end - log.start;
+			var start;
+			var end;
+			if (log.start < rangeStartM) {
+				start = rangeStartM;
 			} else {
-				s[log.title] = {};
-				s[log.title]['time'] = log.end - log.start;
-				s[log.title]['title'] = log.title;
+				start = log.start;
+			}
+			if (log.end > rangeEndM) {
+				end = rangeEndM;
+			} else {
+				end = log.end;
+			}
+			if (start < end) {
+				if (log.title in s) {
+					s[log.title]['time'] += end - start;
+				} else {
+					s[log.title] = {};
+					s[log.title]['time'] = end - start;
+					s[log.title]['title'] = log.title;
+				}
 			}
 		});
 		return Object.values(s);
@@ -92,24 +106,10 @@
 	function getTimeline(logs: log[]) {
 		var total = rangeEndM - rangeStartM;
 
-		var colors = ['red', 'green', 'yellow', 'blue'];
+		var colors = ['green', 'red', 'yellow', 'blue'];
 		var i = 0;
 
-		var clone = logs.map((e) => e);
-		if (logs.length > 0) {
-			var start = logs[logs.length - 1].end;
-			var end = rangeEndM;
-
-			clone.push({
-				title: 'unlogged',
-				start: start,
-				end: end,
-				duration: end - start,
-				id: 'NA'
-			});
-		}
-
-		timeline = clone.map((e) => {
+		timeline = logs.map((e) => {
 			if (!(e.title in colormap)) {
 				colormap[e.title] = colors[i++];
 			}
@@ -133,8 +133,6 @@
 			e.percent = ((end - start) / total) * 100;
 			return e;
 		});
-
-		console.log(timeline.length);
 	}
 
 	var rangeStartD = new Date();
@@ -158,16 +156,29 @@
 	$: rangeStartM = Date.parse(rangeStart);
 	$: rangeEndM = Date.parse(rangeEnd);
 
+	var curM = rangeStartM + (rangeEndM - rangeStartM) / 2;
 	function rangeScroll(e: WheelEvent) {
 		e.preventDefault();
-		rangeStartM -= ((rangeEndM - rangeStartM) / 1000) * e.deltaY;
-		if (rangeEndM < new Date().getTime()) {
-			rangeEndM += ((rangeEndM - rangeStartM) / 1000) * e.deltaY;
+		if (rangeEndM < new Date().getTime() || e.deltaY < 0) {
+			rangeEndM += ((rangeEndM - curM) / 1000) * e.deltaY;
+		}
+		if (rangeStartM > timeline[0].start || e.deltaY < 0) {
+			rangeStartM -= ((curM - rangeStartM) / 1000) * e.deltaY;
 		}
 
 		rangeStart = toDateTimeString(new Date(rangeStartM));
 		rangeEnd = toDateTimeString(new Date(rangeEndM));
 		getTimeline(logs);
+		summary = getSummary(logs);
+	}
+
+	function rangeHover(e: MouseEvent) {
+		e.preventDefault();
+		let t = e.currentTarget as HTMLElement;
+		if (t != null) {
+			let x = e.pageX - t.offsetLeft;
+			curM = rangeStartM + (rangeEndM - rangeStartM) * (x / t.offsetWidth);
+		}
 	}
 
 	async function getData() {
@@ -203,7 +214,12 @@
 
 <button on:click={getData}>get</button><br />
 
-<div style="background-color: grey; height: 100px; display: flex" on:mousewheel={rangeScroll}>
+<p>{new Date(curM)}</p>
+<div
+	style="background-color: grey; height: 100px; display: flex"
+	on:mousewheel={rangeScroll}
+	on:mousemove={rangeHover}
+>
 	{#each timeline as e}
 		{#if e.draw}
 			<div style="background-color: {e.color}; height: 100px; width: {e.percent}%" class="event">
