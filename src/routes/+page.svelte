@@ -135,10 +135,6 @@
 		});
 	}
 
-	var rangeStartD = new Date();
-	rangeStartD.setHours(0, 0, 0, 0);
-	var rangeEndD = new Date(rangeStartD.getTime() + 24 * 60 * 60 * 1000);
-
 	function toDateTimeString(now: Date) {
 		let month = '' + (now.getMonth() + 1);
 		let day = '' + now.getDate();
@@ -150,6 +146,10 @@
 		return [year, month, day].join('-') + 'T' + now.toLocaleTimeString();
 	}
 
+	var rangeStartD = new Date();
+	rangeStartD.setHours(0, 0, 0, 0);
+	var rangeEndD = new Date();
+
 	var rangeStart = toDateTimeString(rangeStartD);
 	var rangeEnd = toDateTimeString(rangeEndD);
 
@@ -159,11 +159,13 @@
 	var curM = rangeStartM + (rangeEndM - rangeStartM) / 2;
 	function rangeScroll(e: WheelEvent) {
 		e.preventDefault();
-		if (rangeEndM < new Date().getTime() || e.deltaY < 0) {
-			rangeEndM += ((rangeEndM - curM) / 1000) * e.deltaY;
+		rangeEndM += ((rangeEndM - curM) / 1000) * e.deltaY;
+		if (rangeEndM > new Date().getTime()) {
+			rangeEndM = new Date().getTime();
 		}
-		if (rangeStartM > timeline[0].start || e.deltaY < 0) {
-			rangeStartM -= ((curM - rangeStartM) / 1000) * e.deltaY;
+		rangeStartM -= ((curM - rangeStartM) / 1000) * e.deltaY;
+		if (rangeStartM < timeline[0].start) {
+			rangeStartM = timeline[0].start;
 		}
 
 		rangeStart = toDateTimeString(new Date(rangeStartM));
