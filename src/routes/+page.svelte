@@ -65,18 +65,18 @@
 	var logs: log[] = [];
 
 	var summary: any[] = [];
-	function getSummary(logs: log[]) {
+	function getSummary(logs: log[], rangeStart = rangeStartM, rangeEnd = rangeEndM) {
 		let s: any = {};
 		logs.forEach((log) => {
 			var start;
 			var end;
-			if (log.start < rangeStartM) {
-				start = rangeStartM;
+			if (log.start < rangeStart) {
+				start = rangeStart;
 			} else {
 				start = log.start;
 			}
-			if (log.end > rangeEndM) {
-				end = rangeEndM;
+			if (log.end > rangeEnd) {
+				end = rangeEnd;
 			} else {
 				end = log.end;
 			}
@@ -93,6 +93,8 @@
 		return Object.values(s);
 	}
 
+	$: summary = getSummary(logs, rangeStartM, rangeEndM);
+
 	function toDateTimeString(now: Date) {
 		let month = '' + (now.getMonth() + 1);
 		let day = '' + now.getDate();
@@ -104,12 +106,10 @@
 		return [year, month, day].join('-') + 'T' + now.toLocaleTimeString();
 	}
 
-	var rangeStartD = new Date();
-	rangeStartD.setHours(0, 0, 0, 0);
-	var rangeEndD = new Date();
+	var rangeStartM: number;
+	var rangeEndM: number;
 
-	var rangeStartM = rangeStartD.getTime();
-	var rangeEndM = rangeEndD.getTime();
+	setRangeToday();
 
 	$: rangeStart = toDateTimeString(new Date(rangeStartM));
 	$: rangeEnd = toDateTimeString(new Date(rangeEndM));
@@ -121,8 +121,42 @@
 		rangeEndM = Math.min(rangeEndM, new Date().getTime());
 	}
 
+	function setRangeToday() {
+		var rangeStartD = new Date();
+		rangeStartD.setHours(0, 0, 0, 0);
+		var rangeEndD = new Date();
+
+		rangeStartM = rangeStartD.getTime();
+		rangeEndM = rangeEndD.getTime();
+	}
+
+	function setRangeYesterday() {
+		let diff = 24 * 60 * 60 * 1000;
+		setRangeToday();
+		rangeStartM -= diff;
+		rangeEndM = rangeStartM + diff;
+	}
+
+	function setRangeThisWeek() {
+		var rangeStartD = new Date();
+		rangeStartD.setHours(0, 0, 0, 0);
+		var day = rangeStartD.getDay(),
+			diff = rangeStartD.getDate() - day + (day == 0 ? -6 : 1);
+		rangeStartD.setDate(diff);
+		var rangeEndD = new Date();
+
+		rangeStartM = rangeStartD.getTime();
+		rangeEndM = rangeEndD.getTime();
+	}
+
+	function setRangeLastWeek() {
+		let diff = 7 * 24 * 60 * 60 * 1000;
+		setRangeThisWeek();
+		rangeStartM -= diff;
+		rangeEndM = rangeStartM + diff;
+	}
+
 	async function getData() {
-		console.log(rangeStartM, rangeEndM);
 		logs = await get(apiUrl, 'timeline', null, accessToken);
 		localStorage.setItem('logs', JSON.stringify(logs));
 	}
@@ -149,6 +183,10 @@
 <h1>Data</h1>
 <input type="datetime-local" bind:value={rangeStart} on:change={updateRange} />
 <input type="datetime-local" bind:value={rangeEnd} on:change={updateRange} />
+<button on:click={setRangeToday}>Today</button>
+<button on:click={setRangeYesterday}>Yesterday</button>
+<button on:click={setRangeThisWeek}>This Week</button>
+<button on:click={setRangeLastWeek}>Last Week</button>
 
 <button on:click={getData}>get</button><br />
 
