@@ -159,6 +159,7 @@
 	var curM = rangeStartM + (rangeEndM - rangeStartM) / 2;
 	function rangeScroll(e: WheelEvent) {
 		e.preventDefault();
+
 		rangeEndM += ((rangeEndM - curM) / 1000) * e.deltaY;
 		if (rangeEndM > new Date().getTime()) {
 			rangeEndM = new Date().getTime();
@@ -174,13 +175,30 @@
 		summary = getSummary(logs);
 	}
 
+	let drag = false;
 	function rangeHover(e: MouseEvent) {
 		e.preventDefault();
 		let t = e.currentTarget as HTMLElement;
 		if (t != null) {
 			let x = e.pageX - t.offsetLeft;
 			curM = rangeStartM + (rangeEndM - rangeStartM) * (x / t.offsetWidth);
+
+			if (drag) {
+				let oldS = rangeStartM;
+				let oldE = rangeEndM;
+				rangeStartM -= (e.movementX / t.offsetWidth) * (rangeEndM - rangeStartM);
+				rangeEndM -= (e.movementX / t.offsetWidth) * (rangeEndM - rangeStartM);
+				if (rangeEndM > new Date().getTime() || rangeStartM < timeline[0].start) {
+					rangeStartM = oldS;
+					rangeEndM = oldE;
+				}
+			}
 		}
+
+		rangeStart = toDateTimeString(new Date(rangeStartM));
+		rangeEnd = toDateTimeString(new Date(rangeEndM));
+		getTimeline(logs);
+		summary = getSummary(logs);
 	}
 
 	async function getData() {
@@ -218,9 +236,12 @@
 
 <p>{new Date(curM)}</p>
 <div
+	class="timeline"
 	style="background-color: grey; height: 100px; display: flex"
 	on:mousewheel={rangeScroll}
 	on:mousemove={rangeHover}
+	on:mousedown={() => (drag = true)}
+	on:mouseup={() => (drag = false)}
 >
 	{#each timeline as e}
 		{#if e.draw}
@@ -264,7 +285,12 @@
 	.event {
 		position: relative;
 		display: inline-block;
-		border-bottom: 1px dotted black; /* If you want dots under the hoverable text */
+	}
+
+	.event:hover {
+		position: relative;
+		display: inline-block;
+		border: 1px solid;
 	}
 
 	/* Tooltip text */
