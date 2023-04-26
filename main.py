@@ -87,6 +87,9 @@ def cutOverlaps(all, start=None, end=None):
 
     intervals = sorted(intervals, key=lambda x: x["start"])
 
+    if len(intervals) == 0:
+        return []
+
     result = [intervals[0]]
     for interval in intervals[1:]:
         result.append(interval)

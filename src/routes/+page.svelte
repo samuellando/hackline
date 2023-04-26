@@ -21,6 +21,7 @@
 		if (logsS != null) {
 			logs = JSON.parse(logsS);
 		}
+		setInterval(getNewData, 30000);
 	});
 
 	var apikey = '';
@@ -161,6 +162,14 @@
 		localStorage.setItem('logs', JSON.stringify(logs));
 	}
 
+	async function getNewData() {
+		let lastEnd = logs[logs.length - 1].end;
+		let newLogs = await get(apiUrl, 'timeline', { start: lastEnd + 1 }, accessToken);
+		console.log(newLogs);
+		logs = logs.concat(newLogs);
+		localStorage.setItem('logs', JSON.stringify(logs));
+	}
+
 	$: summary = getSummary(logs);
 </script>
 
@@ -190,7 +199,7 @@
 
 <button on:click={getData}>get</button><br />
 
-<Timeline {logs} bind:rangeStartM bind:rangeEndM />
+<Timeline {logs} bind:rangeStartM bind:rangeEndM live={true} />
 
 <h2>Summary</h2>
 {#each summary as log}
