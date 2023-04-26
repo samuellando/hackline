@@ -3,6 +3,8 @@
 	import Auth from './Auth.svelte';
 	import type { User } from '@auth0/auth0-spa-js';
 	import { get, post, patch, put, del, getApiKey, deleteApiKey } from './Api';
+	import type { log } from './types';
+	import Timeline from './Timeline.svelte';
 
 	let apiUrl = '';
 
@@ -62,17 +64,6 @@
 
 	var logs: log[] = [];
 
-	interface log {
-		title: string;
-		start: number;
-		duration: number;
-		end: number;
-		id: string;
-		color?: string;
-		percent?: number;
-		draw?: boolean;
-	}
-
 	var summary: any[] = [];
 	function getSummary(logs: log[]) {
 		let s: any = {};
@@ -102,39 +93,6 @@
 		return Object.values(s);
 	}
 
-	var colormap: any = {};
-	function getTimeline(logs: log[]) {
-		var total = rangeEndM - rangeStartM;
-
-		var colors = ['green', 'red', 'yellow', 'blue'];
-		var i = 0;
-
-		timeline = logs.map((e) => {
-			if (!(e.title in colormap)) {
-				colormap[e.title] = colors[i++];
-			}
-			e.color = colormap[e.title];
-
-			var start;
-			var end;
-			if (e.start < rangeStartM) {
-				start = rangeStartM;
-			} else {
-				start = e.start;
-			}
-			if (e.end > rangeEndM) {
-				end = rangeEndM;
-			} else {
-				end = e.end;
-			}
-
-			e.draw = start < end;
-
-			e.percent = ((end - start) / total) * 100;
-			return e;
-		});
-	}
-
 	function toDateTimeString(now: Date) {
 		let month = '' + (now.getMonth() + 1);
 		let day = '' + now.getDate();
@@ -150,55 +108,17 @@
 	rangeStartD.setHours(0, 0, 0, 0);
 	var rangeEndD = new Date();
 
-	var rangeStart = toDateTimeString(rangeStartD);
-	var rangeEnd = toDateTimeString(rangeEndD);
+	var rangeStartM = rangeStartD.getTime();
+	var rangeEndM = rangeEndD.getTime();
 
-	$: rangeStartM = Date.parse(rangeStart);
-	$: rangeEndM = Date.parse(rangeEnd);
+	$: rangeStart = toDateTimeString(new Date(rangeStartM));
+	$: rangeEnd = toDateTimeString(new Date(rangeEndM));
 
-	var curM = rangeStartM + (rangeEndM - rangeStartM) / 2;
-	function rangeScroll(e: WheelEvent) {
-		e.preventDefault();
-
-		rangeEndM += ((rangeEndM - curM) / 1000) * e.deltaY;
-		if (rangeEndM > new Date().getTime()) {
-			rangeEndM = new Date().getTime();
-		}
-		rangeStartM -= ((curM - rangeStartM) / 1000) * e.deltaY;
-		if (rangeStartM < timeline[0].start) {
-			rangeStartM = timeline[0].start;
-		}
-
-		rangeStart = toDateTimeString(new Date(rangeStartM));
-		rangeEnd = toDateTimeString(new Date(rangeEndM));
-		getTimeline(logs);
-		summary = getSummary(logs);
-	}
-
-	let drag = false;
-	function rangeHover(e: MouseEvent) {
-		e.preventDefault();
-		let t = e.currentTarget as HTMLElement;
-		if (t != null) {
-			let x = e.pageX - t.offsetLeft;
-			curM = rangeStartM + (rangeEndM - rangeStartM) * (x / t.offsetWidth);
-
-			if (drag) {
-				let oldS = rangeStartM;
-				let oldE = rangeEndM;
-				rangeStartM -= (e.movementX / t.offsetWidth) * (rangeEndM - rangeStartM);
-				rangeEndM -= (e.movementX / t.offsetWidth) * (rangeEndM - rangeStartM);
-				if (rangeEndM > new Date().getTime() || rangeStartM < timeline[0].start) {
-					rangeStartM = oldS;
-					rangeEndM = oldE;
-				}
-			}
-		}
-
-		rangeStart = toDateTimeString(new Date(rangeStartM));
-		rangeEnd = toDateTimeString(new Date(rangeEndM));
-		getTimeline(logs);
-		summary = getSummary(logs);
+	function updateRange() {
+		rangeStartM = Date.parse(rangeStart);
+		rangeEndM = Date.parse(rangeEnd);
+		rangeStartM = Math.max(rangeStartM, logs[0].start);
+		rangeEndM = Math.min(rangeEndM, new Date().getTime());
 	}
 
 	async function getData() {
@@ -208,8 +128,6 @@
 	}
 
 	$: summary = getSummary(logs);
-	var timeline: log[];
-	$: getTimeline(logs);
 </script>
 
 <h1>Time Logger</h1>
@@ -229,32 +147,12 @@
 <button on:click={enterDurationLog}>enter</button><br />
 
 <h1>Data</h1>
-<input type="datetime-local" bind:value={rangeStart} />
-<input type="datetime-local" bind:value={rangeEnd} />
+<input type="datetime-local" bind:value={rangeStart} on:change={updateRange} />
+<input type="datetime-local" bind:value={rangeEnd} on:change={updateRange} />
 
 <button on:click={getData}>get</button><br />
 
-<p>{new Date(curM)}</p>
-<div
-	class="timeline"
-	style="background-color: grey; height: 100px; display: flex"
-	on:mousewheel={rangeScroll}
-	on:mousemove={rangeHover}
-	on:mousedown={() => (drag = true)}
-	on:mouseup={() => (drag = false)}
->
-	{#each timeline as e}
-		{#if e.draw}
-			<div style="background-color: {e.color}; height: 100px; width: {e.percent}%" class="event">
-				<span>
-					{e.title} <br />
-					{new Date(e.start).toLocaleTimeString()} - {new Date(e.end).toLocaleTimeString()} <br />
-					{Math.round(e.duration / 60000)} mins
-				</span>
-			</div>
-		{/if}
-	{/each}
-</div>
+<Timeline {logs} bind:rangeStartM bind:rangeEndM />
 
 <h2>Summary</h2>
 {#each summary as log}
@@ -279,40 +177,3 @@
 		<button on:click={() => del(apiUrl, 'logs/' + log.id, accessToken)}>delete</button><br />
 	{/if}
 {/each}
-
-<style>
-	/* Tooltip container */
-	.event {
-		position: relative;
-		display: inline-block;
-	}
-
-	.event:hover {
-		position: relative;
-		display: inline-block;
-		border: 1px solid;
-	}
-
-	/* Tooltip text */
-	.event span {
-		visibility: hidden;
-		width: 120px;
-		background-color: black;
-		color: #fff;
-		text-align: center;
-		padding: 5px 0;
-		border-radius: 6px;
-
-		/* Position the tooltip text - see examples below! */
-		position: absolute;
-		z-index: 1;
-		bottom: 100%;
-		left: 50%;
-		margin-left: -60px; /* Use half of the width (120/2 = 60), to center the tooltip */
-	}
-
-	/* Show the tooltip text when you mouse over the tooltip container */
-	.event:hover span {
-		visibility: visible;
-	}
-</style>
