@@ -5,6 +5,7 @@
 	import { get, post, patch, put, del, getApiKey, deleteApiKey } from './Api';
 	import type { log } from './types';
 	import Timeline from './Timeline.svelte';
+	import Running from './Running.svelte';
 
 	let apiUrl = '';
 
@@ -62,8 +63,6 @@
 		};
 		post(apiUrl, 'logs', data, accessToken);
 	}
-
-	var logs: log[] = [];
 
 	var summary: any[] = [];
 	function getSummary(logs: log[], rangeStart = rangeStartM, rangeEnd = rangeEndM) {
@@ -157,6 +156,8 @@
 		rangeEndM = rangeStartM + diff;
 	}
 
+	var logs: log[] = [];
+
 	async function getData() {
 		logs = await get(apiUrl, 'timeline', null, accessToken);
 		localStorage.setItem('logs', JSON.stringify(logs));
@@ -165,12 +166,19 @@
 	async function getNewData() {
 		let lastEnd = logs[logs.length - 1].end;
 		let newLogs = await get(apiUrl, 'timeline', { start: lastEnd + 1 }, accessToken);
-		console.log(newLogs);
-		logs = logs.concat(newLogs);
+		let last = logs[logs.length - 1];
+		if (newLogs.length == 1 && newLogs[0].title == last.title) {
+			last.end = newLogs[0].end;
+			last.duration = newLogs[0].end - last.start;
+		} else {
+			logs = logs.concat(newLogs);
+		}
 		localStorage.setItem('logs', JSON.stringify(logs));
 	}
 
 	$: summary = getSummary(logs);
+
+	let running: log;
 </script>
 
 <h1>Time Logger</h1>
@@ -188,6 +196,8 @@
 <button on:click={enterLog}>enter</button><br />
 <input type="number" bind:value={duration} />
 <button on:click={enterDurationLog}>enter</button><br />
+
+<Running {running} {logs} {apiUrl} {accessToken} />
 
 <h1>Data</h1>
 <input type="datetime-local" bind:value={rangeStart} on:change={updateRange} />

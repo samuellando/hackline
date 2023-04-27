@@ -62,8 +62,13 @@
 	function rangeScroll(e: WheelEvent) {
 		e.preventDefault();
 
+		if (e.deltaY < 0) {
+			live = false;
+		}
+
 		rangeEndM += ((rangeEndM - curM) / 1000) * e.deltaY;
 		if (rangeEndM > new Date().getTime()) {
+			live = true;
 			rangeEndM = new Date().getTime();
 		}
 		rangeStartM -= ((curM - rangeStartM) / 1000) * e.deltaY;
@@ -106,26 +111,30 @@
 	}
 
 	function durationToString(millis: number) {
+		function round(value: number, precision: number) {
+			var multiplier = Math.pow(10, precision || 0);
+			return Math.round(value * multiplier) / multiplier;
+		}
 		let d = millis;
 		if (d < 1000) {
 			return d + ' millis';
 		} else {
-			d = Math.round(d / 1000);
+			d = round(d / 1000, 1);
 		}
 		if (d < 60) {
 			return d + ' secs';
 		} else {
-			d = Math.round(d / 60);
+			d = round(d / 60, 1);
 		}
 		if (d < 60) {
 			return d + ' mins';
 		} else {
-			d = Math.round(d / 60);
+			d = round(d / 60, 1);
 		}
 		if (d < 24) {
 			return d + ' hours';
 		} else {
-			d = Math.round(d / 24);
+			d = round(d / 24, 1);
 			return d + ' days';
 		}
 	}
