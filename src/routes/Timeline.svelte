@@ -5,6 +5,7 @@
 	export let logs: log[] = [];
 	export let rangeStartM: number = new Date().getTime() - 24 * 60 * 60 * 1000;
 	export let rangeEndM: number = new Date().getTime();
+	export let colormap: any = {};
 
 	interface timelineLog extends log {
 		color: string;
@@ -14,7 +15,6 @@
 
 	let timeline: timelineLog[] = [];
 
-	var colormap: any = {};
 	function getTimeline(logs: log[], rangeStart = rangeStartM, rangeEnd = rangeEndM) {
 		var total = rangeEnd - rangeStart;
 

@@ -6,6 +6,7 @@
 	import type { log } from './types';
 	import Timeline from './Timeline.svelte';
 	import Running from './Running.svelte';
+	import Summary from './Summary.svelte';
 
 	let apiUrl = '';
 
@@ -63,37 +64,6 @@
 		};
 		post(apiUrl, 'logs', data, accessToken);
 	}
-
-	var summary: any[] = [];
-	function getSummary(logs: log[], rangeStart = rangeStartM, rangeEnd = rangeEndM) {
-		let s: any = {};
-		logs.forEach((log) => {
-			var start;
-			var end;
-			if (log.start < rangeStart) {
-				start = rangeStart;
-			} else {
-				start = log.start;
-			}
-			if (log.end > rangeEnd) {
-				end = rangeEnd;
-			} else {
-				end = log.end;
-			}
-			if (start < end) {
-				if (log.title in s) {
-					s[log.title]['time'] += end - start;
-				} else {
-					s[log.title] = {};
-					s[log.title]['time'] = end - start;
-					s[log.title]['title'] = log.title;
-				}
-			}
-		});
-		return Object.values(s);
-	}
-
-	$: summary = getSummary(logs, rangeStartM, rangeEndM);
 
 	function toDateTimeString(now: Date) {
 		let month = '' + (now.getMonth() + 1);
@@ -176,9 +146,8 @@
 		localStorage.setItem('logs', JSON.stringify(logs));
 	}
 
-	$: summary = getSummary(logs);
-
 	let running: log;
+	var colormap: any;
 </script>
 
 <h1>Time Logger</h1>
@@ -209,15 +178,10 @@
 
 <button on:click={getData}>get</button><br />
 
-<Timeline {logs} bind:rangeStartM bind:rangeEndM live={true} />
+<Timeline {logs} bind:rangeStartM bind:rangeEndM live={true} bind:colormap />
 
 <h2>Summary</h2>
-{#each summary as log}
-	<h3>
-		{log.title}
-	</h3>
-	<p>time: {log.time / 3600000} hours</p>
-{/each}
+<Summary {logs} {rangeStartM} {rangeEndM} {colormap} />
 
 <h2>Logs</h2>
 
