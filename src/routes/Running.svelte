@@ -10,10 +10,6 @@
 	export let accessToken: string;
 
 	onMount(() => {
-		var runningS = localStorage.getItem('running');
-		if (runningS != null) {
-			running = JSON.parse(runningS);
-		}
 		setInterval(updateRunning, 1000);
 	});
 
@@ -47,14 +43,13 @@
 			let last = JSON.parse(JSON.stringify(logs[logs.length - 1]));
 			running = last;
 		}
-		localStorage.setItem('running', JSON.stringify(running));
 	}
 
 	function updateRunning() {
+		if (!running || new Date().getTime() > running.end) {
+			getRunning();
+		}
 		if (running) {
-			if (new Date().getTime() > running.end && running.end > 0) {
-				getRunning();
-			}
 			running.duration = new Date().getTime() - running.start;
 		}
 	}
