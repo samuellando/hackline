@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount, afterUpdate } from 'svelte';
-	import Auth from './Auth.svelte';
+	import Auth from '../Auth.svelte';
 	import type { User } from '@auth0/auth0-spa-js';
 
 	let apiUrl = '';
@@ -17,8 +17,8 @@
 	});
 
 	afterUpdate(() => {
-		if (isAuthenticated) {
-			window.location.pathname = '/timeline';
+		if (isAuthenticated === false) {
+			window.location.pathname = '/';
 		}
 	});
 </script>
@@ -26,6 +26,8 @@
 <h1>Time Logger</h1>
 <p>Backend URL is : {apiUrl}</p>
 
-<h2>This is the landing page...</h2>
+<h2>This is the settings page...</h2>
+
+<a href="/timeline">back</a>
 
 <Auth bind:accessToken bind:userProfile bind:isAuthenticated /> <br />
