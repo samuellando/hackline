@@ -19,7 +19,7 @@
 		var total = rangeEnd - rangeStart;
 
 		var colors = ['green', 'red', 'yellow', 'blue'];
-		var i = 0;
+		var i = Object.keys(colormap).length;
 
 		return logs.map((e) => {
 			if (!(e.title in colormap)) {
@@ -47,12 +47,11 @@
 		}) as timelineLog[];
 	}
 
-	$: timeline = getTimeline(logs, rangeStartM, rangeEndM);
+	$: timeline = editMode ? timeline : getTimeline(logs, rangeStartM, rangeEndM);
 
 	onMount(async () => {
-		timeline = getTimeline(logs);
 		setInterval(() => {
-			if (live) {
+			if (live && !editMode) {
 				rangeEndM = new Date().getTime();
 			}
 		}, 10000);
@@ -61,6 +60,7 @@
 	var curM = rangeStartM + (rangeEndM - rangeStartM) / 2;
 	function rangeScroll(e: WheelEvent) {
 		e.preventDefault();
+		if (editMode && e.shiftKey) return;
 
 		if (e.deltaY < 0) {
 			live = false;
@@ -75,7 +75,12 @@
 		if (rangeStartM < timeline[0].start) {
 			rangeStartM = timeline[0].start;
 		}
-		timeline = getTimeline(logs);
+
+		if (editMode) {
+			drawSplice(n, logs);
+		} else {
+			timeline = getTimeline(logs);
+		}
 	}
 
 	let drag = false;
@@ -87,25 +92,40 @@
 			let x = e.pageX - t.offsetLeft;
 			curM = rangeStartM + (rangeEndM - rangeStartM) * (x / t.offsetWidth);
 
-			if (drag) {
-				let oldS = rangeStartM;
-				let oldE = rangeEndM;
-				rangeStartM -= (e.movementX / t.offsetWidth) * (rangeEndM - rangeStartM);
-				rangeEndM -= (e.movementX / t.offsetWidth) * (rangeEndM - rangeStartM);
+			if (editMode && e.shiftKey) {
+				if (drag) {
+					n.end = curM + 600000;
+					n.duration = n.end - n.start;
+				} else {
+					n.end = curM + 600000;
+					n.start = n.end - n.duration;
+				}
+				drawSplice(n, logs);
+			} else {
+				if (drag) {
+					let oldS = rangeStartM;
+					let oldE = rangeEndM;
+					rangeStartM -= (e.movementX / t.offsetWidth) * (rangeEndM - rangeStartM);
+					rangeEndM -= (e.movementX / t.offsetWidth) * (rangeEndM - rangeStartM);
 
-				if (e.movementX > 0) {
-					live = false;
+					if (e.movementX > 0) {
+						live = false;
+					}
+					if (rangeEndM > new Date().getTime()) {
+						live = true;
+						rangeEndM = oldE;
+						rangeStartM = oldS;
+					}
+					if (rangeStartM < timeline[0].start) {
+						rangeEndM = oldE;
+						rangeStartM = oldS;
+					}
+					if (editMode) {
+						drawSplice(n, logs);
+					} else {
+						timeline = getTimeline(logs);
+					}
 				}
-				if (rangeEndM > new Date().getTime()) {
-					live = true;
-					rangeEndM = oldE;
-					rangeStartM = oldS;
-				}
-				if (rangeStartM < timeline[0].start) {
-					rangeEndM = oldE;
-					rangeStartM = oldS;
-				}
-				timeline = getTimeline(logs);
 			}
 		}
 	}
@@ -138,12 +158,83 @@
 			return d + ' days';
 		}
 	}
+
+	var editMode = false;
+	var oldLogs: log[];
+	var n: log;
+	function add() {
+		// Create an event right in the middle of the timeline.
+		n = {
+			title: '',
+			start: rangeStartM + (rangeEndM - rangeStartM) / 2,
+			end: rangeStartM + (rangeEndM - rangeStartM) / 2 + 15 * 60 * 1000,
+			duration: 15 * 60 * 1000,
+			id: 'new'
+		};
+		editMode = true;
+		drawSplice(n, logs);
+	}
+
+	function edit() {
+		// Create an event right in the middle of the timeline.
+		n = {
+			title: '',
+			start: rangeStartM + (rangeEndM - rangeStartM) / 2,
+			end: rangeStartM + (rangeEndM - rangeStartM) / 2 + 15 * 60 * 1000,
+			duration: 15 * 60 * 1000,
+			id: 'new'
+		};
+		editMode = true;
+		oldLogs = logs;
+		drawSplice(n, logs);
+	}
+
+	function save() {
+		editMode = false;
+		logs = splice(n, logs);
+	}
+
+	function splice(n: log, logs: log[]) {
+		let clone = JSON.parse(JSON.stringify(logs));
+
+		for (var i = 0; i < clone.length; i++) {
+			if (clone[i].start <= n.start && clone[i].end >= n.start) {
+				if (clone[i].end > n.end) {
+					clone.splice(i + 1, 0, { ...clone[i] });
+					clone[i + 1].start = n.end;
+					clone[i + 1].end = clone[i].end;
+					clone[i + 1].duration = clone[i + 1].end - clone[i + 1].start;
+				}
+				clone[i].end = n.start;
+				clone[i].duration = clone[i].end - clone[i].start;
+				for (var j = i + 1; j < clone.length; ) {
+					if (clone[j].end < n.end) {
+						clone.splice(j, 1);
+					} else if (clone[j].start < n.end) {
+						clone[j].start = n.end;
+						clone[j].duration = clone[j].end - clone[j].start;
+					} else {
+						break;
+					}
+				}
+				clone.splice(i + 1, 0, n);
+				break;
+			}
+		}
+		return clone;
+	}
+
+	function drawSplice(n: log, logs: log[]) {
+		timeline = getTimeline(splice(n, logs));
+	}
 </script>
 
 <p>
 	{new Date(curM)}
 	{#if live}LIVE{/if}
 </p>
+<button on:click={add}>Add</button>
+
 <div
 	class="timeline"
 	style="background-color: grey; height: 100px; display: flex"
@@ -164,6 +255,14 @@
 		{/if}
 	{/each}
 </div>
+{#if editMode}
+	<h2>Editing...</h2>
+	<input bind:value={n.title} placeholder="entry title" />
+	<br />
+	{new Date(n.start).toLocaleTimeString()} - {new Date(n.end).toLocaleTimeString()} <br />
+	{durationToString(n.duration)}
+	<button on:click={save}>Save</button>
+{/if}
 
 <style>
 	/* Tooltip container */
