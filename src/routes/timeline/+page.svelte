@@ -186,7 +186,15 @@
 
 <button on:click={getData}>get</button><br />
 
-<Timeline {logs} bind:rangeStartM bind:rangeEndM live={true} bind:colormap />
+<Timeline
+	{logs}
+	bind:apiUrl
+	bind:accessToken
+	bind:rangeStartM
+	bind:rangeEndM
+	live={true}
+	bind:colormap
+/>
 
 <h2>Summary</h2>
 <Summary {logs} {rangeStartM} {rangeEndM} {colormap} />
@@ -196,6 +204,7 @@
 {#each logs as log}
 	<h3>
 		{log.title}
+		{log.id}
 	</h3>
 	<p>start: {new Date(log.start)}</p>
 	<p>

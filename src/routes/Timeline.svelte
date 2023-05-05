@@ -1,11 +1,14 @@
 <script lang="ts">
 	import type { log } from './types';
 	import { onMount } from 'svelte';
+	import { post } from './Api';
 
 	export let logs: log[] = [];
 	export let rangeStartM: number = new Date().getTime() - 24 * 60 * 60 * 1000;
 	export let rangeEndM: number = new Date().getTime();
 	export let colormap: any = {};
+	export let apiUrl: string;
+	export let accessToken: string;
 
 	interface timelineLog extends log {
 		color: string;
@@ -192,6 +195,7 @@
 	function save() {
 		editMode = false;
 		logs = splice(n, logs);
+		post(apiUrl, 'log', n, accessToken);
 	}
 
 	function splice(n: log, logs: log[]) {

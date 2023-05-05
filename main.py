@@ -34,8 +34,18 @@ def run():
 def log():
     data = json.loads(request.data)
     if "duration" in data:
-        data["start"] = time.time() * 1000
+        if not "start" in data:
+            data["start"] = time.time() * 1000
         data["end"] = data["start"] + data["duration"]
+
+    logsdb = ar["GET"]("logs")
+    for k, v in logsdb.items():
+        if v["start"] >= data["start"] and v["start"] <= data["end"] and v["end"] >= data["end"]:
+            v["start"] = data["end"]
+            ar["PATCH"]("logs/"+k, v)
+        elif v["start"] >= data["start"] and v["end"] <= data["end"]:
+            ar["DELETE"]("logs/"+k, v)
+
     return ar["POST"]("logs", data)
 
 @app.route('/api/timeline', methods=["GET"])
@@ -69,6 +79,7 @@ def getTimeline():
 def cutOverlaps(all, start=None, end=None):
     intervals = []
 
+    # Filter to the time range.
     for i in all:
         insert = True
         if start is not None:
@@ -85,10 +96,10 @@ def cutOverlaps(all, start=None, end=None):
         if insert:
             intervals.append(i)
 
-    intervals = sorted(intervals, key=lambda x: x["start"])
-
     if len(intervals) == 0:
         return []
+
+    intervals = sorted(intervals, key=lambda x: x["start"])
 
     result = [intervals[0]]
     for interval in intervals[1:]:
