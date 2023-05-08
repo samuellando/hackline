@@ -102,7 +102,10 @@ def cutOverlaps(all, start=None, end=None):
     intervals = sorted(intervals, key=lambda x: x["start"])
 
     result = [intervals[0]]
-    for interval in intervals[1:]:
+    k = 1
+    while k < len(intervals):
+        interval = intervals[k]
+        k+=1
         result.append(interval)
         if interval["start"] < result[-2]["end"]:
             end = result[-2]["end"]
@@ -111,7 +114,16 @@ def cutOverlaps(all, start=None, end=None):
                 n = result[-2].copy()
                 n["end"] = end
                 n["start"] = interval["end"]
-                result.append(n)
+
+                inserted = False
+                for i, interval2 in enumerate(intervals):
+                    if interval2["start"] >= n["start"]:
+                        inserted = True
+                        intervals.insert(i, n)
+                        break
+
+                if not inserted:
+                    intervals.append(n)
 
     return result
 

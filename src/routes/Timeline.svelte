@@ -195,7 +195,7 @@
 	function save() {
 		editMode = false;
 		logs = splice(n, logs);
-		post(apiUrl, 'log', n, accessToken);
+		post(apiUrl, 'logs', n, accessToken);
 	}
 
 	function splice(n: log, logs: log[]) {
