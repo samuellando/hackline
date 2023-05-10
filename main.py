@@ -69,7 +69,6 @@ def getTimeline():
         c[0]["end"] = time.time() * 1000
         logs.append(c[0])
 
-    from datetime import datetime
     logs = cutOverlaps(logs, start, end)
 
     for log in logs:
@@ -79,6 +78,7 @@ def getTimeline():
 def cutOverlaps(all, start=None, end=None):
     intervals = []
 
+    all = sorted(all, key=lambda x: x["start"])
     # Filter to the time range.
     for i in all:
         insert = True
@@ -99,33 +99,51 @@ def cutOverlaps(all, start=None, end=None):
     if len(intervals) == 0:
         return []
 
-    intervals = sorted(intervals, key=lambda x: x["start"])
+    results = []
 
-    result = [intervals[0]]
-    k = 1
-    while k < len(intervals):
-        interval = intervals[k]
-        k+=1
-        result.append(interval)
-        if interval["start"] < result[-2]["end"]:
-            end = result[-2]["end"]
-            result[-2]["end"] = interval["start"]
-            if interval["end"] < end:
-                n = result[-2].copy()
-                n["end"] = end
-                n["start"] = interval["end"]
+    starts = []
+    s = []
 
-                inserted = False
-                for i, interval2 in enumerate(intervals):
-                    if interval2["start"] >= n["start"]:
-                        inserted = True
-                        intervals.insert(i, n)
-                        break
+    t = 0
 
-                if not inserted:
-                    intervals.append(n)
+    for interval in intervals:
+        while len(s) > 0 and s[-1]["end"] < interval["start"]:
+            t = s.pop()["end"]
+            while len(s) > 0 and s[-1]["end"] <= t:
+                s.pop()
 
-    return result
+            if len(s) > 0:
+                p = s[-1]
+                starts.append({"start": t, "ref": p})
+
+        if len(starts) > 0 and interval["start"] == starts[-1]["start"]:
+            starts[-1]["ref"] = interval
+        else:
+            starts.append({"start": interval["start"], "ref": interval})
+        s.append(interval)
+
+    t = starts[-1]["ref"]["end"]
+
+    while len(s) > 0:
+        while len(s) > 0 and s[-1]["end"] <= t:
+            s.pop()
+        if len(s) > 0:
+            p = s.pop()
+            starts.append({"start": t, "ref": p})
+            t = p["end"]
+
+
+    for i, s in enumerate(starts):
+        interval = s["ref"].copy()
+        istart = s["start"]
+        nextStart = starts[i+1]["start"] if i < len(starts) - 1 else interval["end"]
+        iend = min(nextStart, interval["end"])
+
+        interval["start"] = istart
+        interval["end"] = iend
+        results.append(interval)
+
+    return results
 
 @app.route('/')
 def index():
