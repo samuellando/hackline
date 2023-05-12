@@ -67,20 +67,16 @@ def getTimeline():
     c = list(cur.values())
     if len(c) != 0:
         c[0]["end"] = time.time() * 1000
+        c[0]["running"] = True
         logs.append(c[0])
 
-    logs = cutOverlaps(logs, start, end)
+    logs = cutOverlaps(logs)
 
     for log in logs:
         log["duration"] = log["end"] - log["start"]
-    return logs
 
-def cutOverlaps(all, start=None, end=None):
     intervals = []
-
-    all = sorted(all, key=lambda x: x["start"])
-    # Filter to the time range.
-    for i in all:
+    for i in logs:
         insert = True
         if start is not None:
             if i["end"] < start:
@@ -95,6 +91,11 @@ def cutOverlaps(all, start=None, end=None):
 
         if insert:
             intervals.append(i)
+
+    return intervals
+
+def cutOverlaps(all):
+    intervals = sorted(all, key=lambda x: x["start"])
 
     if len(intervals) == 0:
         return []
@@ -114,10 +115,11 @@ def cutOverlaps(all, start=None, end=None):
 
             if len(s) > 0:
                 p = s[-1]
-                starts.append({"start": t, "ref": p})
+                starts.append({"start": t, "ref": p, "backfill": True})
 
         if len(starts) > 0 and interval["start"] == starts[-1]["start"]:
-            starts[-1]["ref"] = interval
+            if not interval["running"]:
+                starts[-1]["ref"] = interval
         else:
             starts.append({"start": interval["start"], "ref": interval})
         s.append(interval)
@@ -129,7 +131,7 @@ def cutOverlaps(all, start=None, end=None):
             s.pop()
         if len(s) > 0:
             p = s.pop()
-            starts.append({"start": t, "ref": p})
+            starts.append({"start": t, "ref": p, "backfill": True})
             t = p["end"]
 
 
@@ -141,6 +143,19 @@ def cutOverlaps(all, start=None, end=None):
 
         interval["start"] = istart
         interval["end"] = iend
+
+        if interval["start"] != s["ref"]["start"] and not (i == len(starts) - 1 and  interval["running"]):
+            res = ar["POST"]("logs", interval)
+            interval = res["data"]
+            interval["id"] = res["id"]
+        elif interval["end"] != s["ref"]["end"]:
+            if "id" in interval:
+                ar["PATCH"]("logs/"+interval["id"], interval)
+            else:
+               res = ar["POST"]("logs", interval)
+               interval = res["data"]
+               interval["id"] = res["id"]
+
         results.append(interval)
 
     return results
