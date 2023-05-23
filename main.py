@@ -94,7 +94,7 @@ def getTimeline():
 
     return intervals
 
-def cutOverlaps(all):
+def cutOverlaps(all, backfill=True):
     intervals = sorted(all, key=lambda x: x["start"])
 
     if len(intervals) == 0:
@@ -103,20 +103,23 @@ def cutOverlaps(all):
     results = []
 
     starts = []
-    s = []
+    s = [] # Stack of events at this time.
 
     t = 0
 
     for interval in intervals:
         while len(s) > 0 and s[-1]["end"] < interval["start"]:
+            # Clear all the passed events in stack.
             t = s.pop()["end"]
             while len(s) > 0 and s[-1]["end"] <= t:
                 s.pop()
 
+            # If there are any events left, cut it around.
             if len(s) > 0:
                 p = s[-1]
-                starts.append({"start": t, "ref": p, "backfill": True})
+                starts.append({"start": t, "ref": p})
 
+        # Add the interval to starts
         if len(starts) > 0 and interval["start"] == starts[-1]["start"]:
             if not interval["running"]:
                 starts[-1]["ref"] = interval
@@ -126,15 +129,17 @@ def cutOverlaps(all):
 
     t = starts[-1]["ref"]["end"]
 
+    # Clear the stack.
     while len(s) > 0:
         while len(s) > 0 and s[-1]["end"] <= t:
             s.pop()
         if len(s) > 0:
             p = s.pop()
-            starts.append({"start": t, "ref": p, "backfill": True})
+            starts.append({"start": t, "ref": p})
             t = p["end"]
 
 
+    # Convert starts to actual events.
     for i, s in enumerate(starts):
         interval = s["ref"].copy()
         istart = s["start"]
@@ -144,17 +149,19 @@ def cutOverlaps(all):
         interval["start"] = istart
         interval["end"] = iend
 
-        if interval["start"] != s["ref"]["start"] and not (i == len(starts) - 1 and  interval["running"]):
-            res = ar["POST"]("logs", interval)
-            interval = res["data"]
-            interval["id"] = res["id"]
-        elif interval["end"] != s["ref"]["end"]:
-            if "id" in interval:
-                ar["PATCH"]("logs/"+interval["id"], interval)
-            else:
-               res = ar["POST"]("logs", interval)
-               interval = res["data"]
-               interval["id"] = res["id"]
+
+        if backfill: 
+            if interval["start"] != s["ref"]["start"] and not (i == len(starts) - 1 and  interval["running"]):
+                res = ar["POST"]("logs", interval)
+                interval = res["data"]
+                interval["id"] = res["id"]
+            elif interval["end"] != s["ref"]["end"]:
+                if "id" in interval:
+                    ar["PATCH"]("logs/"+interval["id"], interval)
+                else:
+                   res = ar["POST"]("logs", interval)
+                   interval = res["data"]
+                   interval["id"] = res["id"]
 
         results.append(interval)
 
