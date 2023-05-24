@@ -152,7 +152,6 @@
 		localStorage.setItem('logs', JSON.stringify(logs));
 	}
 
-	let running: log;
 	var colormap: any;
 </script>
 
@@ -174,7 +173,7 @@
 <input type="number" bind:value={duration} />
 <button on:click={enterDurationLog}>enter</button><br />
 
-<Running {running} {logs} {apiUrl} {accessToken} />
+<Running {apiUrl} {accessToken} />
 
 <h1>Data</h1>
 <input type="datetime-local" bind:value={rangeStart} on:change={updateRange} />

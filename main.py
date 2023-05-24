@@ -16,6 +16,22 @@ db = firestore.client()
 app = Flask(__name__)
 ar = anyrest.addAnyrestHandlers(app, db, "dev-pnkvmziz4ai48pb8.us.auth0.com", "https://timelogger/api")
 
+@app.route('/api/run', methods=["get"])
+def getRun():
+    now = time.time() * 1000
+    timeline = getTimeline()
+
+    logs = []
+    for i in timeline:
+        if i["start"] < now:
+            logs.append(i)
+
+    log = None
+    if len(logs) > 0:
+        log = logs[-1]
+
+    return log
+
 @app.route('/api/run', methods=["POST"])
 def run():
     cur = ar["GET"]("run")
@@ -62,6 +78,7 @@ def getTimeline():
     logsdb = ar["GET"]("logs")
     for k, v in logsdb.items():
         v["id"] = k
+        v["running"] = False
         logs.append(v)
 
     c = list(cur.values())

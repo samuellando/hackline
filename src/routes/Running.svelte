@@ -3,13 +3,11 @@
 	import { get } from './Api';
 	import { onMount } from 'svelte';
 
-	export let running: log;
-	let fallback: log;
-	export let logs: log[];
 	export let apiUrl: string;
 	export let accessToken: string;
 
 	onMount(() => {
+		updateRunning();
 		setInterval(updateRunning, 1000);
 	});
 
@@ -26,39 +24,35 @@
 		return hours + ':' + minutes + ':' + seconds;
 	}
 
+	let data: any;
+	let running: log;
 	async function getRunning() {
-		fallback = Object.values(await get(apiUrl, 'run', null, accessToken))[0] as log;
-		if (logs.length == 0 || logs[logs.length - 1].end < new Date().getTime()) {
-			running = fallback;
-			if (logs.length > 0) {
-				let last = JSON.parse(JSON.stringify(logs[logs.length - 1]));
-				if (last.title == running.title) {
-					running.start = last.start;
-				} else {
-					running.start = last.end;
-				}
-			}
-			running.end = -1;
-		} else {
-			let last = JSON.parse(JSON.stringify(logs[logs.length - 1]));
-			running = last;
-		}
+		get(apiUrl, 'run', null, accessToken).then((value) => {
+			running = value;
+		});
 	}
 
+	let c = 0;
 	function updateRunning() {
-		if (!running || new Date().getTime() > running.end) {
+		if (running === undefined) {
 			getRunning();
+			return;
 		}
-		if (running) {
-			running.duration = new Date().getTime() - running.start;
+		if (c % 60 == 0) {
+			c = 1;
+			getRunning();
+		} else {
+			c++;
 		}
+		let t = new Date().getTime();
+		running['duration'] = t - running['start'];
 	}
 </script>
 
 {#if running}
 	<h1>Running:</h1>
 	<h2>{running.title}</h2>
-	{#if running.end > 0}
+	{#if !running.running}
 		<h3>{msToHMS(running.end - running.start - running.duration)} remaining</h3>
 	{:else}
 		<h3>{msToHMS(running.duration)}</h3>
