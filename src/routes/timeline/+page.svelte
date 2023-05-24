@@ -42,35 +42,6 @@
 		apikey = '';
 	}
 
-	var start = new Date().toISOString().slice(0, -1);
-	var end = new Date(new Date().getTime() + 30 * 60000).toISOString().slice(0, -1);
-	var duration = 25;
-	var title = 'productive';
-
-	function startLog() {
-		const data = {
-			title: title
-		};
-		post(apiUrl, 'run', data, accessToken);
-	}
-
-	function enterLog() {
-		const data = {
-			start: Date.parse(start),
-			end: Date.parse(end),
-			title: title
-		};
-		post(apiUrl, 'logs', data, accessToken);
-	}
-
-	function enterDurationLog() {
-		const data = {
-			duration: duration * 60 * 1000,
-			title: title
-		};
-		post(apiUrl, 'logs', data, accessToken);
-	}
-
 	function toDateTimeString(now: Date) {
 		let month = '' + (now.getMonth() + 1);
 		let day = '' + now.getDate();
@@ -165,14 +136,6 @@
 
 <a href="/settings">settings</a>
 
-<input type="text" bind:value={title} />
-<input type="datetime-local" bind:value={start} />
-<input type="datetime-local" bind:value={end} />
-<button on:click={startLog}>start</button><br />
-<button on:click={enterLog}>enter</button><br />
-<input type="number" bind:value={duration} />
-<button on:click={enterDurationLog}>enter</button><br />
-
 <Running {apiUrl} {accessToken} />
 
 <h1>Data</h1>
@@ -197,20 +160,3 @@
 
 <h2>Summary</h2>
 <Summary {logs} {rangeStartM} {rangeEndM} {colormap} />
-
-<h2>Logs</h2>
-
-{#each logs as log}
-	<h3>
-		{log.title}
-		{log.id}
-	</h3>
-	<p>start: {new Date(log.start)}</p>
-	<p>
-		end: {new Date(log.end)}
-	</p>
-	<p>duration: {(log.end - log.start) / 60000} minutes</p>
-	{#if log.id}
-		<button on:click={() => del(apiUrl, 'logs/' + log.id, accessToken)}>delete</button><br />
-	{/if}
-{/each}

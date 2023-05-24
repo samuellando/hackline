@@ -21,7 +21,20 @@
 	function getTimeline(logs: log[], rangeStart = rangeStartM, rangeEnd = rangeEndM) {
 		var total = rangeEnd - rangeStart;
 
-		var colors = ['green', 'red', 'yellow', 'blue'];
+		var colors = [
+			'#00bdff',
+			'#1b3bff',
+			'#8F00FF',
+			'#ff0011',
+			'#ff7300',
+			'#ffd600',
+			'#00c30e',
+			'#65ff00',
+			'#d200ff',
+			'#FF00FF',
+			'#7d7d7d',
+			'#5d5d5d'
+		];
 		var i = Object.keys(colormap).length;
 
 		return logs.map((e) => {

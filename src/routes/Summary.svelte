@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { log } from './types';
-	import { Doughnut } from 'svelte-chartjs';
-	import 'chart.js/auto';
+	import Chart from 'svelte-frappe-charts';
 
 	export let rangeStartM: number;
 	export let rangeEndM: number;
@@ -41,16 +40,14 @@
 		var sum = 0;
 		summary.forEach((e) => (sum += e.time));
 		if (summary.length == 0 || !colormap) {
-			console.log(summary, colormap);
-			return {};
+			return { labels: [], datasets: [] };
 		}
 		return {
 			labels: summary.map((e) => e.title),
 			datasets: [
 				{
-					data: summary.map((e) => Math.round((100 * e.time) / sum)),
-					backgroundColor: summary.map((e) => colormap[e.title]),
-					hoverBackgroundColor: summary.map((e) => colormap[e.title])
+					values: summary.map((e) => Math.round((100 * e.time) / sum)),
+					colors: summary.map((e) => colormap[e.title])
 				}
 			]
 		};
@@ -58,6 +55,7 @@
 
 	$: summary = getSummary(logs, rangeStartM, rangeEndM);
 	$: data = getChartConfig(summary);
+	$: colors = data.labels.map((e) => colormap[e.title]);
 </script>
 
 {#each summary as log}
@@ -67,4 +65,10 @@
 	<p>time: {log.time / 3600000} hours</p>
 {/each}
 
-<Doughnut {data} options={{ responsive: false }} width={200} height={200} />
+<Chart {data} type="donut" {colors} />
+
+<style>
+	:global(.chart-legend) {
+		display: none;
+	}
+</style>
