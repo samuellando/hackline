@@ -190,7 +190,10 @@ def index():
 
 @app.route('/<path:path>')
 def frontend(path):
-    return send_from_directory("build", path)
+    try:
+        return send_from_directory("build", path)
+    except:
+        return send_from_directory("build", path+".html")
 
 if __name__ == '__main__':
     from flask_cors import CORS
