@@ -1,80 +1,118 @@
-import type { log } from './types';
+import type { log, settings } from './types';
 /* 
 * This class provides all the essential methods for interacting with the backend. It takes care of centralizing and syncing data for the timeline, and settings endpoints.
  * It also provies some general rest API enpoints for workarounds and prototyping.
 */
+
+interface data {
+  [index: string]: any,
+  settings: settings,
+  timeline: log[]
+}
+
+interface meta {
+  [index: string]: number,
+  settings: number,
+  timeline: number
+}
+
 export class ApiClient {
-  settings: any = {};
-  timeline: log[] = [];
-  refresh_interval = 60000;
-  pulled = { timeline: 0, settings: 0 };
-  syncing = { timeline: 0, settings: 0 };
-  apiUrl: string = "";
-  accessToken: string | undefined = "";
-  path = "settings/settings";
+  data: data;
+  refresh_interval: number;
+  pulled: meta;
+  syncing: meta;
+  apiUrl: string;
+  accessToken: string | undefined;
+  interval: ReturnType<typeof setInterval>;
 
   constructor(apiUrl: string, accessToken: string | undefined = undefined, refresh_interval = 60000) {
+    this.data = { settings: {}, timeline: [] };
     this.pulled = { timeline: 0, settings: 0 };
     this.syncing = { timeline: 0, settings: 0 };
     this.apiUrl = apiUrl;
     this.accessToken = accessToken;
     this.refresh_interval = refresh_interval;
-    var timelineS = localStorage.getItem('timeline');
-    if (timelineS != null) {
-      this.timeline = JSON.parse(timelineS);
-    }
-    var settingsS = localStorage.getItem('settings');
-    if (settingsS != null) {
-      this.settings = JSON.parse(settingsS);
-    }
-    this.pull_timeline();
-    this.pull_settings();
+
+    Object.keys(this.data).forEach((k) => {
+      var s = localStorage.getItem(k);
+      if (s != null) {
+        this.data[k] = JSON.parse(s);
+      }
+      this.pullData(k);
+    });
+
+    this.pullTimeline();
+
+    this.pullSettings();
+
+    this.interval = setInterval(() => {
+      this.pullTimeline();
+      this.pullSettings();
+    }, refresh_interval);
   }
 
-  pull_timeline() {
-    if (this.syncing.timeline == 0) {
-      return this.get("timeline", null).then((res: log[]) => {
-        this.timeline = res;
-        localStorage.setItem('timeline', JSON.stringify(this.timeline));
-        this.pulled.timeline = Date.now();
+  close() {
+    clearInterval(this.interval);
+  }
+
+  pullData(k: string) {
+    if (this.syncing[k] == 0) {
+      this.syncing[k]++;
+      console.log("pulling", k);
+      return this.get(k, null).then((res: log[]) => {
+        this.data[k] = res;
+        localStorage.setItem(k, JSON.stringify(this.data[k]));
+        this.pulled[k] = Date.now();
+        this.syncing[k]--;
+        console.log("Done pulling", k);
         return res;
-      }, () => { console.error("Failed to pull timeline") });
-    }
-  }
-
-  pull_settings() {
-    if (this.syncing.settings == 0) {
-      this.get("settings", null).then((res) => {
-        this.settings = res;
-        localStorage.setItem('settings', JSON.stringify(this.settings));
-        this.pulled.settings = Date.now();
-        return res;
-      }, () => { console.error("Failed to pull settings") });
-    }
-  }
-
-  get_timeline() {
-    if (Date.now() - this.pulled.timeline < this.refresh_interval || this.syncing.timeline > 0) {
+      }, () => { console.error("Failed to pull", k) });
+    } else {
       return new Promise((res, _) => {
-        res(this.timeline);
+        console.log("Can't pull", k, "because syncing")
+        res(this.data[k]);
+      });
+    }
+  }
+
+  pullTimeline() {
+    return this.pullData('timeline');
+  }
+
+  pullSettings() {
+    return this.pullData('settings')
+  }
+
+  pulledTimeline() {
+    return this.pulled.timeline;
+  }
+
+  pulledSettingsTime() {
+    return this.pulled.settings;
+  }
+
+  getData(k: string) {
+    if (Date.now() - this.pulled[k] < this.refresh_interval || this.syncing[k] > 0) {
+      console.log("Using local", k, (Date.now() - this.pulled.timeline < this.refresh_interval) ? "because refresh interval not elapsed" : "because still syncing");
+      return new Promise((res, _) => {
+        res(this.data[k]);
       });
     } else {
-      return this.pull_timeline();
+      console.log("Not using local", k);
+      return this.pull(k);
     }
   }
 
-  get_settings() {
-    if (Date.now() - this.pulled.settings < this.refresh_interval || this.syncing.settings > 0) {
-      return new Promise((res, _) => {
-        res(this.settings);
-      });
-    } else {
-      this.pull_settings();
-    }
+  getTimeline() {
+    return this.getData("timeline");
+  }
+
+  getSettings() {
+    return this.getData("settings");
   }
 
   timeline_add(log: log) {
-    this.timeline.foreach((e) => {
+    this.data.timeline.forEach((e) => {
       if (e["start"] >= log["start"] && e["start"] <= log["end"] && e["end"] >= log["end"]) {
         e["start"] = log["end"]
         this.patch("timeline/" + e["id"], e);
