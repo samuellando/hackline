@@ -33,11 +33,11 @@ export class ApiClient {
 
   pull_timeline() {
     if (this.syncing.timeline == 0) {
-      this.get("timeline", null).then((res: log[]) => {
+      return this.get("timeline", null).then((res: log[]) => {
         this.timeline = res;
         localStorage.setItem('timeline', JSON.stringify(this.timeline));
         this.pulled.timeline = Date.now();
-        return this.timeline;
+        return res;
       }, () => { console.error("Failed to pull timeline") });
     }
   }
@@ -48,7 +48,7 @@ export class ApiClient {
         this.settings = res;
         localStorage.setItem('settings', JSON.stringify(this.settings));
         this.pulled.settings = Date.now();
-        return this.settings;
+        return res;
       }, () => { console.error("Failed to pull settings") });
     }
   }
@@ -59,7 +59,7 @@ export class ApiClient {
         res(this.timeline);
       });
     } else {
-      this.pull_timeline();
+      return this.pull_timeline();
     }
   }
 
