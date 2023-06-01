@@ -1,4 +1,4 @@
-import type { log, settings } from './types';
+import type { log, settings, running } from './types';
 /* 
 * This class provides all the essential methods for interacting with the backend. It takes care of centralizing and syncing data for the timeline, and settings endpoints.
  * It also provies some general rest API enpoints for workarounds and prototyping.
@@ -7,28 +7,38 @@ import type { log, settings } from './types';
 interface data {
   [index: string]: any,
   settings: settings,
-  timeline: log[]
+  timeline: log[],
+  running: running
+}
+
+interface promises {
+  [index: string]: any,
+  settings: Promise<settings>,
+  timeline: Promise<log[]>,
+  running: Promise<running>
 }
 
 interface meta {
   [index: string]: number,
   settings: number,
   timeline: number
+  running: number
 }
 
 export class ApiClient {
   data: data;
   refresh_interval: number;
-  pulled: meta;
-  syncing: meta;
+  lastChange: meta;
+  promises: promises;
   apiUrl: string;
   accessToken: string | undefined;
-  interval: ReturnType<typeof setInterval>;
+  pullInterval: ReturnType<typeof setInterval>;
+  updateInterval: ReturnType<typeof setInterval>;
 
   constructor(apiUrl: string, accessToken: string | undefined = undefined, refresh_interval = 60000) {
-    this.data = { settings: {}, timeline: [] };
-    this.pulled = { timeline: 0, settings: 0 };
-    this.syncing = { timeline: 0, settings: 0 };
+    this.data = { settings: {}, timeline: [], running: {} };
+    this.lastChange = { timeline: 0, settings: 0, running: 0 };
+    this.promises = { timeline: new Promise((f) => f([])), settings: new Promise((f) => f({})), running: new Promise((f) => f({})) };
     this.apiUrl = apiUrl;
     this.accessToken = accessToken;
     this.refresh_interval = refresh_interval;
@@ -41,74 +51,125 @@ export class ApiClient {
       this.pullData(k);
     });
 
-    this.pullTimeline();
-
-    this.pullSettings();
-
-    this.interval = setInterval(() => {
-      this.pullTimeline();
-      this.pullSettings();
+    this.pullInterval = setInterval(() => {
+      Object.keys(this.data).forEach((k) => {
+        var s = localStorage.getItem(k);
+        if (s != null) {
+          this.data[k] = JSON.parse(s);
+        }
+        this.pullData(k);
+      });
     }, refresh_interval);
+
+    this.updateInterval = setInterval(() => {
+      this.updateTimeline();
+      this.pullData('running');
+    }, 10000);
   }
 
   close() {
-    clearInterval(this.interval);
+    clearInterval(this.pullInterval);
+    clearInterval(this.updateInterval);
   }
 
   pullData(k: string) {
-    if (this.syncing[k] == 0) {
-      this.syncing[k]++;
+    this.promises[k] = this.promises[k].then(async () => {
       console.log("pulling", k);
-      return this.get(k, null).then((res: log[]) => {
+      return await this.get(k, null).then((res: log[]) => {
         this.data[k] = res;
         localStorage.setItem(k, JSON.stringify(this.data[k]));
-        this.pulled[k] = Date.now();
-        this.syncing[k]--;
+        this.lastChange[k] = Date.now();
         console.log("Done pulling", k);
         return res;
       }, () => { console.error("Failed to pull", k) });
-    } else {
-      return new Promise((res, _) => {
-        console.log("Can't pull", k, "because syncing")
-        res(this.data[k]);
-      });
+    });
+  }
+
+  updateTimeline() {
+    this.promises.timeline = this.promises.timeline.then(async () => {
+      if (this.data.timeline.length == 0) return this.data.timeline;
+      let now = (new Date).getTime();
+      let lastE = this.data.timeline[this.data.timeline.length - 1];
+      let last = lastE.end;
+      if (last > now) return this.data.timeline;
+      console.log("updateing timeline from", (now - last) / 1000);
+      return await this.get('timeline', { start: last }).then((res: log[]) => {
+        if (res.length == 0) return this.data.timeline;
+        if (res[0].id == lastE.id) {
+          console.log("merging timeline");
+          lastE.end = res[0].end;
+          this.data.timeline = this.data.timeline.concat(res.slice(1));
+        } else {
+          console.log("concat timeline");
+          this.data.timeline = this.data.timeline.concat(res);
+        }
+        localStorage.setItem('timeline', JSON.stringify(this.data.timeline));
+        this.lastChange.timeline = Date.now();
+        console.log("Done updateing timeline");
+        return this.data.timeline;
+      }, () => { console.error("Failed to udpate timeline"); return this.data.timeline; });
+    });
+  }
+
+  lastChangeTimeline() {
+    return this.lastChange.timeline;
+  }
+
+  lastChangeSettings() {
+    return this.lastChange.settings;
+  }
+
+  getTimeline(start: number | undefined = undefined, end: number | undefined = undefined) {
+    let timeline = JSON.parse(JSON.stringify(this.data.timeline));
+    if (typeof start !== "undefined") {
+      for (let i = 0; i < timeline.length; i++) {
+        if (timeline[i].end < start) {
+          timeline.splice(i, 1);
+          i--;
+        } else if (timeline[i].start < start) {
+          timeline[i].start = start;
+        } else {
+          break;
+        }
+      }
     }
-  }
-
-  pullTimeline() {
-    return this.pullData('timeline');
-  }
-
-  pullSettings() {
-    return this.pullData('settings')
-  }
-
-  pulledTimeline() {
-    return this.pulled.timeline;
-  }
-
-  pulledSettingsTime() {
-    return this.pulled.settings;
-  }
-
-  getData(k: string) {
-    if (Date.now() - this.pulled[k] < this.refresh_interval || this.syncing[k] > 0) {
-      console.log("Using local", k, (Date.now() - this.pulled.timeline < this.refresh_interval) ? "because refresh interval not elapsed" : "because still syncing");
-      return new Promise((res, _) => {
-        res(this.data[k]);
-      });
-    } else {
-      console.log("Not using local", k);
-      return this.pull(k);
+    if (typeof end !== "undefined") {
+      for (let i = timeline.length - 1; i >= 0; i--) {
+        if (timeline[i].start > end) {
+          timeline.splice(i, 1);
+        } else if (timeline[i].end > end) {
+          timeline[i].end = end;
+        } else {
+          break;
+        }
+      }
+      let last = timeline[timeline.length - 1];
+      if (last.end < end) {
+        if (last.id == "running") {
+          last.end = end;
+        } else {
+          let running = this.getRunning();
+          running.start = last.end;
+          running.end = end;
+          timeline.push(running);
+        }
+      }
     }
-  }
-
-  getTimeline() {
-    return this.getData("timeline");
+    return timeline;
   }
 
   getSettings() {
-    return this.getData("settings");
+    return JSON.parse(JSON.stringify(this.data.settings));
+  }
+
+  getRunning() {
+    let running = JSON.parse(JSON.stringify(this.data.running));
+    let now = (new Date).getTime();
+    if (running.end === undefined || running.end > now) {
+      return running;
+    } else {
+      return { title: running.fallback, start: running.end }
+    }
   }
 
   timeline_add(log: log) {

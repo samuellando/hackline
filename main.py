@@ -16,7 +16,7 @@ db = firestore.client()
 app = Flask(__name__)
 ar = anyrest.addAnyrestHandlers(app, db, "dev-pnkvmziz4ai48pb8.us.auth0.com", "https://timelogger/api")
 
-@app.route('/api/run', methods=["get"])
+@app.route('/api/running', methods=["get"])
 def getRun():
     now = time.time() * 1000
     timeline = getTimeline()
@@ -29,6 +29,16 @@ def getRun():
     log = None
     if len(logs) > 0:
         log = logs[-1]
+    else:
+        return {}
+
+    if log["running"]:
+        del log["end"]
+    else:
+        cur = ar["GET"]("run")
+        c = list(cur.values())
+        if len(c) > 0:
+            log["fallback"] = c[0]["title"]
 
     return log
 
@@ -47,6 +57,7 @@ def run():
         return ar["PATCH"]("run/"+l[0][0], data)
 
 @app.route('/api/logs', methods=["POST"])
+@app.route('/api/timeline', methods=["POST"])
 def log():
     data = json.loads(request.data)
     if "duration" in data:
@@ -63,6 +74,15 @@ def log():
             ar["DELETE"]("logs/"+k, v)
 
     return ar["POST"]("logs", data)
+
+@app.route('/api/timeline/<id>', methods=["PATCH"])
+def log_patch(id):
+    data = json.loads(request.data)
+    return ar["PATCH"]("logs/" + id, data)
+
+@app.route('/api/timeline/<id>', methods=["DELETE"])
+def log_del(id):
+    return ar["DELETE"]("logs/" + id)
 
 @app.route('/api/timeline', methods=["GET"])
 def getTimeline():
@@ -85,6 +105,7 @@ def getTimeline():
     if len(c) != 0:
         c[0]["end"] = time.time() * 1000
         c[0]["running"] = True
+        c[0]["id"] = "running"
         logs.append(c[0])
 
     logs = cutOverlaps(logs)
