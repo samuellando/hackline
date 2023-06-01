@@ -28,6 +28,7 @@ interface meta {
 export class ApiClient {
   data: data;
   refresh_interval: number;
+  update_interval: number;
   lastChange: meta;
   promises: promises;
   apiUrl: string;
@@ -35,13 +36,14 @@ export class ApiClient {
   pullInterval: ReturnType<typeof setInterval>;
   updateInterval: ReturnType<typeof setInterval>;
 
-  constructor(apiUrl: string, accessToken: string | undefined = undefined, refresh_interval = 60000) {
+  constructor(apiUrl: string, accessToken: string | undefined = undefined, refresh_interval = 60000, update_interval = 10000) {
     this.data = { settings: {}, timeline: [], running: {} };
     this.lastChange = { timeline: 0, settings: 0, running: 0 };
     this.promises = { timeline: new Promise((f) => f([])), settings: new Promise((f) => f({})), running: new Promise((f) => f({})) };
     this.apiUrl = apiUrl;
     this.accessToken = accessToken;
     this.refresh_interval = refresh_interval;
+    this.update_interval = update_interval;
 
     Object.keys(this.data).forEach((k) => {
       var s = localStorage.getItem(k);
@@ -64,7 +66,7 @@ export class ApiClient {
     this.updateInterval = setInterval(() => {
       this.updateTimeline();
       this.pullData('running');
-    }, 10000);
+    }, update_interval);
   }
 
   close() {
@@ -119,6 +121,10 @@ export class ApiClient {
     return this.lastChange.settings;
   }
 
+  lastChangeRunning() {
+    return this.lastChange.running;
+  }
+
   getTimeline(start: number | undefined = undefined, end: number | undefined = undefined) {
     let timeline = JSON.parse(JSON.stringify(this.data.timeline));
     if (typeof start !== "undefined") {
@@ -160,6 +166,23 @@ export class ApiClient {
 
   getSettings() {
     return JSON.parse(JSON.stringify(this.data.settings));
+  }
+
+  getSetting(key: string) {
+    let settings = JSON.parse(JSON.stringify(this.data.settings));
+    if (key in settings) {
+      return settings[key];
+    } else {
+      return null;
+    }
+  }
+
+  setSetting(key: string, value: any) {
+    this.data.settings[key] = value;
+    localStorage.setItem('settings', JSON.stringify(this.data.settings));
+    let data = {} as { [key: string]: any };
+    data[key] = value;
+    this.promises.settings.then(async () => await this.patch('settings', data));
   }
 
   getRunning() {
