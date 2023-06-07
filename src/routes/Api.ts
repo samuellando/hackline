@@ -273,8 +273,17 @@ export class ApiClient {
     return timeline;
   }
 
-  timeline_edit(id: string, log: log) {
-    return;
+  timelineEdit(log: log) {
+    let id = log.id;
+    var limit = (new Date()).getTime();
+    var timeline = this.getTimeline();
+    timeline.forEach((e: log) => {
+      if (e.id == id) {
+        e.title = log.title;
+      }
+    });
+    this.commit('timeline', timeline, limit);
+    this.promises.timeline.then(async () => await this.patch('timeline/' + id, { title: log.title }));
   }
 
   get(path: string, data: any) {
