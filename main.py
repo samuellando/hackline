@@ -17,6 +17,7 @@ app = Flask(__name__)
 ar = anyrest.addAnyrestHandlers(app, db, "dev-pnkvmziz4ai48pb8.us.auth0.com", "https://timelogger/api")
 
 @app.route('/api/running', methods=["get"])
+@app.route('/api/run', methods=["get"])
 def getRun():
     now = time.time() * 1000
     timeline = getTimeline()
@@ -55,6 +56,26 @@ def run():
         past["end"] = data["start"]
         ar["POST"]("logs", past)
         return ar["PATCH"]("run/"+l[0][0], data)
+
+
+@app.route('/api/settings', methods=["GET"])
+def getSettings():
+    cur = ar["GET"]("settings")
+    l = list(cur.items())
+    if len(l) == 0:
+        return ar["POST"]("settings", {})
+    else:
+        return l[0][1]
+
+@app.route('/api/settings', methods=["PATCH"])
+def setSetting():
+    cur = ar["GET"]("settings")
+    data = json.loads(request.data)
+    l = list(cur.items())
+    if len(l) == 0:
+        return ar["POST"]("settings", data)
+    else:
+        return ar["PATCH"]("settings/"+l[0][0], data)
 
 @app.route('/api/logs', methods=["POST"])
 @app.route('/api/timeline', methods=["POST"])

@@ -31,6 +31,7 @@ export class ApiClient {
   update_interval: number;
   lastChange: meta;
   promises: promises;
+  commitPromise: Promise<any>;
   apiUrl: string;
   accessToken: string | undefined;
   pullInterval: ReturnType<typeof setInterval>;
@@ -40,6 +41,7 @@ export class ApiClient {
     this.data = { settings: {}, timeline: [], running: {} };
     this.lastChange = { timeline: 0, settings: 0, running: 0 };
     this.promises = { timeline: new Promise((f) => f([])), settings: new Promise((f) => f({})), running: new Promise((f) => f({})) };
+    this.commitPromise = new Promise((f) => f(null));
     this.apiUrl = apiUrl;
     this.accessToken = accessToken;
     this.refresh_interval = refresh_interval;
@@ -76,14 +78,25 @@ export class ApiClient {
 
   pullData(k: string) {
     this.promises[k] = this.promises[k].then(async () => {
+      var limit = (new Date()).getTime();
       console.log("pulling", k);
       return await this.get(k, null).then((res: log[]) => {
-        this.data[k] = res;
-        localStorage.setItem(k, JSON.stringify(this.data[k]));
-        this.lastChange[k] = Date.now();
+        this.commit(k, res, limit);
         console.log("Done pulling", k);
         return res;
       }, () => { console.error("Failed to pull", k) });
+    });
+  }
+
+  commit(k: string, data: any, asOf: number = (new Date()).getTime()) {
+    this.commitPromise = this.commitPromise.then(() => {
+      if (this.lastChange[k] > asOf) {
+        console.error("Cannot change value", k, "Value has already been overwriten locally.")
+        return null;
+      }
+      this.lastChange[k] = (new Date()).getTime();
+      this.data[k] = data;
+      localStorage.setItem(k, JSON.stringify(this.data[k]));
     });
   }
 
@@ -96,19 +109,17 @@ export class ApiClient {
       if (last > now) return this.data.timeline;
       console.log("updateing timeline from", (now - last) / 1000);
       return await this.get('timeline', { start: last }).then((res: log[]) => {
+        var timeline: log[];
         if (res.length == 0) return this.data.timeline;
         if (res[0].id == lastE.id) {
-          console.log("merging timeline");
           lastE.end = res[0].end;
-          this.data.timeline = this.data.timeline.concat(res.slice(1));
+          timeline = this.data.timeline.concat(res.slice(1));
         } else {
-          console.log("concat timeline");
-          this.data.timeline = this.data.timeline.concat(res);
+          timeline = this.data.timeline.concat(res);
         }
-        localStorage.setItem('timeline', JSON.stringify(this.data.timeline));
-        this.lastChange.timeline = Date.now();
+        this.commit('timeline', timeline, now);
         console.log("Done updateing timeline");
-        return this.data.timeline;
+        return timeline;
       }, () => { console.error("Failed to udpate timeline"); return this.data.timeline; });
     });
   }
@@ -178,8 +189,9 @@ export class ApiClient {
   }
 
   setSetting(key: string, value: any) {
-    this.data.settings[key] = value;
-    localStorage.setItem('settings', JSON.stringify(this.data.settings));
+    var settings = JSON.parse(JSON.stringify(this.data.settings));
+    settings[key] = value;
+    this.commit('settings', settings, (new Date()).getTime());
     let data = {} as { [key: string]: any };
     data[key] = value;
     this.promises.settings.then(async () => await this.patch('settings', data));
@@ -187,7 +199,7 @@ export class ApiClient {
 
   getRunning() {
     let running = JSON.parse(JSON.stringify(this.data.running));
-    let now = (new Date).getTime();
+    let now = (new Date()).getTime();
     if (running.end === undefined || running.end > now) {
       return running;
     } else {
@@ -195,23 +207,73 @@ export class ApiClient {
     }
   }
 
-  timeline_add(log: log) {
-    this.data.timeline.forEach((e) => {
-      if (e["start"] >= log["start"] && e["start"] <= log["end"] && e["end"] >= log["end"]) {
-        e["start"] = log["end"]
-        this.patch("timeline/" + e["id"], e);
-      } else if (e["start"] >= log["start"] && e["end"] <= log["end"]) {
-        this.del("timeline/" + e["id"])
-      }
+  setRunning(title: string, start: number = (new Date()).getTime()) {
+    let r = { title: title, start: start };
+    this.commit('running', r, start);
+    this.promises.running = this.promises.running.then(async () => {
+      await this.put('running', r);
     });
-    this.post('timeline', log);
+  }
+
+  timelineAdd(log: log) {
+    var limit = (new Date()).getTime();
+    var timeline = this.timelinePreviewAdd(log);
+    this.commit('timeline', timeline, limit);
+    this.promises.timeline.then(async () => await this.post('timeline', log));
+  }
+
+  timelinePreviewAdd(log: log, start: number | undefined = undefined, end: number | undefined = undefined) {
+    var timeline: log[];
+    timeline = this.getTimeline(start, end);
+    for (let i = 0; i < timeline.length; i++) {
+      let e = timeline[i];
+      console.log(e, log);
+      /*
+       * 0 0 0 0 => nothing
+       * 0 1 0 0 => Move end to log.start.
+       * 1 1 0 0 => Delete it.
+       * 1 1 0 1 => Move start to log.end.
+       * 0 1 0 1 => Splice it.
+       */
+      var c = 0;
+      c = c | (e.start > log.start ? 0b1000 : 0);
+      c = c | (e.end > log.start ? 0b0100 : 0);
+      c = c | (e.start > log.end ? 0b0010 : 0);
+      c = c | (e.end > log.end ? 0b0001 : 0);
+
+      console.log("mask", c.toString(2));
+      switch (c) {
+        case 0b0100:
+          e.end = log.start;
+          break;
+        case 0b1100:
+          timeline.splice(i, 1);
+          i--;
+          break;
+        case 0b1101:
+          e.start = log.end;
+          break;
+        case 0b0101:
+          let n = JSON.parse(JSON.stringify(e));
+          e.end = log.start;
+          n.start = log.end;
+          timeline.splice(i + 1, 0, n);
+          i++;
+          break;
+      }
+    }
+
+    for (let i = 0; i < timeline.length; i++) {
+      if (timeline[i].start >= log.end) {
+        timeline.splice(i, 0, log);
+        break;
+      }
+    }
+
+    return timeline;
   }
 
   timeline_edit(id: string, log: log) {
-    return;
-  }
-
-  settings_set(key: string, value: any) {
     return;
   }
 
