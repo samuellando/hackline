@@ -1,11 +1,11 @@
-export interface log {
+export interface interval {
   title: string;
   start: number;
   end: number;
   id: string;
 }
 
-export interface runnning {
+export interface running {
   title: string;
   start: number;
   end?: number;
@@ -14,6 +14,10 @@ export interface runnning {
 
 export interface settings {
   [key: string]: any;
+}
+
+export interface apiKey {
+  apiKey: string;
 }
 
 import type { Auth0Client, User } from '@auth0/auth0-spa-js';
