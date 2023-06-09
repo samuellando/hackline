@@ -1,14 +1,14 @@
 <script lang="ts">
 	import type { log } from './types';
-	import { onMount } from 'svelte';
-	import { post } from './Api';
+	import { onMount, onDestroy } from 'svelte';
+	import type { ApiClient } from './Api';
+	import { makeColorIterator } from './colors';
 
 	export let logs: log[] = [];
 	export let rangeStartM: number = new Date().getTime() - 24 * 60 * 60 * 1000;
 	export let rangeEndM: number = new Date().getTime();
-	export let colormap: any = {};
-	export let apiUrl: string;
-	export let accessToken: string;
+	export var apiClient: ApiClient;
+	var interval: ReturnType<typeof setInterval>;
 
 	interface timelineLog extends log {
 		color: string;
@@ -16,30 +16,30 @@
 		draw: boolean;
 	}
 
+	var colormap: any = {};
+	var syncing: any = {};
+
 	let timeline: timelineLog[] = [];
 
 	function getTimeline(logs: log[], rangeStart = rangeStartM, rangeEnd = rangeEndM) {
+		if (loading) {
+			return logs;
+		}
+		if (typeof apiClient !== 'undefined') {
+			if (editMode) {
+				logs = apiClient.timelinePreviewAdd(n, rangeStart, rangeEnd);
+			} else {
+				logs = apiClient.getTimeline(rangeStart, rangeEnd);
+			}
+		}
 		var total = rangeEnd - rangeStart;
 
-		var colors = [
-			'#00bdff',
-			'#1b3bff',
-			'#8F00FF',
-			'#ff0011',
-			'#ff7300',
-			'#ffd600',
-			'#00c30e',
-			'#65ff00',
-			'#d200ff',
-			'#FF00FF',
-			'#7d7d7d',
-			'#5d5d5d'
-		];
-		var i = Object.keys(colormap).length;
+		var colors = makeColorIterator();
 
 		return logs.map((e) => {
 			if (!(e.title in colormap)) {
-				colormap[e.title] = colors[i++];
+				colormap[e.title] = colors.next().value;
+				apiClient.setSetting('colormap', colormap);
 			}
 			e.color = colormap[e.title];
 
@@ -63,14 +63,36 @@
 		}) as timelineLog[];
 	}
 
-	$: timeline = editMode ? timeline : getTimeline(logs, rangeStartM, rangeEndM);
+	$: timeline = getTimeline(logs, rangeStartM, rangeEndM);
 
+	var updated = -1;
+
+	var loading = true;
 	onMount(async () => {
-		setInterval(() => {
+		let t = apiClient.getSetting('colormap');
+		if (t != null) {
+			colormap = t;
+		}
+		logs = apiClient.getTimeline(rangeStartM, rangeEndM);
+		interval = setInterval(() => {
+			let t = apiClient.getSetting('colormap');
+			if (t != null) {
+				colormap = t;
+			}
+			syncing = apiClient.getSyncing();
+			if (apiClient.lastChangeTimeline() != updated) {
+				logs = apiClient.getTimeline(rangeStartM, rangeEndM);
+				updated = apiClient.lastChangeTimeline();
+			}
 			if (live && !editMode) {
 				rangeEndM = new Date().getTime();
 			}
-		}, 10000);
+		}, 1000);
+		loading = false;
+	});
+
+	onDestroy(() => {
+		clearInterval(interval);
 	});
 
 	var curM = rangeStartM + (rangeEndM - rangeStartM) / 2;
@@ -89,11 +111,11 @@
 		}
 		rangeStartM -= ((curM - rangeStartM) / 1000) * e.deltaY;
 		if (rangeStartM < timeline[0].start) {
-			rangeStartM = timeline[0].start;
+			//rangeStartM = timeline[0].start;
 		}
 
 		if (editMode) {
-			drawSplice(n, logs);
+			timeline = getTimeline(logs);
 		} else {
 			timeline = getTimeline(logs);
 		}
@@ -116,7 +138,7 @@
 					n.end = curM + 600000;
 					n.start = n.end - n.duration;
 				}
-				drawSplice(n, logs);
+				timeline = getTimeline(logs);
 			} else {
 				if (drag) {
 					let oldS = rangeStartM;
@@ -133,11 +155,11 @@
 						rangeStartM = oldS;
 					}
 					if (rangeStartM < timeline[0].start) {
-						rangeEndM = oldE;
-						rangeStartM = oldS;
+						//rangeEndM = oldE;
+						//rangeStartM = oldS;
 					}
 					if (editMode) {
-						drawSplice(n, logs);
+						timeline = getTimeline(logs);
 					} else {
 						timeline = getTimeline(logs);
 					}
@@ -181,70 +203,27 @@
 	function add() {
 		// Create an event right in the middle of the timeline.
 		n = {
-			title: '',
+			title: 'default',
 			start: rangeStartM + (rangeEndM - rangeStartM) / 2,
 			end: rangeStartM + (rangeEndM - rangeStartM) / 2 + 15 * 60 * 1000,
 			duration: 15 * 60 * 1000,
 			id: 'new'
 		};
 		editMode = true;
-		drawSplice(n, logs);
-	}
-
-	function edit() {
-		// Create an event right in the middle of the timeline.
-		n = {
-			title: '',
-			start: rangeStartM + (rangeEndM - rangeStartM) / 2,
-			end: rangeStartM + (rangeEndM - rangeStartM) / 2 + 15 * 60 * 1000,
-			duration: 15 * 60 * 1000,
-			id: 'new'
-		};
-		editMode = true;
-		oldLogs = logs;
-		drawSplice(n, logs);
+		timeline = getTimeline(logs, rangeStartM, rangeEndM);
 	}
 
 	function save() {
+		apiClient.timelineAdd(n);
 		editMode = false;
-		logs = splice(n, logs);
-		post(apiUrl, 'logs', n, accessToken);
-	}
-
-	function splice(n: log, logs: log[]) {
-		let clone = JSON.parse(JSON.stringify(logs));
-
-		for (var i = 0; i < clone.length; i++) {
-			if (clone[i].start <= n.start && clone[i].end >= n.start) {
-				if (clone[i].end > n.end) {
-					clone.splice(i + 1, 0, { ...clone[i] });
-					clone[i + 1].start = n.end;
-					clone[i + 1].end = clone[i].end;
-					clone[i + 1].duration = clone[i + 1].end - clone[i + 1].start;
-				}
-				clone[i].end = n.start;
-				clone[i].duration = clone[i].end - clone[i].start;
-				for (var j = i + 1; j < clone.length; ) {
-					if (clone[j].end < n.end) {
-						clone.splice(j, 1);
-					} else if (clone[j].start < n.end) {
-						clone[j].start = n.end;
-						clone[j].duration = clone[j].end - clone[j].start;
-					} else {
-						break;
-					}
-				}
-				clone.splice(i + 1, 0, n);
-				break;
-			}
-		}
-		return clone;
-	}
-
-	function drawSplice(n: log, logs: log[]) {
-		timeline = getTimeline(splice(n, logs));
 	}
 </script>
+
+<h3>
+	syncing {Object.keys(syncing)
+		.map((e) => e + ' ' + syncing[e])
+		.join(' ')}
+</h3>
 
 <p>
 	{new Date(curM)}

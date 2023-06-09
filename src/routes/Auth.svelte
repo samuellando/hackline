@@ -1,14 +1,7 @@
 <script lang="ts">
-	import { auth } from './Auth';
 	import type { authDef } from './types';
-	import { onMount } from 'svelte';
 
 	export var authDef: authDef;
-
-	onMount(async () => {
-		authDef = await auth();
-		console.log(authDef);
-	});
 
 	async function login() {
 		authDef.authClient.loginWithRedirect();
@@ -20,9 +13,11 @@
 		authDef.userProfile = await authDef.authClient.getUser();
 		authDef.accessToken = await authDef.authClient.getTokenSilently();
 	}
+
+	$: authenticated = typeof authDef !== 'undefined' && authDef.isAuthenticated;
 </script>
 
-{#if authDef.isAuthenticated}
+{#if authenticated}
 	<button on:click={logout}>Logout</button>
 {:else}
 	<button on:click={login}>Login</button>

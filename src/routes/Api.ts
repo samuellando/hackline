@@ -378,7 +378,6 @@ export class ApiClient extends BaseClient {
       c = c | (e.start > log.end ? 0b0010 : 0);
       c = c | (e.end > log.end ? 0b0001 : 0);
 
-      console.log("mask", c.toString(2));
       switch (c) {
         case 0b0100:
           e.end = log.start;

@@ -1,14 +1,21 @@
 <script lang="ts">
-	import type { log } from './types';
-	import { get } from './Api';
-	import { onMount } from 'svelte';
+	import type { running } from './types';
+	import { onMount, onDestroy } from 'svelte';
+	import type { ApiClient } from './Api';
 
-	export let apiUrl: string;
-	export let accessToken: string;
+	export var apiClient: ApiClient;
+
+	var interval: ReturnType<typeof setInterval>;
 
 	onMount(() => {
-		updateRunning();
-		setInterval(updateRunning, 1000);
+		running = apiClient.getRunning();
+		interval = setInterval(() => {
+			running = apiClient.getRunning();
+		}, 1000);
+	});
+
+	onDestroy(() => {
+		clearInterval(interval);
 	});
 
 	function msToHMS(ms: number) {
@@ -24,37 +31,18 @@
 		return hours + ':' + minutes + ':' + seconds;
 	}
 
-	let data: any;
-	let running: log;
-	async function getRunning() {
-		get(apiUrl, 'run', null, accessToken).then((value) => {
-			running = value;
-		});
-	}
-
-	let c = 0;
-	function updateRunning() {
-		if (running === undefined) {
-			getRunning();
-			return;
-		}
-		if (c % 60 == 0) {
-			c = 1;
-			getRunning();
-		} else {
-			c++;
-		}
-		let t = new Date().getTime();
-		running['duration'] = t - running['start'];
-	}
+	let running: running | null;
 </script>
 
-{#if running}
+{#if running != null}
 	<h1>Running:</h1>
 	<h2>{running.title}</h2>
-	{#if !running.running}
-		<h3>{msToHMS(running.end - running.start - running.duration)} remaining</h3>
+	{#if typeof running.end != 'undefined'}
+		<h3>{msToHMS(running.end - new Date().getTime())} remaining</h3>
+		{#if typeof running.fallback != 'undefined'}
+			<p>Then {running.fallback}</p>
+		{/if}
 	{:else}
-		<h3>{msToHMS(running.duration)}</h3>
+		<h3>{msToHMS(new Date().getTime() - running.start)}</h3>
 	{/if}
 {/if}
