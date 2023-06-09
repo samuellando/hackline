@@ -149,14 +149,12 @@ export class ApiClient extends BaseClient {
 
     // Set up the pull and update intervals. 
     this.pullInterval = setInterval(() => {
-      console.log("Refesh loop");
       for (const k in endpoints) {
         this.pullData(k as endpoints);
       }
     }, refresh_interval);
 
     this.updateInterval = setInterval(() => {
-      console.log("update loop");
       this.updateTimeline();
       this.pullData(endpoints.running);
     }, update_interval);
