@@ -206,7 +206,10 @@ export class ApiClient extends BaseClient {
       // We want to pull since the end of the last entry.
       let lastE = this.data.timeline[this.data.timeline.length - 1];
       let last = lastE.end;
-      if (last >= now) return this.data.timeline;
+      if (last >= now) {
+        this.syncing.timeline--;
+        return this.data.timeline;
+      }
       console.log("updateing timeline from", (now - last) / 1000);
       return await this.get<timeline>('timeline', { start: last }).then(async (res) => {
         var timeline: timeline;
