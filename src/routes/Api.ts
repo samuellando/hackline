@@ -182,7 +182,7 @@ export class ApiClient extends BaseClient {
   private pullData<T extends endpoints>(k: T): promises[T] {
     // Since we don't want concurent reads, chain this promise.
     this.syncing[k]++;
-    this.promises[k] = this.promises[k].then(async () => {
+    return this.promises[k].then(async () => {
       // This is the max commit time.
       var limit = (new Date()).getTime();
       console.log("pulling", k);
@@ -193,12 +193,11 @@ export class ApiClient extends BaseClient {
         return res;
       }, () => { console.error("Failed to pull", k); return this.data[k]; });
     }) as promises[T];
-    return this.promises[k];
   }
 
   private updateTimeline(): promises[endpoints.timeline] {
     this.syncing.timeline++;
-    this.promises.timeline = this.promises.timeline.then(async () => {
+    return this.promises.timeline.then(async () => {
       if (this.data.timeline === null || this.data.timeline.length == 0) {
         return this.data.timeline;
       }
@@ -228,7 +227,6 @@ export class ApiClient extends BaseClient {
         return timeline;
       }, () => { console.error("Failed to udpate timeline"); return this.data.timeline; });
     });
-    return this.promises.timeline;
   }
 
   lastChangeTimeline(): number {
@@ -322,11 +320,12 @@ export class ApiClient extends BaseClient {
     this.commit(endpoints.settings, settings, (new Date()).getTime());
     let data = {} as settings;
     data[key] = value;
-    return this.promises.settings.then(async () => {
+    this.promises.settings = this.promises.settings.then(async () => {
       let settings = await this.patch<settings>('settings', data)
       this.syncing.settings--;
       return settings;
     });
+    return this.promises.settings;
   }
 
   getRunning(): running | null {
@@ -344,11 +343,12 @@ export class ApiClient extends BaseClient {
     this.syncing.running++;
     let r: running = { title: title, start: start };
     this.commit(endpoints.running, r, start);
-    return this.promises.running.then(async () => {
+    this.promises.running = this.promises.running.then(async () => {
       let running = await this.put<running>('running', r);
       this.syncing.running--;
       return running;
     });
+    return this.promises.running;
   }
 
   timelineAdd(log: interval): promises[endpoints.timeline] {
@@ -356,11 +356,12 @@ export class ApiClient extends BaseClient {
     var limit = (new Date()).getTime();
     var timeline = this.timelinePreviewAdd(log);
     this.commit(endpoints.timeline, timeline, limit);
-    return this.promises.timeline.then(async () => {
+    this.promises.timeline = this.promises.timeline.then(async () => {
       await this.post<interval>('timeline', log);
       this.syncing.timeline--;
       return timeline;
     });
+    return this.promises.timeline;
   }
 
   timelinePreviewAdd(log: interval, start: number | undefined = undefined, end: number | undefined = undefined): timeline {
@@ -424,11 +425,12 @@ export class ApiClient extends BaseClient {
     });
     this.commit(endpoints.timeline, timeline, limit);
 
-    return this.promises.timeline.then(async () => {
+    this.promises.timeline = this.promises.timeline.then(async () => {
       await this.patch('timeline/' + id, { title: log.title })
       this.syncing.timeline--;
       return timeline;
     });
+    return this.promises.timeline;
   }
 }
 
