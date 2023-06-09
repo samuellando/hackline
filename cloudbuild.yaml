@@ -1,10 +1,4 @@
 steps:
-  - name: node
-    entrypoint: npm
-    args: ['install']
-  - name: node
-    entrypoint: npm
-    args: ['run', 'build']
   - name: gcr.io/cloud-builders/docker
     args:
       - build
@@ -12,7 +6,7 @@ steps:
       - '-t'
       - >-
         $_AR_HOSTNAME/$PROJECT_ID/cloud-run-source-deploy/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA
-      - the-librarians-nook
+      - .
       - '-f'
       - Dockerfile
     id: Build
@@ -43,12 +37,13 @@ images:
 options:
   substitutionOption: ALLOW_LOOSE
 substitutions:
-  _TRIGGER_ID: 97ca5ae3-d085-4fbe-8ee0-3d11aa87bea7
+  _TRIGGER_ID: cdfe45d2-d97a-49b5-986b-5d7b5aa8a284
+  _DEPLOY_REGION: us-east1
+  _AR_HOSTNAME: us-east1-docker.pkg.dev
   _PLATFORM: managed
-  _SERVICE_NAME: the-librarians-nook
-  _DEPLOY_REGION: us-central1
-  _AR_HOSTNAME: us-central1-docker.pkg.dev
+  _SERVICE_NAME: timelogger
 tags:
   - gcp-cloud-build-deploy-cloud-run
   - gcp-cloud-build-deploy-cloud-run-managed
-  - the-librarians-nook
+  - timelogger
+
