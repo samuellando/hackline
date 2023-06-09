@@ -1,46 +1,45 @@
 <script lang="ts">
-	import { onMount, afterUpdate } from 'svelte';
+	import { onMount, afterUpdate, onDestroy } from 'svelte';
 	import Auth from '../Auth.svelte';
-	import type { User } from '@auth0/auth0-spa-js';
-	import { get, post, patch, put, del, getApiKey, deleteApiKey } from '../Api';
-	import type { log } from '../types';
+	import { auth } from '../Auth';
+	import { ApiClient } from '../Api';
+	import type { authDef } from '../types';
 	import Timeline from '../Timeline.svelte';
-	import Running from '../Running.svelte';
 	import Summary from '../Summary.svelte';
+	import Running from '../Running.svelte';
 
-	let apiUrl = '';
+	let apiUrl: string;
+	let apiClient: ApiClient;
+	let authDef: authDef;
 
-	var isAuthenticated: boolean;
-	var userProfile: User | undefined;
-	var accessToken: string;
+	let loading = true;
 
 	onMount(async () => {
 		apiUrl = window.location.origin;
 		if (import.meta.env.DEV) {
 			apiUrl = 'http://localhost:8080';
 		}
-		var logsS = localStorage.getItem('logs');
-		if (logsS != null) {
-			logs = JSON.parse(logsS);
-		}
-		setInterval(getNewData, 30000);
+		let a = await auth();
+		if (a === undefined) return;
+		apiClient = new ApiClient(apiUrl, a.accessToken);
+		authDef = await auth();
+		loading = false;
+	});
+
+	onDestroy(() => {
+		if (apiClient === undefined) return;
+		apiClient.close();
 	});
 
 	afterUpdate(() => {
-		if (isAuthenticated === false) {
-			window.location.pathname = '/';
+		if (
+			typeof authDef !== 'undefined' &&
+			typeof authDef.authClient !== 'undefined' &&
+			authDef.isAuthenticated === false
+		) {
+			window.location.pathname = '/timeline';
 		}
 	});
-
-	var apikey = '';
-	async function wGetApiKey() {
-		apikey = (await getApiKey(apiUrl, accessToken))['api-key'];
-	}
-
-	async function wDeleteApiKey() {
-		await deleteApiKey(apiUrl, accessToken);
-		apikey = '';
-	}
 
 	function toDateTimeString(now: Date) {
 		let month = '' + (now.getMonth() + 1);
@@ -64,7 +63,8 @@
 	function updateRange() {
 		rangeStartM = Date.parse(rangeStart);
 		rangeEndM = Date.parse(rangeEnd);
-		rangeStartM = Math.max(rangeStartM, logs[0].start);
+		//rangeStartM = Math.max(rangeStartM, logs[0].start);
+		rangeStartM = Math.max(rangeStartM);
 		rangeEndM = Math.min(rangeEndM, new Date().getTime());
 	}
 
@@ -102,61 +102,30 @@
 		rangeStartM -= diff;
 		rangeEndM = rangeStartM + diff;
 	}
-
-	var logs: log[] = [];
-
-	async function getData() {
-		logs = await get(apiUrl, 'timeline', null, accessToken);
-		localStorage.setItem('logs', JSON.stringify(logs));
-	}
-
-	async function getNewData() {
-		let lastEnd = logs[logs.length - 1].end;
-		let newLogs = await get(apiUrl, 'timeline', { start: lastEnd + 1 }, accessToken);
-		let last = logs[logs.length - 1];
-		if (newLogs.length == 1 && newLogs[0].title == last.title) {
-			last.end = newLogs[0].end;
-			last.duration = newLogs[0].end - last.start;
-		} else {
-			logs = logs.concat(newLogs);
-		}
-		localStorage.setItem('logs', JSON.stringify(logs));
-	}
-
-	var colormap: any;
 </script>
 
 <h1>Time Logger</h1>
-<p>Backend URL is : {apiUrl}</p>
-<p>API key is : {apikey}</p>
-<button on:click={wGetApiKey}>get</button>
-<button on:click={wDeleteApiKey}>delete</button><br />
+{#if loading}
+	<h2>loading</h2>
+{:else}
+	<p>Backend URL is : {apiUrl}</p>
 
-<Auth bind:accessToken bind:userProfile bind:isAuthenticated /> <br />
+	<Auth bind:authDef /> <br />
 
-<a href="/settings">settings</a>
+	<a href="/settings">settings</a>
 
-<Running {apiUrl} {accessToken} />
+	<h1>Data</h1>
+	<Running bind:apiClient />
 
-<h1>Data</h1>
-<input type="datetime-local" bind:value={rangeStart} on:change={updateRange} />
-<input type="datetime-local" bind:value={rangeEnd} on:change={updateRange} />
-<button on:click={setRangeToday}>Today</button>
-<button on:click={setRangeYesterday}>Yesterday</button>
-<button on:click={setRangeThisWeek}>This Week</button>
-<button on:click={setRangeLastWeek}>Last Week</button>
+	<input type="datetime-local" bind:value={rangeStart} on:change={updateRange} />
+	<input type="datetime-local" bind:value={rangeEnd} on:change={updateRange} />
+	<button on:click={setRangeToday}>Today</button>
+	<button on:click={setRangeYesterday}>Yesterday</button>
+	<button on:click={setRangeThisWeek}>This Week</button>
+	<button on:click={setRangeLastWeek}>Last Week</button>
 
-<button on:click={getData}>get</button><br />
+	<Timeline bind:apiClient bind:rangeStartM bind:rangeEndM live={true} />
 
-<Timeline
-	{logs}
-	bind:apiUrl
-	bind:accessToken
-	bind:rangeStartM
-	bind:rangeEndM
-	live={true}
-	bind:colormap
-/>
-
-<h2>Summary</h2>
-<Summary {logs} {rangeStartM} {rangeEndM} {colormap} />
+	<h2>Summary</h2>
+	<Summary bind:apiClient bind:rangeStartM bind:rangeEndM />
+{/if}

@@ -1,48 +1,23 @@
 <script lang="ts">
-	import createAuthClient from './auth_service';
-	import type { Auth0Client, User } from '@auth0/auth0-spa-js';
-	import { onMount } from 'svelte';
+	import type { authDef } from './types';
 
-	var authClient: Auth0Client;
-	export var isAuthenticated: boolean;
-	export var userProfile: User | undefined;
-	export var accessToken: string;
-
-	onMount(async () => {
-		try {
-			authClient = await createAuthClient(window.location.origin);
-			accessToken = await authClient.getTokenSilently();
-			isAuthenticated = await authClient.isAuthenticated();
-			userProfile = await authClient.getUser();
-		} catch {
-			console.log('Login required.');
-		}
-
-		if (
-			location.search.includes('state=') &&
-			(location.search.includes('code=') || location.search.includes('error='))
-		) {
-			await authClient.handleRedirectCallback();
-			window.history.replaceState({}, document.title, '/');
-			isAuthenticated = await authClient.isAuthenticated();
-			userProfile = await authClient.getUser();
-			accessToken = await authClient.getTokenSilently();
-		}
-	});
+	export var authDef: authDef;
 
 	async function login() {
-		authClient.loginWithRedirect();
+		authDef.authClient.loginWithRedirect();
 	}
 
 	async function logout() {
-		authClient.logout();
-		isAuthenticated = await authClient.isAuthenticated();
-		userProfile = await authClient.getUser();
-		accessToken = await authClient.getTokenSilently();
+		authDef.authClient.logout();
+		authDef.isAuthenticated = await authDef.authClient.isAuthenticated();
+		authDef.userProfile = await authDef.authClient.getUser();
+		authDef.accessToken = await authDef.authClient.getTokenSilently();
 	}
+
+	$: authenticated = typeof authDef !== 'undefined' && authDef.isAuthenticated;
 </script>
 
-{#if isAuthenticated}
+{#if authenticated}
 	<button on:click={logout}>Logout</button>
 {:else}
 	<button on:click={login}>Login</button>

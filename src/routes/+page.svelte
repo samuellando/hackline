@@ -1,23 +1,29 @@
 <script lang="ts">
 	import { onMount, afterUpdate } from 'svelte';
 	import Auth from './Auth.svelte';
-	import type { User } from '@auth0/auth0-spa-js';
+	import { auth } from './Auth';
+	import type { authDef } from './types';
 
 	let apiUrl = '';
 
-	var isAuthenticated: boolean;
-	var userProfile: User | undefined;
-	var accessToken: string;
+	var authDef: authDef = {
+		authClient: undefined,
+		isAuthenticated: false,
+		userProfile: undefined,
+		accessToken: undefined
+	};
 
 	onMount(async () => {
 		apiUrl = window.location.origin;
 		if (import.meta.env.DEV) {
 			apiUrl = 'http://localhost:8080';
 		}
+		authDef = await auth();
+		console.log(authDef);
 	});
 
 	afterUpdate(() => {
-		if (isAuthenticated) {
+		if (authDef.isAuthenticated) {
 			window.location.pathname = '/timeline';
 		}
 	});
@@ -28,4 +34,4 @@
 
 <h2>This is the landing page...</h2>
 
-<Auth bind:accessToken bind:userProfile bind:isAuthenticated /> <br />
+<Auth bind:authDef /> <br />

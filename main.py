@@ -16,6 +16,7 @@ db = firestore.client()
 app = Flask(__name__)
 ar = anyrest.addAnyrestHandlers(app, db, "dev-pnkvmziz4ai48pb8.us.auth0.com", "https://timelogger/api")
 
+@app.route('/api/running', methods=["get"])
 @app.route('/api/run', methods=["get"])
 def getRun():
     now = time.time() * 1000
@@ -29,6 +30,16 @@ def getRun():
     log = None
     if len(logs) > 0:
         log = logs[-1]
+    else:
+        return {}
+
+    if log["running"]:
+        del log["end"]
+    else:
+        cur = ar["GET"]("run")
+        c = list(cur.values())
+        if len(c) > 0:
+            log["fallback"] = c[0]["title"]
 
     return log
 
@@ -46,7 +57,28 @@ def run():
         ar["POST"]("logs", past)
         return ar["PATCH"]("run/"+l[0][0], data)
 
+
+@app.route('/api/settings', methods=["GET"])
+def getSettings():
+    cur = ar["GET"]("settings")
+    l = list(cur.items())
+    if len(l) == 0:
+        return ar["POST"]("settings", {})
+    else:
+        return l[0][1]
+
+@app.route('/api/settings', methods=["PATCH"])
+def setSetting():
+    cur = ar["GET"]("settings")
+    data = json.loads(request.data)
+    l = list(cur.items())
+    if len(l) == 0:
+        return ar["POST"]("settings", data)
+    else:
+        return ar["PATCH"]("settings/"+l[0][0], data)
+
 @app.route('/api/logs', methods=["POST"])
+@app.route('/api/timeline', methods=["POST"])
 def log():
     data = json.loads(request.data)
     if "duration" in data:
@@ -63,6 +95,15 @@ def log():
             ar["DELETE"]("logs/"+k, v)
 
     return ar["POST"]("logs", data)
+
+@app.route('/api/timeline/<id>', methods=["PATCH"])
+def log_patch(id):
+    data = json.loads(request.data)
+    return ar["PATCH"]("logs/" + id, data)
+
+@app.route('/api/timeline/<id>', methods=["DELETE"])
+def log_del(id):
+    return ar["DELETE"]("logs/" + id)
 
 @app.route('/api/timeline', methods=["GET"])
 def getTimeline():
@@ -85,6 +126,7 @@ def getTimeline():
     if len(c) != 0:
         c[0]["end"] = time.time() * 1000
         c[0]["running"] = True
+        c[0]["id"] = "running"
         logs.append(c[0])
 
     logs = cutOverlaps(logs)

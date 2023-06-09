@@ -1,14 +1,38 @@
 <script lang="ts">
-	import type { log } from './types';
-	import Chart from 'svelte-frappe-charts';
+	import type { interval } from './types';
+	import type { ApiClient } from './Api';
+	import { onMount, onDestroy } from 'svelte';
 
 	export let rangeStartM: number;
 	export let rangeEndM: number;
-	export let logs: log[];
-	export let colormap: any;
+	export let apiClient: ApiClient;
+
+	var interval: ReturnType<typeof setInterval>;
+	var syncing: any = {};
+	var logs: interval[] = [];
+	var updated = -1;
+
+	onMount(async () => {
+		colormap = apiClient.getSetting('colormap');
+		interval = setInterval(() => {
+			syncing = apiClient.getSyncing();
+			if (apiClient.lastChangeTimeline() != updated) {
+				logs = apiClient.getTimeline(rangeStartM, rangeEndM);
+				updated = apiClient.lastChangeTimeline();
+			}
+		}, 1000);
+	});
+
+	onDestroy(() => {
+		clearInterval(interval);
+	});
 
 	var summary: any[] = [];
-	function getSummary(logs: log[], rangeStart = rangeStartM, rangeEnd = rangeEndM) {
+	function getSummary(logs: interval[], rangeStart = rangeStartM, rangeEnd = rangeEndM) {
+		if (typeof apiClient !== 'undefined') {
+			logs = apiClient.getTimeline(rangeStartM, rangeEndM);
+		}
+
 		let s: any = {};
 		logs.forEach((log) => {
 			var start;
@@ -36,36 +60,21 @@
 		return Object.values(s);
 	}
 
-	function getChartConfig(summary: any[]) {
-		var sum = 0;
-		summary.forEach((e) => (sum += e.time));
-		if (summary.length == 0 || !colormap) {
-			return { labels: [], datasets: [] };
-		}
-		return {
-			labels: summary.map((e) => e.title),
-			datasets: [
-				{
-					values: summary.map((e) => Math.round((100 * e.time) / sum)),
-					colors: summary.map((e) => colormap[e.title])
-				}
-			]
-		};
+	function update() {
+		apiClient.setSetting('colormap', colormap);
 	}
 
 	$: summary = getSummary(logs, rangeStartM, rangeEndM);
-	$: data = getChartConfig(summary);
-	$: colors = data.labels.map((e) => colormap[e.title]);
+	var colormap: any = {};
 </script>
 
 {#each summary as log}
 	<h3>
 		{log.title}
 	</h3>
+	<input type="color" bind:value={colormap[log.title]} on:change={update} />
 	<p>time: {log.time / 3600000} hours</p>
 {/each}
-
-<Chart {data} type="donut" {colors} />
 
 <style>
 	:global(.chart-legend) {
