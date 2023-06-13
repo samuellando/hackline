@@ -1,5 +1,6 @@
 import unittest
 from main import cutOverlaps
+from main import Interval
 
 class Test(unittest.TestCase):
     def test_empty(self):
@@ -18,6 +19,8 @@ class Test(unittest.TestCase):
                 {"start": 4, "end": 5, "title": "3"}
         ]
 
+        intervals = map(lambda d: Interval.fromDict(d), intervals)
+        expected = list(map(lambda d: Interval.fromDict(d), expected))
 
         self.assertListEqual(cutOverlaps(intervals, False), expected)
 
@@ -33,6 +36,8 @@ class Test(unittest.TestCase):
                 {"start": 3, "end": 4, "title": "1"}
         ]
 
+        intervals = map(lambda d: Interval.fromDict(d), intervals)
+        expected = list(map(lambda d: Interval.fromDict(d), expected))
 
         self.assertListEqual(cutOverlaps(intervals, False), expected)
 
@@ -47,6 +52,8 @@ class Test(unittest.TestCase):
                 {"start": 2, "end": 5, "title": "2"},
         ]
 
+        intervals = map(lambda d: Interval.fromDict(d), intervals)
+        expected = list(map(lambda d: Interval.fromDict(d), expected))
 
         self.assertListEqual(cutOverlaps(intervals, False), expected)
 
@@ -61,6 +68,8 @@ class Test(unittest.TestCase):
                 {"start": 2, "end": 3, "title": "1", "running": False}
         ]
 
+        intervals = map(lambda d: Interval.fromDict(d), intervals)
+        expected = list(map(lambda d: Interval.fromDict(d), expected))
 
         self.assertListEqual(cutOverlaps(intervals, False), expected)
 
@@ -99,6 +108,8 @@ class Test(unittest.TestCase):
 
         expected.sort(key=lambda x: x["start"])
 
+        intervals = map(lambda d: Interval.fromDict(d), intervals)
+        expected = list(map(lambda d: Interval.fromDict(d), expected))
 
         self.assertListEqual(cutOverlaps(intervals, False), expected)
 

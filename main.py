@@ -26,6 +26,9 @@ class Interval:
         else:
             raise AttributeError()
 
+    def __eq__(self, other):
+        return self.id == other.id and self.title == other.title and self.start == other.start and self.end == other.end
+
     @staticmethod 
     def fromDict(d):
         if not "id" in d:
@@ -78,12 +81,16 @@ class FrontendRunning(Running):
             raise AttributeError()
 
     @staticmethod 
-    def fromInterval(i, r):
-        return FrontendRunning(i.title, i.start, i.end, r)
+    def fromInterval(i, r=None):
+        return FrontendRunning(i.title, i.start, i.end if r is not None else None, r)
 
     @staticmethod 
     def fromRunning(r):
         return FrontendRunning(r.title, r.start)
+
+    @staticmethod 
+    def fromDict(d):
+        return FrontendRunning(d["title"], d["start"])
 
     def toDict(self):
         d = {
@@ -98,22 +105,22 @@ class FrontendRunning(Running):
 @app.route('/api/running', methods=["get"])
 def getRunning():
     now = time.time() * 1000
-    """timeline = getTimeline(now, now)
+    timeline = getTimeline(now, now)
 
-    log = None
     if len(timeline) > 0:
-        log = timeline[-1]
+        interval = Interval.fromDict(timeline[-1])
     else:
-        return abort(404)
-    """
-    interval = Interval("running", "test", 0, 100)
+        interval = None
+    
     try:
         fallback = Running.fromDict(ar.get("running/running"))
     except:
         fallback = Running("No running interval started yet.", time.time() * 1000)
-    running = None
-    if interval.id == "running":
+
+    if interval is not None and interval.id != "running":
         running = FrontendRunning.fromInterval(interval, fallback)
+    elif interval is not None:
+        running = FrontendRunning.fromInterval(interval)
     else:
         running = FrontendRunning.fromRunning(fallback)
 
@@ -126,15 +133,20 @@ def run():
         data['start'] = time.time() * 1000
     running = Running(data['title'], data['start'])
     try: 
-        return ar.put("running/running", running.toDict())
+        running = ar.put("running/running", running.toDict())
     except:
-        return ar.post("running/running", running.toDict())
+        running = ar.post("running/running", running.toDict())
+
+    running = FrontendRunning.fromDict(running)
+    return running.toDict()
 
 
 @app.route('/api/settings', methods=["GET"])
 def getSettings():
     try:
-        return ar.get("settings/settings")
+        settings =  ar.get("settings/settings")
+        del settings["id"]
+        return settings
     except:
         return {}
 
@@ -142,30 +154,32 @@ def getSettings():
 def setSetting():
     data = json.loads(request.data)
     try:
-        return ar.patch("settings/settings", data)
+        settings = ar.patch("settings/settings", data)
     except:
-        return ar.post("settings/settings", data)
+        settings = ar.post("settings/settings", data)
+    settings =  ar.get("settings/settings")
+    del settings["id"]
+    return settings
 
 @app.route('/api/timeline', methods=["POST"])
 def postTimeline():
     new = Interval.fromDict(json.loads(request.data))
 
-    logsdb = ar.get("intervals")
-    for id, v in logsdb.items():
-        v["id"] = id
+    logsdb = ar.get("intervals", False)
+    for v in logsdb:
         v = Interval.fromDict(v)
         if v.start >= new.start and v.start <= new.end and v.end >= new.end:
             v.start = new.end
-            ar.patch("intervals/"+id, v.toDict())
+            ar.patch("intervals/"+v.id, v.toDict())
         elif v.start >= new.start and v.end <= new.end:
-            ar.delete("intervals/"+id, v.toDict())
+            ar.delete("intervals/"+v.id, v.toDict())
 
     return ar.post("intervals", new.toDict())
 
 @app.route('/api/timeline/<id>', methods=["PATCH"])
 def patchTimeline(id):
     data = json.loads(request.data)
-    return ar.patch("logs/" + id, {"title": data["title"]})
+    return ar.patch("intervals/" + id, {"title": data["title"]})
 
 @app.route('/api/timeline', methods=["GET"])
 def getTimeline(start=None, end=None):
@@ -183,8 +197,7 @@ def getTimeline(start=None, end=None):
     db = ar.get("intervals", False)
 
     intervals = []
-    for k, v in db.items():
-        v["id"] = k
+    for v in db:
         intervals.append(Interval.fromDict(v))
 
     intervals.append(Interval("running", running.title, running.start, end))
@@ -257,8 +270,7 @@ def cutOverlaps(all, backfill=True):
     # Convert starts to actual events.
     for i, s in enumerate(starts):
         interval = s["ref"].copy()
-        interval.id = ""
-        istart = interval.start
+        istart = s["start"]
         nextStart = starts[i+1]["start"] if i < len(starts) - 1 else interval.end
         iend = min(nextStart, interval.end)
 
@@ -268,14 +280,14 @@ def cutOverlaps(all, backfill=True):
 
         if backfill: 
             if interval.start != s["ref"].start and not (i == len(starts) - 1 and  interval.id == "running"):
-                res = ar.post("intervals", interval)
-                interval = Interval.fromDict(res["data"])
+                res = ar.post("intervals", interval.toDict())
+                interval = Interval.fromDict(res)
             elif interval.end != s["ref"].end:
                 if interval.id != "":
                     ar.patch("intervals/"+interval.id, interval.toDict())
                 else:
                    res = ar.post("intervals", interval.toDict())
-                   interval = Interval.fromDict(res["data"])
+                   interval = Interval.fromDict(res)
 
         results.append(interval)
 
