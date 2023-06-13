@@ -1,4 +1,4 @@
-from flask import Flask, request
+from flask import Flask, request, abort
 from flask import send_from_directory
 import json
 import firebase_admin
@@ -14,147 +14,216 @@ firebase_app = firebase_admin.initialize_app(options={'projectId': 'timelogger-s
 db = firestore.client()
 
 app = Flask(__name__)
-ar = anyrest.addAnyrestHandlers(app, db, "dev-pnkvmziz4ai48pb8.us.auth0.com", "https://timelogger/api")
+ar = anyrest.addAnyrestHandlers(app, db, "dev-pnkvmziz4ai48pb8.us.auth0.com", "https://timelogger/api", True)
+
+class Interval:
+    def __init__(self, id, title, start, end):
+        if (isinstance(id, str) and isinstance(title, str) and isinstance(start, (int, float)) and isinstance(end, (int, float))):
+            self.id = id
+            self.title = title
+            self.start = start
+            self.end = end
+        else:
+            raise AttributeError()
+
+    def __eq__(self, other):
+        return self.id == other.id and self.title == other.title and self.start == other.start and self.end == other.end
+
+    @staticmethod 
+    def fromDict(d):
+        if not "id" in d:
+            d["id"] = ""
+        if not "start" in d:
+            d["start"] = time.time() * 1000
+        if 'duration' in d:
+            return Interval(d["id"], d["title"], d["start"], d["start"] + d["duration"])
+        else:
+            return Interval(d["id"], d["title"], d["start"], d["end"])
+
+    def toDict(self):
+        return {
+                "id": self.id,
+                "title": self.title,
+                "start": self.start,
+                "end": self.end
+                }
+
+    def copy(self):
+        return Interval.fromDict(self.toDict())
+
+
+class Running:
+    def __init__(self, title, start):
+        if (isinstance(title, str) and isinstance(start, (int,float, complex))):
+            self.title = title
+            self.start = start
+        else:
+            raise AttributeError()
+
+    @staticmethod 
+    def fromDict(d):
+        return Running(d["title"], d["start"])
+
+
+    def toDict(self):
+        return {
+                "title": self.title,
+                "start": self.start,
+                }
+
+class FrontendRunning(Running):
+    def __init__(self, title, start, end=None, fallback=None):
+        super().__init__(title, start)
+        if (end == None and fallback == None) or (isinstance(end, (int, float, complex)) and isinstance(fallback, Running)):
+            self.end =end
+            self.fallback = fallback
+        else:
+            raise AttributeError()
+
+    @staticmethod 
+    def fromInterval(i, r=None):
+        return FrontendRunning(i.title, i.start, i.end if r is not None else None, r)
+
+    @staticmethod 
+    def fromRunning(r):
+        return FrontendRunning(r.title, r.start)
+
+    @staticmethod 
+    def fromDict(d):
+        return FrontendRunning(d["title"], d["start"])
+
+    def toDict(self):
+        d = {
+                "title": self.title,
+                "start": self.start,
+                }
+        if self.end != None and self.fallback != None:
+            d["end"] = self.end
+            d["fallback"] = self.fallback.toDict()
+        return d
 
 @app.route('/api/running', methods=["get"])
-@app.route('/api/run', methods=["get"])
-def getRun():
+def getRunning():
     now = time.time() * 1000
-    timeline = getTimeline()
+    timeline = getTimeline(now, now)
 
-    logs = []
-    for i in timeline:
-        if i["start"] < now:
-            logs.append(i)
-
-    log = None
-    if len(logs) > 0:
-        log = logs[-1]
+    if len(timeline) > 0:
+        interval = Interval.fromDict(timeline[-1])
     else:
-        return {}
+        interval = None
+    
+    try:
+        fallback = Running.fromDict(ar.get("running/running"))
+    except:
+        fallback = Running("No running interval started yet.", time.time() * 1000)
 
-    if log["running"]:
-        del log["end"]
+    if interval is not None and interval.id != "running":
+        running = FrontendRunning.fromInterval(interval, fallback)
+    elif interval is not None:
+        running = FrontendRunning.fromInterval(interval)
     else:
-        cur = ar["GET"]("run")
-        c = list(cur.values())
-        if len(c) > 0:
-            log["fallback"] = c[0]["title"]
+        running = FrontendRunning.fromRunning(fallback)
 
-    return log
+    return running.toDict()
 
-@app.route('/api/run', methods=["POST"])
+@app.route('/api/running', methods=["POST", "PUT"])
 def run():
-    cur = ar["GET"]("run")
     data = json.loads(request.data)
-    data["start"] = time.time() * 1000
-    l = list(cur.items())
-    if len(l) == 0:
-        return ar["POST"]("run", data)
-    else:
-        past = l[0][1]
-        past["end"] = data["start"]
-        ar["POST"]("logs", past)
-        return ar["PATCH"]("run/"+l[0][0], data)
+    if not 'start' in data:
+        data['start'] = time.time() * 1000
+    running = Running(data['title'], data['start'])
+    try: 
+        running = ar.put("running/running", running.toDict())
+    except:
+        running = ar.post("running/running", running.toDict())
+
+    running = FrontendRunning.fromDict(running)
+    return running.toDict()
 
 
 @app.route('/api/settings', methods=["GET"])
 def getSettings():
-    cur = ar["GET"]("settings")
-    l = list(cur.items())
-    if len(l) == 0:
-        return ar["POST"]("settings", {})
-    else:
-        return l[0][1]
+    try:
+        settings =  ar.get("settings/settings")
+        del settings["id"]
+        return settings
+    except:
+        return {}
 
-@app.route('/api/settings', methods=["PATCH"])
+@app.route('/api/settings', methods=["POST", "PATCH"])
 def setSetting():
-    cur = ar["GET"]("settings")
     data = json.loads(request.data)
-    l = list(cur.items())
-    if len(l) == 0:
-        return ar["POST"]("settings", data)
-    else:
-        return ar["PATCH"]("settings/"+l[0][0], data)
+    try:
+        settings = ar.patch("settings/settings", data)
+    except:
+        settings = ar.post("settings/settings", data)
+    settings =  ar.get("settings/settings")
+    del settings["id"]
+    return settings
 
-@app.route('/api/logs', methods=["POST"])
 @app.route('/api/timeline', methods=["POST"])
-def log():
-    data = json.loads(request.data)
-    if "duration" in data:
-        if not "start" in data:
-            data["start"] = time.time() * 1000
-        data["end"] = data["start"] + data["duration"]
+def postTimeline():
+    new = Interval.fromDict(json.loads(request.data))
 
-    logsdb = ar["GET"]("logs")
-    for k, v in logsdb.items():
-        if v["start"] >= data["start"] and v["start"] <= data["end"] and v["end"] >= data["end"]:
-            v["start"] = data["end"]
-            ar["PATCH"]("logs/"+k, v)
-        elif v["start"] >= data["start"] and v["end"] <= data["end"]:
-            ar["DELETE"]("logs/"+k, v)
+    logsdb = ar.get("intervals", False)
+    for v in logsdb:
+        v = Interval.fromDict(v)
+        if v.start >= new.start and v.start <= new.end and v.end >= new.end:
+            v.start = new.end
+            ar.patch("intervals/"+v.id, v.toDict())
+        elif v.start >= new.start and v.end <= new.end:
+            ar.delete("intervals/"+v.id, v.toDict())
 
-    return ar["POST"]("logs", data)
+    return ar.post("intervals", new.toDict())
 
 @app.route('/api/timeline/<id>', methods=["PATCH"])
-def log_patch(id):
+def patchTimeline(id):
     data = json.loads(request.data)
-    return ar["PATCH"]("logs/" + id, data)
-
-@app.route('/api/timeline/<id>', methods=["DELETE"])
-def log_del(id):
-    return ar["DELETE"]("logs/" + id)
+    return ar.patch("intervals/" + id, {"title": data["title"]})
 
 @app.route('/api/timeline', methods=["GET"])
-def getTimeline():
-    args = request.args;
-    start = None
-    end = None
+def getTimeline(start=None, end=None):
+    args = request.args
     if "start" in args:
-        start = float(args.get("start"))
+        start = float(args["start"])
+    else: 
+        start = 0
     if "end" in args:
-        end = float(args.get("end"))
-    cur = ar["GET"]("run")
-    logs = []
-    logsdb = ar["GET"]("logs")
-    for k, v in logsdb.items():
-        v["id"] = k
-        v["running"] = False
-        logs.append(v)
+        end = float(args["end"])
+    else: 
+        end = time.time() * 1000
 
-    c = list(cur.values())
-    if len(c) != 0:
-        c[0]["end"] = time.time() * 1000
-        c[0]["running"] = True
-        c[0]["id"] = "running"
-        logs.append(c[0])
-
-    logs = cutOverlaps(logs)
-
-    for log in logs:
-        log["duration"] = log["end"] - log["start"]
+    running = Running.fromDict(ar.get("running/running"))
+    db = ar.get("intervals", False)
 
     intervals = []
-    for i in logs:
+    for v in db:
+        intervals.append(Interval.fromDict(v))
+
+    intervals.append(Interval("running", running.title, running.start, end))
+
+    intervals = cutOverlaps(intervals)
+
+    out = []
+    for i in intervals:
         insert = True
-        if start is not None:
-            if i["end"] < start:
-                insert = False
-            elif i["start"] < start:
-                i["start"] = start
-        if end is not None:
-            if i["start"] > end:
-                insert = False
-            elif i["end"] > end:
-                i["end"] = end
+        if i.end < start:
+            insert = False
+        elif i.start < start:
+            i.start = start
+
+        if i.start > end:
+            insert = False
+        elif i.end > end:
+            i.end = end
 
         if insert:
-            intervals.append(i)
+            out.append(i.toDict())
 
-    return intervals
+    return out
 
 def cutOverlaps(all, backfill=True):
-    intervals = sorted(all, key=lambda x: x["start"])
+    intervals = sorted(all, key=lambda x: x.start)
 
     if len(intervals) == 0:
         return []
@@ -167,10 +236,10 @@ def cutOverlaps(all, backfill=True):
     t = 0
 
     for interval in intervals:
-        while len(s) > 0 and s[-1]["end"] < interval["start"]:
+        while len(s) > 0 and s[-1].end < interval.start:
             # Clear all the passed events in stack.
-            t = s.pop()["end"]
-            while len(s) > 0 and s[-1]["end"] <= t:
+            t = s.pop().end
+            while len(s) > 0 and s[-1].end <= t:
                 s.pop()
 
             # If there are any events left, cut it around.
@@ -179,48 +248,46 @@ def cutOverlaps(all, backfill=True):
                 starts.append({"start": t, "ref": p})
 
         # Add the interval to starts
-        if len(starts) > 0 and interval["start"] == starts[-1]["start"]:
-            if not interval["running"]:
+        if len(starts) > 0 and interval.start == starts[-1]["start"]:
+            if not interval.id == "running":
                 starts[-1]["ref"] = interval
         else:
-            starts.append({"start": interval["start"], "ref": interval})
+            starts.append({"start": interval.start, "ref": interval})
         s.append(interval)
 
-    t = starts[-1]["ref"]["end"]
+    t = starts[-1]["ref"].end
 
     # Clear the stack.
     while len(s) > 0:
-        while len(s) > 0 and s[-1]["end"] <= t:
+        while len(s) > 0 and s[-1].end <= t:
             s.pop()
         if len(s) > 0:
             p = s.pop()
             starts.append({"start": t, "ref": p})
-            t = p["end"]
+            t = p.end
 
 
     # Convert starts to actual events.
     for i, s in enumerate(starts):
         interval = s["ref"].copy()
         istart = s["start"]
-        nextStart = starts[i+1]["start"] if i < len(starts) - 1 else interval["end"]
-        iend = min(nextStart, interval["end"])
+        nextStart = starts[i+1]["start"] if i < len(starts) - 1 else interval.end
+        iend = min(nextStart, interval.end)
 
-        interval["start"] = istart
-        interval["end"] = iend
+        interval.start = istart
+        interval.end = iend
 
 
         if backfill: 
-            if interval["start"] != s["ref"]["start"] and not (i == len(starts) - 1 and  interval["running"]):
-                res = ar["POST"]("logs", interval)
-                interval = res["data"]
-                interval["id"] = res["id"]
-            elif interval["end"] != s["ref"]["end"]:
-                if "id" in interval:
-                    ar["PATCH"]("logs/"+interval["id"], interval)
+            if interval.start != s["ref"].start and not (i == len(starts) - 1 and  interval.id == "running"):
+                res = ar.post("intervals", interval.toDict())
+                interval = Interval.fromDict(res)
+            elif interval.end != s["ref"].end:
+                if interval.id != "":
+                    ar.patch("intervals/"+interval.id, interval.toDict())
                 else:
-                   res = ar["POST"]("logs", interval)
-                   interval = res["data"]
-                   interval["id"] = res["id"]
+                   res = ar.post("intervals", interval.toDict())
+                   interval = Interval.fromDict(res)
 
         results.append(interval)
 
