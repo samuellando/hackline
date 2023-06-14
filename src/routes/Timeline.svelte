@@ -110,7 +110,7 @@
 			ctx.fillStyle = e.color;
 			ctx.fillRect(e.drawStart, 0, e.drawEnd - e.drawStart, drawHeight);
 			// Highlight the currently ohvered element
-			if (x >= e.drawStart && x <= e.drawEnd && y >= 0 && y <= drawHeight) {
+			if (curM && !drag && x >= e.drawStart && x <= e.drawEnd && y >= 0 && y <= drawHeight) {
 				ctx.strokeStyle = 'black';
 				ctx.lineWidth = 2;
 				ctx.strokeRect(
@@ -136,6 +136,13 @@
 			ctx.lineTo(width, y);
 			ctx.stroke();
 		}
+
+		if (editMode && typeof newInterval != 'undefined') {
+			ctx.fillStyle = '#00000040';
+			var n = toDrawInterval(newInterval, rangeEndM - rangeStartM, width);
+			ctx.fillRect(0, 0, n.drawStart, drawHeight);
+			ctx.fillRect(n.drawEnd, 0, width - n.drawEnd, drawHeight);
+		}
 	}
 
 	let curM: number | null = null;
@@ -143,6 +150,7 @@
 	let y = 0;
 	let drag = false;
 	let newInterval: interval;
+	let shiftHeld = false;
 	function mouseMove(event: MouseEvent) {
 		const canvas = <HTMLCanvasElement>document.getElementById('timeline');
 		const rect = canvas.getBoundingClientRect();
@@ -150,9 +158,20 @@
 		y = event.clientY - rect.top;
 		curM = (x / rect.width) * (rangeEndM - rangeStartM) + rangeStartM;
 
+		if (!event.shiftKey) {
+			shiftHeld = false;
+		}
+
 		if (drag) {
 			if (event.shiftKey) {
-				console.log('s');
+				if (!editMode || curM < newInterval.start || !shiftHeld) {
+					newInterval = { id: 'new', title: defaultTitle, start: curM, end: curM };
+					shiftHeld = true;
+					editMode = true;
+				} else {
+					newInterval.end = curM;
+				}
+				timeline = apiClient.timelinePreviewAdd(newInterval, rangeStartM, rangeEndM);
 			} else {
 				let oldS = rangeStartM;
 				let oldE = rangeEndM;
@@ -167,7 +186,11 @@
 					rangeEndM = oldE;
 					rangeStartM = oldS;
 				}
-				timeline = apiClient.getTimeline(rangeStartM, rangeEndM);
+				if (editMode) {
+					timeline = apiClient.timelinePreviewAdd(newInterval, rangeStartM, rangeEndM);
+				} else {
+					timeline = apiClient.getTimeline(rangeStartM, rangeEndM);
+				}
 			}
 		}
 
@@ -205,7 +228,12 @@
 			live = true;
 			rangeEndM = new Date().getTime();
 		}
-		timeline = apiClient.getTimeline(rangeStartM, rangeEndM);
+
+		if (editMode) {
+			timeline = apiClient.timelinePreviewAdd(newInterval, rangeStartM, rangeEndM);
+		} else {
+			timeline = apiClient.getTimeline(rangeStartM, rangeEndM);
+		}
 		drawTimeline();
 	}
 </script>
