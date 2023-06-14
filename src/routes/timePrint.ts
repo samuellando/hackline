@@ -31,7 +31,6 @@ export function durationToString(millis: number, recur = 0) {
     r += d + " " + s;
   }
   if (recur > 0) {
-    console.log(millis, d, m, d * m);
     r += " " + durationToString(millis - d * m)
   }
 

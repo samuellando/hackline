@@ -19,6 +19,7 @@
 	}
 
 	var colormap: any = {};
+	var defaultTitle: string = 'productive';
 
 	let timeline: interval[] = [];
 
@@ -26,27 +27,35 @@
 	let loading = true;
 	let editMode = false;
 	onMount(async () => {
-		let t = apiClient.getSetting('colormap');
-		if (t != null) {
-			colormap = t;
-		}
-		timeline = apiClient.getTimeline(rangeStartM, rangeEndM);
-		interval = setInterval(() => {
+		function update() {
 			let t = apiClient.getSetting('colormap');
 			if (t != null) {
 				colormap = t;
 			}
-			if (apiClient.lastChangeTimeline() != updated) {
+			t = apiClient.getSetting('default');
+			if (t != null) {
+				defaultTitle = t;
+			}
+			if (!editMode && apiClient.lastChangeTimeline() != updated) {
 				timeline = apiClient.getTimeline(rangeStartM, rangeEndM);
 				updated = apiClient.lastChangeTimeline();
 			}
+		}
+
+		interval = setInterval(() => {
 			if (live && !editMode) {
 				rangeEndM = new Date().getTime();
 			}
+			update();
+			drawTimeline();
 		}, 1000);
+
+		update();
 		loading = false;
 		drawTimeline();
 	});
+
+	timeline = apiClient.getTimeline(rangeStartM, rangeEndM);
 
 	onDestroy(() => {
 		clearInterval(interval);
@@ -61,6 +70,8 @@
 			color = colormap[i.title];
 		} else {
 			color = colorIterator.next().value;
+			colormap[i.title] = color;
+			apiClient.setSetting('colormap', colormap);
 		}
 		return {
 			title: i.title,
@@ -73,10 +84,8 @@
 		};
 	}
 
-	let x = -1;
-	let y = -1;
 	let hoveredInterval: interval | null = null;
-	function drawTimeline(event: MouseEvent | null = null) {
+	function drawTimeline() {
 		const drawHeight = 150;
 		const canvas = <HTMLCanvasElement>document.getElementById('timeline');
 		const ctx = canvas.getContext('2d');
@@ -88,10 +97,6 @@
 		const height = rect.height;
 		canvas.width = width;
 		canvas.height = height;
-		if (event) {
-			x = event.clientX - rect.left;
-			y = event.clientY - rect.top;
-		}
 
 		// Draw the default background.
 		ctx.fillStyle = '#b3b0ad';
@@ -120,7 +125,8 @@
 		});
 		if (!hovering) {
 			hoveredInterval = null;
-		} else {
+		}
+		if (curM) {
 			// draw the cursor
 			ctx.strokeStyle = 'black';
 			ctx.lineWidth = 0.25;
@@ -131,15 +137,98 @@
 			ctx.stroke();
 		}
 	}
+
+	let curM: number | null = null;
+	let x = 0;
+	let y = 0;
+	let drag = false;
+	function mouseMove(event: MouseEvent) {
+		const canvas = <HTMLCanvasElement>document.getElementById('timeline');
+		const rect = canvas.getBoundingClientRect();
+		x = event.clientX - rect.left;
+		y = event.clientY - rect.top;
+		curM = (x / rect.width) * (rangeEndM - rangeStartM) + rangeStartM;
+
+		if (drag) {
+			let oldS = rangeStartM;
+			let oldE = rangeEndM;
+			rangeStartM -= (event.movementX / rect.width) * (rangeEndM - rangeStartM);
+			rangeEndM -= (event.movementX / rect.width) * (rangeEndM - rangeStartM);
+
+			if (event.movementX > 0) {
+				live = false;
+			}
+			if (rangeEndM > new Date().getTime()) {
+				live = true;
+				rangeEndM = oldE;
+				rangeStartM = oldS;
+			}
+			timeline = apiClient.getTimeline(rangeStartM, rangeEndM);
+		}
+
+		drawTimeline();
+	}
+
+	function mouseOut() {
+		curM = null;
+		drawTimeline();
+	}
+
+	function rangeScroll(e: WheelEvent) {
+		e.preventDefault();
+		if (!curM) {
+			return;
+		}
+
+		if (e.shiftKey) {
+			if (e.deltaY > 0) {
+				live = false;
+			}
+			if (!live) {
+				rangeEndM -= e.deltaY * 100000;
+				rangeStartM -= e.deltaY * 100000;
+			}
+		} else {
+			if (e.deltaY < 0) {
+				live = false;
+			}
+			rangeEndM += ((rangeEndM - curM) / 10000) * e.deltaY;
+			rangeStartM -= ((curM - rangeStartM) / 10000) * e.deltaY;
+		}
+
+		if (rangeEndM > new Date().getTime()) {
+			live = true;
+			rangeEndM = new Date().getTime();
+		}
+		timeline = apiClient.getTimeline(rangeStartM, rangeEndM);
+		drawTimeline();
+	}
 </script>
 
 <p>
 	{#if live}LIVE{/if}
-	{#if hoveredInterval}{hoveredInterval.title}
-		{durationToString(hoveredInterval.end - hoveredInterval.start, 1)}{/if}
+	{#if hoveredInterval}
+		{hoveredInterval.title}
+		{durationToString(hoveredInterval.end - hoveredInterval.start, 1)}
+	{/if}
+	{#if curM}
+		{new Date(curM)}
+	{/if}
 </p>
 
-<canvas id="timeline" on:mousemove={drawTimeline} on:mouseout={drawTimeline} />
+<canvas
+	id="timeline"
+	on:mousemove={mouseMove}
+	on:mouseout={mouseOut}
+	on:blur={() => null}
+	on:wheel={rangeScroll}
+	on:mouseup={() => {
+		drag = false;
+	}}
+	on:mousedown={() => {
+		drag = true;
+	}}
+/>
 
 <style>
 	#timeline {
