@@ -142,6 +142,7 @@
 	let x = 0;
 	let y = 0;
 	let drag = false;
+	let newInterval: interval;
 	function mouseMove(event: MouseEvent) {
 		const canvas = <HTMLCanvasElement>document.getElementById('timeline');
 		const rect = canvas.getBoundingClientRect();
@@ -150,20 +151,24 @@
 		curM = (x / rect.width) * (rangeEndM - rangeStartM) + rangeStartM;
 
 		if (drag) {
-			let oldS = rangeStartM;
-			let oldE = rangeEndM;
-			rangeStartM -= (event.movementX / rect.width) * (rangeEndM - rangeStartM);
-			rangeEndM -= (event.movementX / rect.width) * (rangeEndM - rangeStartM);
+			if (event.shiftKey) {
+				console.log('s');
+			} else {
+				let oldS = rangeStartM;
+				let oldE = rangeEndM;
+				rangeStartM -= (event.movementX / rect.width) * (rangeEndM - rangeStartM);
+				rangeEndM -= (event.movementX / rect.width) * (rangeEndM - rangeStartM);
 
-			if (event.movementX > 0) {
-				live = false;
+				if (event.movementX > 0) {
+					live = false;
+				}
+				if (rangeEndM > new Date().getTime()) {
+					live = true;
+					rangeEndM = oldE;
+					rangeStartM = oldS;
+				}
+				timeline = apiClient.getTimeline(rangeStartM, rangeEndM);
 			}
-			if (rangeEndM > new Date().getTime()) {
-				live = true;
-				rangeEndM = oldE;
-				rangeStartM = oldS;
-			}
-			timeline = apiClient.getTimeline(rangeStartM, rangeEndM);
 		}
 
 		drawTimeline();
