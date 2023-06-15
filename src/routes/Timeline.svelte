@@ -26,25 +26,27 @@
 
 	let updated = -1;
 	let loading = true;
-	let editMode = false;
+	let addMode = false;
 	onMount(async () => {
 		function update() {
-			let t = apiClient.getSetting('colormap');
-			if (t != null) {
-				colormap = t;
-			}
-			t = apiClient.getSetting('default');
-			if (t != null) {
-				defaultTitle = t;
-			}
-			if (!editMode && apiClient.lastChangeTimeline() != updated) {
-				timeline = apiClient.getTimeline(rangeStartM, rangeEndM);
-				updated = apiClient.lastChangeTimeline();
+			if (!editMode && !addMode) {
+				let t = apiClient.getSetting('colormap');
+				if (t != null) {
+					colormap = t;
+				}
+				t = apiClient.getSetting('default');
+				if (t != null) {
+					defaultTitle = t;
+				}
+				if (apiClient.lastChangeTimeline() != updated) {
+					timeline = apiClient.getTimeline(rangeStartM, rangeEndM);
+					updated = apiClient.lastChangeTimeline();
+				}
 			}
 		}
 
 		interval = setInterval(() => {
-			if (live && !editMode) {
+			if (live && !addMode && !editMode) {
 				rangeEndM = new Date().getTime();
 			}
 			update();
@@ -64,6 +66,11 @@
 
 	var colorIterator = makeColorIterator();
 	function toDrawInterval(i: interval, duration: number, width: number): drawInterval {
+		if (editMode) {
+			if (i.id == editingInterval.id) {
+				i.title = editingInterval.title;
+			}
+		}
 		var start = ((i.start - rangeStartM) / duration) * width;
 		var end = ((i.end - rangeStartM) / duration) * width;
 		var color: string;
@@ -72,7 +79,7 @@
 		} else {
 			color = colorIterator.next().value;
 			colormap[i.title] = color;
-			if (!editMode) {
+			if (!addMode && !editMode) {
 				apiClient.setSetting('colormap', colormap);
 			}
 		}
@@ -114,6 +121,13 @@
 			ctx.fillRect(e.drawStart, 0, e.drawEnd - e.drawStart, drawHeight);
 			// Highlight the currently ohvered element
 			if (curM && !drag && x >= e.drawStart && x <= e.drawEnd && y >= 0 && y <= drawHeight) {
+				hoveredInterval = e;
+				hovering = true;
+			}
+			if (
+				(editMode && e.id == editingInterval.id) ||
+				(hoveredInterval && e.id == hoveredInterval.id && !editMode)
+			) {
 				ctx.strokeStyle = 'black';
 				ctx.lineWidth = 2;
 				ctx.strokeRect(
@@ -122,8 +136,6 @@
 					e.drawEnd - e.drawStart - ctx.lineWidth,
 					drawHeight - ctx.lineWidth
 				);
-				hoveredInterval = e;
-				hovering = true;
 			}
 		});
 		if (!hovering) {
@@ -140,7 +152,7 @@
 			ctx.stroke();
 		}
 		// Fade out the other sections on deit.
-		if (editMode) {
+		if (addMode) {
 			ctx.fillStyle = '#00000040';
 			var n = toDrawInterval(newInterval, rangeEndM - rangeStartM, width);
 			ctx.fillRect(0, 0, n.drawStart, drawHeight);
@@ -168,10 +180,11 @@
 		if (drag) {
 			if (event.shiftKey) {
 				let curMin = Math.round(curM / 60000) * 60000;
-				if (!editMode || curM < newInterval.start || !shiftHeld) {
+				if (!addMode || curM < newInterval.start || !shiftHeld) {
 					newInterval = { id: 'new', title: defaultTitle, start: curMin, end: curMin };
 					shiftHeld = true;
-					editMode = true;
+					addMode = true;
+					editMode = false;
 				} else {
 					newInterval.end = curMin;
 				}
@@ -190,7 +203,7 @@
 					rangeStartM = oldS;
 				}
 			}
-			if (editMode) {
+			if (addMode) {
 				timeline = apiClient.timelinePreviewAdd(newInterval, rangeStartM, rangeEndM);
 			} else {
 				timeline = apiClient.getTimeline(rangeStartM, rangeEndM);
@@ -231,7 +244,7 @@
 			rangeEndM = new Date().getTime();
 		}
 
-		if (editMode) {
+		if (addMode) {
 			timeline = apiClient.timelinePreviewAdd(newInterval, rangeStartM, rangeEndM);
 		} else {
 			timeline = apiClient.getTimeline(rangeStartM, rangeEndM);
@@ -239,8 +252,27 @@
 		drawTimeline();
 	}
 
+	let editMode = false;
+	let editingInterval: interval;
+	function editInterval(i: interval | null) {
+		if (i != null && !addMode && i.id != 'running') {
+			editMode = true;
+			editingInterval = i;
+			drawTimeline();
+		}
+	}
+
+	function commitEditingInterval() {
+		if (editMode && editingInterval) {
+			apiClient.timelineEdit(editingInterval);
+			editMode = false;
+			timeline = apiClient.getTimeline(rangeStartM, rangeEndM);
+		}
+	}
+
 	function addInterval() {
-		editMode = true;
+		addMode = true;
+		editMode = false;
 		let start = (rangeStartM + rangeEndM) / 2;
 		let end = start + 15 * 60 * 1000;
 		newInterval = { id: 'new', title: defaultTitle, start: start, end: end };
@@ -249,24 +281,25 @@
 	}
 
 	function commitNewInterval() {
-		if (editMode && newInterval) {
+		if (addMode && newInterval) {
 			apiClient.timelineAdd(newInterval);
-			editMode = false;
+			addMode = false;
 			timeline = apiClient.getTimeline(rangeStartM, rangeEndM);
 		}
 	}
 
 	function cancel() {
+		addMode = false;
 		editMode = false;
 		timeline = apiClient.getTimeline(rangeStartM, rangeEndM);
 		drawTimeline();
 	}
 
 	$: startDate = toDateTimeString(
-		new Date(editMode ? newInterval.start : hoveredInterval ? hoveredInterval.start : 0)
+		new Date(addMode ? newInterval.start : hoveredInterval ? hoveredInterval.start : 0)
 	);
 	$: endDate = toDateTimeString(
-		new Date(editMode ? newInterval.end : hoveredInterval ? hoveredInterval.end : 0)
+		new Date(addMode ? newInterval.end : hoveredInterval ? hoveredInterval.end : 0)
 	);
 
 	function updateStart(e: Event) {
@@ -302,17 +335,26 @@
 	on:mousedown={() => {
 		drag = true;
 	}}
+	on:click={() => {
+		editInterval(hoveredInterval);
+	}}
 />
 <p>
-	{#if !editMode}
+	{#if !addMode}
 		<button on:click={addInterval}>add</button>
 	{/if}
-	{#if editMode}
+	{#if addMode}
 		<input type="text" bind:value={newInterval.title} />
 		{durationToString(newInterval.end - newInterval.start, 1)}
 		<input type="datetime-local" value={startDate} on:change={updateStart} />
 		<input type="datetime-local" value={endDate} on:change={updateEnd} />
 		<button on:click={commitNewInterval}>add</button>
+		<button on:click={cancel}>cancel</button>
+	{:else if editMode}
+		<input type="text" bind:value={editingInterval.title} />
+		{startDate} - {endDate}
+		{durationToString(editingInterval.end - editingInterval.start, 1)}
+		<button on:click={commitEditingInterval}>edit</button>
 		<button on:click={cancel}>cancel</button>
 	{:else if hoveredInterval}
 		{hoveredInterval.title}
