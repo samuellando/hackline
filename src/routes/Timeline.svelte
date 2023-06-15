@@ -3,7 +3,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import type { ApiClient } from './Api';
 	import { makeColorIterator } from './colors';
-	import { durationToString, toDateTimeString } from './timePrint';
+	import { durationToString, toDateTimeString, getTimeDivisions } from './timePrint';
 	import { prevent_default } from 'svelte/internal';
 
 	export let rangeStartM: number;
@@ -110,7 +110,7 @@
 
 		// Draw the default background.
 		ctx.fillStyle = '#b3b0ad';
-		ctx.fillRect(0, 0, width, height);
+		ctx.fillRect(0, 0, width, drawHeight);
 
 		// Convert the timeline.
 		var drawTimeline = timeline.map((e) => toDrawInterval(e, rangeEndM - rangeStartM, width));
@@ -158,6 +158,19 @@
 			ctx.fillRect(0, 0, n.drawStart, drawHeight);
 			ctx.fillRect(n.drawEnd, 0, width - n.drawEnd, drawHeight);
 		}
+
+		let divs = getTimeDivisions(rangeStartM, rangeEndM);
+		ctx.strokeStyle = 'black';
+		ctx.fillStyle = 'black';
+		ctx.lineWidth = 1;
+		ctx.font = '15px serif';
+		divs.forEach((e: [number, string]) => {
+			let x = ((e[0] - rangeStartM) / (rangeEndM - rangeStartM)) * width;
+			ctx.moveTo(x, drawHeight);
+			ctx.lineTo(x, height);
+			ctx.fillText(e[1], x + 5, height);
+		});
+		ctx.stroke();
 	}
 
 	let curM: number | null = null;
@@ -368,7 +381,7 @@
 <style>
 	#timeline {
 		width: 100%;
-		height: 150px;
+		height: 175px;
 	}
 	#timeline:hover {
 		cursor: none;
