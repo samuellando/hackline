@@ -3,7 +3,8 @@
 	import { onMount, onDestroy } from 'svelte';
 	import type { ApiClient } from './Api';
 	import { makeColorIterator } from './colors';
-	import { durationToString } from './timePrint';
+	import { durationToString, toDateTimeString } from './timePrint';
+	import { prevent_default } from 'svelte/internal';
 
 	export let rangeStartM: number;
 	export let rangeEndM: number;
@@ -71,7 +72,9 @@
 		} else {
 			color = colorIterator.next().value;
 			colormap[i.title] = color;
-			apiClient.setSetting('colormap', colormap);
+			if (!editMode) {
+				apiClient.setSetting('colormap', colormap);
+			}
 		}
 		return {
 			title: i.title,
@@ -136,8 +139,8 @@
 			ctx.lineTo(width, y);
 			ctx.stroke();
 		}
-
-		if (editMode && typeof newInterval != 'undefined') {
+		// Fade out the other sections on deit.
+		if (editMode) {
 			ctx.fillStyle = '#00000040';
 			var n = toDrawInterval(newInterval, rangeEndM - rangeStartM, width);
 			ctx.fillRect(0, 0, n.drawStart, drawHeight);
@@ -164,14 +167,14 @@
 
 		if (drag) {
 			if (event.shiftKey) {
+				let curMin = Math.round(curM / 60000) * 60000;
 				if (!editMode || curM < newInterval.start || !shiftHeld) {
-					newInterval = { id: 'new', title: defaultTitle, start: curM, end: curM };
+					newInterval = { id: 'new', title: defaultTitle, start: curMin, end: curMin };
 					shiftHeld = true;
 					editMode = true;
 				} else {
-					newInterval.end = curM;
+					newInterval.end = curMin;
 				}
-				timeline = apiClient.timelinePreviewAdd(newInterval, rangeStartM, rangeEndM);
 			} else {
 				let oldS = rangeStartM;
 				let oldE = rangeEndM;
@@ -186,14 +189,13 @@
 					rangeEndM = oldE;
 					rangeStartM = oldS;
 				}
-				if (editMode) {
-					timeline = apiClient.timelinePreviewAdd(newInterval, rangeStartM, rangeEndM);
-				} else {
-					timeline = apiClient.getTimeline(rangeStartM, rangeEndM);
-				}
+			}
+			if (editMode) {
+				timeline = apiClient.timelinePreviewAdd(newInterval, rangeStartM, rangeEndM);
+			} else {
+				timeline = apiClient.getTimeline(rangeStartM, rangeEndM);
 			}
 		}
-
 		drawTimeline();
 	}
 
@@ -236,14 +238,53 @@
 		}
 		drawTimeline();
 	}
+
+	function addInterval() {
+		editMode = true;
+		let start = (rangeStartM + rangeEndM) / 2;
+		let end = start + 15 * 60 * 1000;
+		newInterval = { id: 'new', title: defaultTitle, start: start, end: end };
+		timeline = apiClient.timelinePreviewAdd(newInterval, rangeStartM, rangeEndM);
+		drawTimeline();
+	}
+
+	function commitNewInterval() {
+		if (editMode && newInterval) {
+			apiClient.timelineAdd(newInterval);
+			editMode = false;
+			timeline = apiClient.getTimeline(rangeStartM, rangeEndM);
+		}
+	}
+
+	function cancel() {
+		editMode = false;
+		timeline = apiClient.getTimeline(rangeStartM, rangeEndM);
+		drawTimeline();
+	}
+
+	$: startDate = toDateTimeString(
+		new Date(editMode ? newInterval.start : hoveredInterval ? hoveredInterval.start : 0)
+	);
+	$: endDate = toDateTimeString(
+		new Date(editMode ? newInterval.end : hoveredInterval ? hoveredInterval.end : 0)
+	);
+
+	function updateStart(e: Event) {
+		let t = e.target as HTMLInputElement;
+		newInterval.start = Date.parse(t.value);
+		timeline = apiClient.timelinePreviewAdd(newInterval, rangeStartM, rangeEndM);
+		drawTimeline();
+	}
+	function updateEnd(e: Event) {
+		let t = e.target as HTMLInputElement;
+		newInterval.end = Date.parse(t.value);
+		timeline = apiClient.timelinePreviewAdd(newInterval, rangeStartM, rangeEndM);
+		drawTimeline();
+	}
 </script>
 
 <p>
 	{#if live}LIVE{/if}
-	{#if hoveredInterval}
-		{hoveredInterval.title}
-		{durationToString(hoveredInterval.end - hoveredInterval.start, 1)}
-	{/if}
 	{#if curM}
 		{new Date(curM)}
 	{/if}
@@ -262,6 +303,25 @@
 		drag = true;
 	}}
 />
+<p>
+	{#if !editMode}
+		<button on:click={addInterval}>add</button>
+	{/if}
+	{#if editMode}
+		<input type="text" bind:value={newInterval.title} />
+		{durationToString(newInterval.end - newInterval.start, 1)}
+		<input type="datetime-local" value={startDate} on:change={updateStart} />
+		<input type="datetime-local" value={endDate} on:change={updateEnd} />
+		<button on:click={commitNewInterval}>add</button>
+		<button on:click={cancel}>cancel</button>
+	{:else if hoveredInterval}
+		{hoveredInterval.title}
+		{startDate} - {endDate}
+		{durationToString(hoveredInterval.end - hoveredInterval.start, 1)}
+	{:else}
+		&nbsp;
+	{/if}
+</p>
 
 <style>
 	#timeline {

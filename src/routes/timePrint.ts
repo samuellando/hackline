@@ -37,3 +37,13 @@ export function durationToString(millis: number, recur = 0) {
   return r;
 }
 
+export function toDateTimeString(now: Date) {
+  let month = '' + (now.getMonth() + 1);
+  let day = '' + now.getDate();
+  let year = now.getFullYear();
+
+  if (month.length < 2) month = '0' + month;
+  if (day.length < 2) day = '0' + day;
+
+  return [year, month, day].join('-') + 'T' + now.toLocaleTimeString();
+}
