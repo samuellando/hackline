@@ -43,7 +43,7 @@ export function durationToString(millis: number, recur = 0) {
   return r;
 }
 
-export function toDateTimeString(now: Date) {
+export function toDateTimeString(now: number) {
   return moment(now).format(moment.HTML5_FMT.DATETIME_LOCAL);
 }
 

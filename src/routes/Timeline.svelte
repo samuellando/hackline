@@ -19,27 +19,16 @@
 		drawEnd: number;
 	}
 
-	var colormap: any = {};
-	var defaultTitle: string = 'productive';
-
-	let timeline: interval[] = [];
-
 	let updated = -1;
 	let loading = true;
 	let addMode = false;
+	let editMode = false;
+	let colorIterator = makeColorIterator();
 	onMount(async () => {
 		function update() {
 			if (!editMode && !addMode) {
-				let t = apiClient.getSetting('colormap');
-				if (t != null) {
-					colormap = t;
-				}
-				t = apiClient.getSetting('default');
-				if (t != null) {
-					defaultTitle = t;
-				}
 				if (apiClient.lastChangeTimeline() != updated) {
-					timeline = apiClient.getTimeline(rangeStartM, rangeEndM);
+					drawTimeline();
 					updated = apiClient.lastChangeTimeline();
 				}
 			}
@@ -50,45 +39,45 @@
 				rangeEndM = new Date().getTime();
 			}
 			update();
-			drawTimeline();
 		}, 1000);
 
 		update();
 		loading = false;
-		drawTimeline();
 	});
-
-	timeline = apiClient.getTimeline(rangeStartM, rangeEndM);
 
 	onDestroy(() => {
 		clearInterval(interval);
 	});
 
-	var colorIterator = makeColorIterator();
 	function toDrawInterval(i: interval, duration: number, width: number): drawInterval {
-		if (editMode) {
-			if (i.id == editingInterval.id) {
-				i.title = editingInterval.title;
-			}
-		}
-		var start = ((i.start - rangeStartM) / duration) * width;
-		var end = ((i.end - rangeStartM) / duration) * width;
-		var color: string;
-		if (i.title in colormap) {
-			color = colormap[i.title];
+		let color: string;
+		let colormap: { [k: string]: string } = {};
+		if ('color' in i) {
+			color = (i as drawInterval).color;
 		} else {
-			color = colorIterator.next().value;
-			colormap[i.title] = color;
-			if (!addMode && !editMode) {
-				apiClient.setSetting('colormap', colormap);
+			colormap = apiClient.getSetting('colormap');
+			if (colormap == null) {
+				colormap = {};
+			}
+			if (i.title in colormap) {
+				color = colormap[i.title];
+			} else {
+				color = colorIterator.next().value;
 			}
 		}
+		if (!addMode && !editMode && !(i.title in colormap)) {
+			colormap[i.title] = color;
+			apiClient.setSetting('colormap', colormap);
+		}
+
+		var startPx = ((i.start - rangeStartM) / duration) * width;
+		var endPx = ((i.end - rangeStartM) / duration) * width;
 		return {
 			title: i.title,
 			start: i.start,
 			end: i.end,
-			drawStart: start,
-			drawEnd: end,
+			drawStart: startPx,
+			drawEnd: endPx,
 			color: color,
 			id: i.id
 		};
@@ -96,6 +85,22 @@
 
 	let hoveredInterval: interval | null = null;
 	function drawTimeline() {
+		// Get the timeline, and edit it depending on the state.
+		let timeline: interval[];
+		if (addMode) {
+			timeline = apiClient.timelinePreviewAdd(newInterval, rangeStartM, rangeEndM);
+		} else {
+			timeline = apiClient.getTimeline(rangeStartM, rangeEndM);
+			if (editMode) {
+				for (let i = 0; i < timeline.length; i++) {
+					if (timeline[i].id == editingInterval.id) {
+						timeline[i] = editingInterval;
+						break;
+					}
+				}
+			}
+		}
+
 		const drawHeight = 150;
 		const canvas = <HTMLCanvasElement>document.getElementById('timeline');
 		const ctx = canvas.getContext('2d');
@@ -141,7 +146,9 @@
 		if (!hovering) {
 			hoveredInterval = null;
 		}
-		if (curM) {
+
+		// draw the cursor.
+		if (x >= 0 && x <= width && y > 0 && y <= drawHeight) {
 			// draw the cursor
 			ctx.strokeStyle = 'black';
 			ctx.lineWidth = 0.25;
@@ -151,14 +158,14 @@
 			ctx.lineTo(width, y);
 			ctx.stroke();
 		}
-		// Fade out the other sections on deit.
+		// Fade out the other sections on add.
 		if (addMode) {
 			ctx.fillStyle = '#00000040';
 			var n = toDrawInterval(newInterval, rangeEndM - rangeStartM, width);
 			ctx.fillRect(0, 0, n.drawStart, drawHeight);
 			ctx.fillRect(n.drawEnd, 0, width - n.drawEnd, drawHeight);
 		}
-
+		// x-axis
 		let divs = getTimeDivisions(rangeStartM, rangeEndM);
 		ctx.strokeStyle = 'black';
 		ctx.fillStyle = 'black';
@@ -168,17 +175,16 @@
 			let x = ((e[0] - rangeStartM) / (rangeEndM - rangeStartM)) * width;
 			ctx.moveTo(x, drawHeight);
 			ctx.lineTo(x, height);
-			ctx.fillText(e[1], x + 5, height);
+			ctx.fillText(e[1], x + 5, height - 5);
 		});
 		ctx.stroke();
 	}
 
 	let curM: number | null = null;
-	let x = 0;
-	let y = 0;
 	let drag = false;
-	let newInterval: interval;
 	let shiftHeld = false;
+	let x: number = -1;
+	let y: number = -1;
 	function mouseMove(event: MouseEvent) {
 		const canvas = <HTMLCanvasElement>document.getElementById('timeline');
 		const rect = canvas.getBoundingClientRect();
@@ -194,7 +200,7 @@
 			if (event.shiftKey) {
 				let curMin = Math.round(curM / 60000) * 60000;
 				if (!addMode || curM < newInterval.start || !shiftHeld) {
-					newInterval = { id: 'new', title: defaultTitle, start: curMin, end: curMin };
+					addInterval(curMin, curMin);
 					shiftHeld = true;
 					addMode = true;
 					editMode = false;
@@ -216,11 +222,6 @@
 					rangeStartM = oldS;
 				}
 			}
-			if (addMode) {
-				timeline = apiClient.timelinePreviewAdd(newInterval, rangeStartM, rangeEndM);
-			} else {
-				timeline = apiClient.getTimeline(rangeStartM, rangeEndM);
-			}
 		}
 		drawTimeline();
 	}
@@ -241,8 +242,8 @@
 				live = false;
 			}
 			if (!live) {
-				rangeEndM -= e.deltaY * 100000;
-				rangeStartM -= e.deltaY * 100000;
+				rangeEndM -= e.deltaY * 10000;
+				rangeStartM -= e.deltaY * 10000;
 			}
 		} else {
 			if (e.deltaY < 0) {
@@ -257,74 +258,108 @@
 			rangeEndM = new Date().getTime();
 		}
 
-		if (addMode) {
-			timeline = apiClient.timelinePreviewAdd(newInterval, rangeStartM, rangeEndM);
-		} else {
-			timeline = apiClient.getTimeline(rangeStartM, rangeEndM);
-		}
 		drawTimeline();
 	}
 
-	let editMode = false;
-	let editingInterval: interval;
+	function previewToDrawInterval(i: interval) {
+		let color: string;
+		let colormap = apiClient.getSetting('colormap') || {};
+		if (i.title in colormap) {
+			color = colormap[i.title];
+		} else if (!('color' in i)) {
+			color = colorIterator.next().value;
+		} else {
+			color = (i as drawInterval).color;
+			for (let k in colormap) {
+				if (color == colormap[k]) {
+					color = colorIterator.next().value;
+				}
+			}
+		}
+
+		return {
+			id: i.id,
+			title: i.title,
+			start: i.start,
+			end: i.end,
+			drawStart: -1,
+			drawEnd: -1,
+			color: color
+		};
+	}
+
+	let editingInterval: drawInterval;
 	function editInterval(i: interval | null) {
 		if (i != null && !addMode && i.id != 'running') {
 			editMode = true;
-			editingInterval = i;
+			editingInterval = previewToDrawInterval(i);
 			drawTimeline();
 		}
+	}
+
+	function updateEditingInterval(e: Event) {
+		let t = e.target as HTMLInputElement;
+		editingInterval.title = t.value;
+		editingInterval = previewToDrawInterval(editingInterval);
+
+		drawTimeline();
 	}
 
 	function commitEditingInterval() {
 		if (editMode && editingInterval) {
 			apiClient.timelineEdit(editingInterval);
+			let colormap = apiClient.getSetting('colormap') || {};
+			colormap[editingInterval.title] = editingInterval.color;
+			apiClient.setSetting('colormap', colormap);
 			editMode = false;
-			timeline = apiClient.getTimeline(rangeStartM, rangeEndM);
+			drawTimeline();
 		}
 	}
 
-	function addInterval() {
+	let newInterval: drawInterval;
+	function addInterval(start: number = -1, end: number = -1) {
+		let defaultTitle = apiClient.getSetting('defaultTitle') || 'productive';
+		newInterval = previewToDrawInterval({ id: 'new', title: defaultTitle, start: start, end: end });
 		addMode = true;
 		editMode = false;
-		let start = (rangeStartM + rangeEndM) / 2;
-		let end = start + 15 * 60 * 1000;
-		newInterval = { id: 'new', title: defaultTitle, start: start, end: end };
-		timeline = apiClient.timelinePreviewAdd(newInterval, rangeStartM, rangeEndM);
+		start = start >= 0 ? start : (rangeStartM + rangeEndM) / 2;
+		end = end >= start ? end : start + 15 * 60 * 1000;
 		drawTimeline();
 	}
 
 	function commitNewInterval() {
 		if (addMode && newInterval) {
 			apiClient.timelineAdd(newInterval);
+			let colormap = apiClient.getSetting('colormap') || {};
+			colormap[newInterval.title] = newInterval.color;
+			apiClient.setSetting('colormap', colormap);
 			addMode = false;
-			timeline = apiClient.getTimeline(rangeStartM, rangeEndM);
+			drawTimeline();
 		}
+	}
+
+	function updateTitle(e: Event) {
+		let t = e.target as HTMLInputElement;
+		newInterval.title = t.value;
+		newInterval = previewToDrawInterval(newInterval);
+		drawTimeline();
+	}
+
+	function updateStart(e: Event) {
+		let t = e.target as HTMLInputElement;
+		newInterval.start = Date.parse(t.value);
+		drawTimeline();
+	}
+
+	function updateEnd(e: Event) {
+		let t = e.target as HTMLInputElement;
+		newInterval.end = Date.parse(t.value);
+		drawTimeline();
 	}
 
 	function cancel() {
 		addMode = false;
 		editMode = false;
-		timeline = apiClient.getTimeline(rangeStartM, rangeEndM);
-		drawTimeline();
-	}
-
-	$: startDate = toDateTimeString(
-		new Date(addMode ? newInterval.start : hoveredInterval ? hoveredInterval.start : 0)
-	);
-	$: endDate = toDateTimeString(
-		new Date(addMode ? newInterval.end : hoveredInterval ? hoveredInterval.end : 0)
-	);
-
-	function updateStart(e: Event) {
-		let t = e.target as HTMLInputElement;
-		newInterval.start = Date.parse(t.value);
-		timeline = apiClient.timelinePreviewAdd(newInterval, rangeStartM, rangeEndM);
-		drawTimeline();
-	}
-	function updateEnd(e: Event) {
-		let t = e.target as HTMLInputElement;
-		newInterval.end = Date.parse(t.value);
-		timeline = apiClient.timelinePreviewAdd(newInterval, rangeStartM, rangeEndM);
 		drawTimeline();
 	}
 </script>
@@ -334,6 +369,7 @@
 	{#if curM}
 		{new Date(curM)}
 	{/if}
+	&nbsp;
 </p>
 
 <canvas
@@ -353,25 +389,29 @@
 	}}
 />
 <p>
-	{#if !addMode}
-		<button on:click={addInterval}>add</button>
+	{#if !addMode || editMode}
+		<button on:click={() => addInterval()}>add</button>
 	{/if}
 	{#if addMode}
-		<input type="text" bind:value={newInterval.title} />
+		<input type="text" value={newInterval.title} on:input={updateTitle} />
 		{durationToString(newInterval.end - newInterval.start, 1)}
-		<input type="datetime-local" value={startDate} on:change={updateStart} />
-		<input type="datetime-local" value={endDate} on:change={updateEnd} />
+		<input
+			type="datetime-local"
+			value={toDateTimeString(newInterval.start)}
+			on:change={updateStart}
+		/>
+		<input type="datetime-local" value={toDateTimeString(newInterval.end)} on:change={updateEnd} />
 		<button on:click={commitNewInterval}>add</button>
 		<button on:click={cancel}>cancel</button>
 	{:else if editMode}
-		<input type="text" bind:value={editingInterval.title} />
-		{startDate} - {endDate}
+		<input type="text" value={editingInterval.title} on:input={updateEditingInterval} />
+		{toDateTimeString(editingInterval.start)} - {toDateTimeString(editingInterval.end)}
 		{durationToString(editingInterval.end - editingInterval.start, 1)}
 		<button on:click={commitEditingInterval}>edit</button>
 		<button on:click={cancel}>cancel</button>
 	{:else if hoveredInterval}
 		{hoveredInterval.title}
-		{startDate} - {endDate}
+		{toDateTimeString(hoveredInterval.start)} - {toDateTimeString(hoveredInterval.end)}
 		{durationToString(hoveredInterval.end - hoveredInterval.start, 1)}
 	{:else}
 		&nbsp;
