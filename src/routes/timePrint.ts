@@ -44,24 +44,21 @@ export function durationToString(millis: number, recur = 0) {
 }
 
 export function toDateTimeString(now: Date) {
-  let month = '' + (now.getMonth() + 1);
-  let day = '' + now.getDate();
-  let year = now.getFullYear();
-
-  if (month.length < 2) month = '0' + month;
-  if (day.length < 2) day = '0' + day;
-
-  return [year, month, day].join('-') + 'T' + now.toLocaleTimeString();
+  return moment(now).format(moment.HTML5_FMT.DATETIME_LOCAL);
 }
 
-export function makeStepIterator(start: number, end: number, step: number): Iterator<moment.Moment> {
+export function makeStepIterator(start: number, end: number, step: number, unit: moment.unitOfTime.DurationConstructor): Iterator<moment.Moment> {
   // Align on to midnigth.
   let s = moment(start);
   let e = moment(end);
   let next = moment(start);
-  next.startOf('day');
+  if (moment.duration(step, unit).asMilliseconds() > DAY) {
+    next.startOf('year');
+  } else {
+    next.startOf('day');
+  }
   while (next < s) {
-    next.add(step);
+    next.add(step, unit);
   }
 
   const rangeIterator = {
@@ -70,7 +67,7 @@ export function makeStepIterator(start: number, end: number, step: number): Iter
       let value = next.clone();
       if (next < e) {
         done = false;
-        next.add(step);
+        next.add(step, unit);
       }
       return { value: value, done: done };
     },
@@ -78,26 +75,31 @@ export function makeStepIterator(start: number, end: number, step: number): Iter
   return rangeIterator;
 }
 
-let bounds: [number, Function][] = [
-  [MINUTE, makeStepIterator],
-  [10 * MINUTE, makeStepIterator],
-  [30 * MINUTE, makeStepIterator],
-  [HOUR, makeStepIterator],
-  [6 * HOUR, makeStepIterator],
-  [12 * HOUR, makeStepIterator],
-  [DAY, makeStepIterator],
-  [WEEK, makeStepIterator]
-  /*(MONTH),
-  (6 * MONTH),
-  (YEAR, )*/
+let bounds: [number, number, moment.unitOfTime.DurationConstructor][] = [
+  [MINUTE, 1, 'minutes'],
+  [5 * MINUTE, 5, 'minutes'],
+  [15 * MINUTE, 15, 'minutes'],
+  [30 * MINUTE, 30, 'minutes'],
+  [HOUR, 1, 'hours'],
+  [2 * HOUR, 2, 'hours'],
+  [3 * HOUR, 3, 'hours'],
+  [6 * HOUR, 6, 'hours'],
+  [12 * HOUR, 12, 'hours'],
+  [DAY, 1, 'days'],
+  [3 * DAY, 3, 'days'],
+  [WEEK, 1, 'weeks'],
+  [MONTH, 1, 'months'],
+  [3 * MONTH, 3, 'months'],
+  [6 * MONTH, 6, 'months'],
+  [YEAR, 1, 'years']
 ]
 
 export function getTimeDivisions(start: number, end: number): [number, string][] {
-  let itterator;
+  let itterator = makeStepIterator(start, end, 1, "minutes");
   let duration = end - start;
   for (let i = bounds.length - 1; i < bounds.length; i--) {
-    if (duration >= 3 * bounds[i][0]) {
-      itterator = bounds[i][1](start, end, bounds[i][0])
+    if (duration >= 6 * bounds[i][0]) {
+      itterator = makeStepIterator(start, end, bounds[i][1], bounds[i][2]);
       break;
     }
   }
@@ -105,7 +107,18 @@ export function getTimeDivisions(start: number, end: number): [number, string][]
   let a: [number, string][] = []
   while (!v.done) {
     let m = v.value;
-    let s = m.hour() == 0 && m.minute() == 0 ? m.format("MMM D") : m.format("HH:mm");
+    let s;
+    if (m.hour() == 0 && m.minute() == 0) {
+      s = m.format("MMM")
+      if (m.date() == 1) {
+        s += " " + m.format("YYYY");
+      } else {
+        s += " " + m.format("D")
+      }
+    } else {
+      s = m.format("HH:mm");
+    }
+
     a.push([m.valueOf(), s]);
     v = itterator.next();
   }
