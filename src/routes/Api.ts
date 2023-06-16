@@ -368,7 +368,6 @@ export class ApiClient extends BaseClient {
     let timeline = this.getTimeline(start, end);
     for (let i = 0; i < timeline.length; i++) {
       let e = timeline[i];
-      console.log(e, log);
       /*
        * 0 0 0 0 => nothing
        * 0 1 0 0 => Move end to log.start.

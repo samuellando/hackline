@@ -1,93 +1,47 @@
 <script lang="ts">
-	import type { log } from './types';
+	import type { interval } from './types';
 	import { onMount, onDestroy } from 'svelte';
 	import type { ApiClient } from './Api';
 	import { makeColorIterator } from './colors';
+	import { durationToString, toDateTimeString, getTimeDivisions } from './timePrint';
+	import { prevent_default } from 'svelte/internal';
 
-	export let logs: log[] = [];
-	export let rangeStartM: number = new Date().getTime() - 24 * 60 * 60 * 1000;
-	export let rangeEndM: number = new Date().getTime();
+	export let rangeStartM: number;
+	export let rangeEndM: number;
+	export let live: boolean;
 	export var apiClient: ApiClient;
+
 	var interval: ReturnType<typeof setInterval>;
 
-	interface timelineLog extends log {
+	interface drawInterval extends interval {
 		color: string;
-		percent: number;
-		draw: boolean;
+		drawStart: number;
+		drawEnd: number;
 	}
 
-	var colormap: any = {};
-	var syncing: any = {};
-
-	let timeline: timelineLog[] = [];
-
-	function getTimeline(logs: log[], rangeStart = rangeStartM, rangeEnd = rangeEndM) {
-		if (loading) {
-			return logs;
-		}
-		if (typeof apiClient !== 'undefined') {
-			if (editMode) {
-				logs = apiClient.timelinePreviewAdd(n, rangeStart, rangeEnd);
-			} else {
-				logs = apiClient.getTimeline(rangeStart, rangeEnd);
-			}
-		}
-		var total = rangeEnd - rangeStart;
-
-		var colors = makeColorIterator();
-
-		return logs.map((e) => {
-			if (!(e.title in colormap)) {
-				colormap[e.title] = colors.next().value;
-				apiClient.setSetting('colormap', colormap);
-			}
-			e.color = colormap[e.title];
-
-			var start;
-			var end;
-			if (e.start < rangeStart) {
-				start = rangeStart;
-			} else {
-				start = e.start;
-			}
-			if (e.end > rangeEnd) {
-				end = rangeEnd;
-			} else {
-				end = e.end;
-			}
-
-			e.draw = start < end;
-
-			e.percent = ((end - start) / total) * 100;
-			return e;
-		}) as timelineLog[];
-	}
-
-	$: timeline = getTimeline(logs, rangeStartM, rangeEndM);
-
-	var updated = -1;
-
-	var loading = true;
+	let updated = -1;
+	let loading = true;
+	let addMode = false;
+	let editMode = false;
+	let colorIterator = makeColorIterator();
 	onMount(async () => {
-		let t = apiClient.getSetting('colormap');
-		if (t != null) {
-			colormap = t;
+		function update() {
+			if (!editMode && !addMode) {
+				if (apiClient.lastChangeTimeline() != updated) {
+					drawTimeline();
+					updated = apiClient.lastChangeTimeline();
+				}
+			}
 		}
-		logs = apiClient.getTimeline(rangeStartM, rangeEndM);
+
 		interval = setInterval(() => {
-			let t = apiClient.getSetting('colormap');
-			if (t != null) {
-				colormap = t;
-			}
-			syncing = apiClient.getSyncing();
-			if (apiClient.lastChangeTimeline() != updated) {
-				logs = apiClient.getTimeline(rangeStartM, rangeEndM);
-				updated = apiClient.lastChangeTimeline();
-			}
-			if (live && !editMode) {
+			if (live && !addMode && !editMode) {
 				rangeEndM = new Date().getTime();
 			}
+			update();
 		}, 1000);
+
+		update();
 		loading = false;
 	});
 
@@ -95,204 +49,381 @@
 		clearInterval(interval);
 	});
 
-	var curM = rangeStartM + (rangeEndM - rangeStartM) / 2;
-	function rangeScroll(e: WheelEvent) {
-		e.preventDefault();
-		if (editMode && e.shiftKey) return;
-
-		if (e.deltaY < 0) {
-			live = false;
-		}
-
-		rangeEndM += ((rangeEndM - curM) / 1000) * e.deltaY;
-		if (rangeEndM > new Date().getTime()) {
-			live = true;
-			rangeEndM = new Date().getTime();
-		}
-		rangeStartM -= ((curM - rangeStartM) / 1000) * e.deltaY;
-		if (rangeStartM < timeline[0].start) {
-			//rangeStartM = timeline[0].start;
-		}
-
-		if (editMode) {
-			timeline = getTimeline(logs);
+	function toDrawInterval(i: interval, duration: number, width: number): drawInterval {
+		let color: string;
+		let colormap: { [k: string]: string } = {};
+		if ('color' in i) {
+			color = (i as drawInterval).color;
 		} else {
-			timeline = getTimeline(logs);
+			colormap = apiClient.getSetting('colormap');
+			if (colormap == null) {
+				colormap = {};
+			}
+			if (i.title in colormap) {
+				color = colormap[i.title];
+			} else {
+				color = colorIterator.next().value;
+			}
 		}
+		if (!addMode && !editMode && !(i.title in colormap)) {
+			colormap[i.title] = color;
+			apiClient.setSetting('colormap', colormap);
+		}
+
+		var startPx = ((i.start - rangeStartM) / duration) * width;
+		var endPx = ((i.end - rangeStartM) / duration) * width;
+		return {
+			title: i.title,
+			start: i.start,
+			end: i.end,
+			drawStart: startPx,
+			drawEnd: endPx,
+			color: color,
+			id: i.id
+		};
 	}
 
-	let drag = false;
-	export let live = false;
-	function rangeHover(e: MouseEvent) {
-		e.preventDefault();
-		let t = e.currentTarget as HTMLElement;
-		if (t != null) {
-			let x = e.pageX - t.offsetLeft;
-			curM = rangeStartM + (rangeEndM - rangeStartM) * (x / t.offsetWidth);
-
-			if (editMode && e.shiftKey) {
-				if (drag) {
-					n.end = curM + 600000;
-					n.duration = n.end - n.start;
-				} else {
-					n.end = curM + 600000;
-					n.start = n.end - n.duration;
-				}
-				timeline = getTimeline(logs);
-			} else {
-				if (drag) {
-					let oldS = rangeStartM;
-					let oldE = rangeEndM;
-					rangeStartM -= (e.movementX / t.offsetWidth) * (rangeEndM - rangeStartM);
-					rangeEndM -= (e.movementX / t.offsetWidth) * (rangeEndM - rangeStartM);
-
-					if (e.movementX > 0) {
-						live = false;
-					}
-					if (rangeEndM > new Date().getTime()) {
-						live = true;
-						rangeEndM = oldE;
-						rangeStartM = oldS;
-					}
-					if (rangeStartM < timeline[0].start) {
-						//rangeEndM = oldE;
-						//rangeStartM = oldS;
-					}
-					if (editMode) {
-						timeline = getTimeline(logs);
-					} else {
-						timeline = getTimeline(logs);
+	let hoveredInterval: interval | null = null;
+	function drawTimeline() {
+		// Get the timeline, and edit it depending on the state.
+		let timeline: interval[];
+		if (addMode) {
+			timeline = apiClient.timelinePreviewAdd(newInterval, rangeStartM, rangeEndM);
+		} else {
+			timeline = apiClient.getTimeline(rangeStartM, rangeEndM);
+			if (editMode) {
+				for (let i = 0; i < timeline.length; i++) {
+					if (timeline[i].id == editingInterval.id) {
+						timeline[i] = editingInterval;
+						break;
 					}
 				}
 			}
 		}
+
+		const drawHeight = 150;
+		const canvas = <HTMLCanvasElement>document.getElementById('timeline');
+		const ctx = canvas.getContext('2d');
+		if (ctx == null) {
+			return;
+		}
+		const rect = canvas.getBoundingClientRect();
+		const width = rect.width;
+		const height = rect.height;
+		canvas.width = width;
+		canvas.height = height;
+
+		// Draw the default background.
+		ctx.fillStyle = '#b3b0ad';
+		ctx.fillRect(0, 0, width, drawHeight);
+
+		// Convert the timeline.
+		var drawTimeline = timeline.map((e) => toDrawInterval(e, rangeEndM - rangeStartM, width));
+		// Draw the timeline
+		let hovering = false;
+		drawTimeline.forEach((e) => {
+			ctx.fillStyle = e.color;
+			ctx.fillRect(e.drawStart, 0, e.drawEnd - e.drawStart, drawHeight);
+			// Highlight the currently ohvered element
+			if (curM && !drag && x >= e.drawStart && x <= e.drawEnd && y >= 0 && y <= drawHeight) {
+				hoveredInterval = e;
+				hovering = true;
+			}
+			if (
+				(editMode && e.id == editingInterval.id) ||
+				(hoveredInterval && e.id == hoveredInterval.id && !editMode)
+			) {
+				ctx.strokeStyle = 'black';
+				ctx.lineWidth = 2;
+				ctx.strokeRect(
+					e.drawStart + ctx.lineWidth / 2,
+					ctx.lineWidth / 2,
+					e.drawEnd - e.drawStart - ctx.lineWidth,
+					drawHeight - ctx.lineWidth
+				);
+			}
+		});
+		if (!hovering) {
+			hoveredInterval = null;
+		}
+
+		// draw the cursor.
+		if (x >= 0 && x <= width && y > 0 && y <= drawHeight) {
+			// draw the cursor
+			ctx.strokeStyle = 'black';
+			ctx.lineWidth = 0.25;
+			ctx.moveTo(x, 0);
+			ctx.lineTo(x, drawHeight);
+			ctx.moveTo(0, y);
+			ctx.lineTo(width, y);
+			ctx.stroke();
+		}
+		// Fade out the other sections on add.
+		if (addMode) {
+			ctx.fillStyle = '#00000040';
+			var n = toDrawInterval(newInterval, rangeEndM - rangeStartM, width);
+			ctx.fillRect(0, 0, n.drawStart, drawHeight);
+			ctx.fillRect(n.drawEnd, 0, width - n.drawEnd, drawHeight);
+		}
+		// x-axis
+		let divs = getTimeDivisions(rangeStartM, rangeEndM);
+		ctx.strokeStyle = 'black';
+		ctx.fillStyle = 'black';
+		ctx.lineWidth = 1;
+		ctx.font = '15px serif';
+		divs.forEach((e: [number, string]) => {
+			let x = ((e[0] - rangeStartM) / (rangeEndM - rangeStartM)) * width;
+			ctx.moveTo(x, drawHeight);
+			ctx.lineTo(x, height);
+			ctx.fillText(e[1], x + 5, height - 5);
+		});
+		ctx.stroke();
 	}
 
-	function durationToString(millis: number) {
-		function round(value: number, precision: number) {
-			var multiplier = Math.pow(10, precision || 0);
-			return Math.round(value * multiplier) / multiplier;
+	let curM: number | null = null;
+	let drag = false;
+	let shiftHeld = false;
+	let x: number = -1;
+	let y: number = -1;
+	function mouseMove(event: MouseEvent) {
+		const canvas = <HTMLCanvasElement>document.getElementById('timeline');
+		const rect = canvas.getBoundingClientRect();
+		x = event.clientX - rect.left;
+		y = event.clientY - rect.top;
+		curM = (x / rect.width) * (rangeEndM - rangeStartM) + rangeStartM;
+
+		if (!event.shiftKey) {
+			shiftHeld = false;
 		}
-		let d = millis;
-		if (d < 1000) {
-			return d + ' millis';
-		} else {
-			d = round(d / 1000, 1);
+
+		if (drag) {
+			if (event.shiftKey) {
+				let curMin = Math.round(curM / 60000) * 60000;
+				if (!addMode || curM < newInterval.start || !shiftHeld) {
+					addInterval(curMin, curMin);
+					shiftHeld = true;
+					addMode = true;
+					editMode = false;
+				} else {
+					newInterval.end = curMin;
+				}
+			} else {
+				let oldS = rangeStartM;
+				let oldE = rangeEndM;
+				rangeStartM -= (event.movementX / rect.width) * (rangeEndM - rangeStartM);
+				rangeEndM -= (event.movementX / rect.width) * (rangeEndM - rangeStartM);
+
+				if (event.movementX > 0) {
+					live = false;
+				}
+				if (rangeEndM > new Date().getTime()) {
+					live = true;
+					rangeEndM = oldE;
+					rangeStartM = oldS;
+				}
+			}
 		}
-		if (d < 60) {
-			return d + ' secs';
-		} else {
-			d = round(d / 60, 1);
-		}
-		if (d < 60) {
-			return d + ' mins';
-		} else {
-			d = round(d / 60, 1);
-		}
-		if (d < 24) {
-			return d + ' hours';
-		} else {
-			d = round(d / 24, 1);
-			return d + ' days';
-		}
+		drawTimeline();
 	}
 
-	var editMode = false;
-	var oldLogs: log[];
-	var n: log;
-	function add() {
-		// Create an event right in the middle of the timeline.
-		n = {
-			title: 'default',
-			start: rangeStartM + (rangeEndM - rangeStartM) / 2,
-			end: rangeStartM + (rangeEndM - rangeStartM) / 2 + 15 * 60 * 1000,
-			duration: 15 * 60 * 1000,
-			id: 'new'
+	function mouseOut() {
+		curM = null;
+		drawTimeline();
+	}
+
+	function rangeScroll(e: WheelEvent) {
+		e.preventDefault();
+		if (!curM) {
+			return;
+		}
+
+		if (e.shiftKey) {
+			if (e.deltaY > 0) {
+				live = false;
+			}
+			if (!live) {
+				rangeEndM -= e.deltaY * 10000;
+				rangeStartM -= e.deltaY * 10000;
+			}
+		} else {
+			if (e.deltaY < 0) {
+				live = false;
+			}
+			rangeEndM += ((rangeEndM - curM) / 10000) * e.deltaY;
+			rangeStartM -= ((curM - rangeStartM) / 10000) * e.deltaY;
+		}
+
+		if (rangeEndM > new Date().getTime()) {
+			live = true;
+			rangeEndM = new Date().getTime();
+		}
+
+		drawTimeline();
+	}
+
+	function previewToDrawInterval(i: interval) {
+		let color: string;
+		let colormap = apiClient.getSetting('colormap') || {};
+		if (i.title in colormap) {
+			color = colormap[i.title];
+		} else if (!('color' in i)) {
+			color = colorIterator.next().value;
+		} else {
+			color = (i as drawInterval).color;
+			for (let k in colormap) {
+				if (color == colormap[k]) {
+					color = colorIterator.next().value;
+				}
+			}
+		}
+
+		return {
+			id: i.id,
+			title: i.title,
+			start: i.start,
+			end: i.end,
+			drawStart: -1,
+			drawEnd: -1,
+			color: color
 		};
-		editMode = true;
-		timeline = getTimeline(logs, rangeStartM, rangeEndM);
 	}
 
-	function save() {
-		apiClient.timelineAdd(n);
+	let editingInterval: drawInterval;
+	function editInterval(i: interval | null) {
+		if (i != null && !addMode && i.id != 'running') {
+			editMode = true;
+			editingInterval = previewToDrawInterval(i);
+			drawTimeline();
+		}
+	}
+
+	function updateEditingInterval(e: Event) {
+		let t = e.target as HTMLInputElement;
+		editingInterval.title = t.value;
+		editingInterval = previewToDrawInterval(editingInterval);
+
+		drawTimeline();
+	}
+
+	function commitEditingInterval() {
+		if (editMode && editingInterval) {
+			apiClient.timelineEdit(editingInterval);
+			let colormap = apiClient.getSetting('colormap') || {};
+			colormap[editingInterval.title] = editingInterval.color;
+			apiClient.setSetting('colormap', colormap);
+			editMode = false;
+			drawTimeline();
+		}
+	}
+
+	let newInterval: drawInterval;
+	function addInterval(start: number = -1, end: number = -1) {
+		let defaultTitle = apiClient.getSetting('defaultTitle') || 'productive';
+		newInterval = previewToDrawInterval({ id: 'new', title: defaultTitle, start: start, end: end });
+		addMode = true;
 		editMode = false;
+		start = start >= 0 ? start : (rangeStartM + rangeEndM) / 2;
+		end = end >= start ? end : start + 15 * 60 * 1000;
+		drawTimeline();
+	}
+
+	function commitNewInterval() {
+		if (addMode && newInterval) {
+			apiClient.timelineAdd(newInterval);
+			let colormap = apiClient.getSetting('colormap') || {};
+			colormap[newInterval.title] = newInterval.color;
+			apiClient.setSetting('colormap', colormap);
+			addMode = false;
+			drawTimeline();
+		}
+	}
+
+	function updateTitle(e: Event) {
+		let t = e.target as HTMLInputElement;
+		newInterval.title = t.value;
+		newInterval = previewToDrawInterval(newInterval);
+		drawTimeline();
+	}
+
+	function updateStart(e: Event) {
+		let t = e.target as HTMLInputElement;
+		newInterval.start = Date.parse(t.value);
+		drawTimeline();
+	}
+
+	function updateEnd(e: Event) {
+		let t = e.target as HTMLInputElement;
+		newInterval.end = Date.parse(t.value);
+		drawTimeline();
+	}
+
+	function cancel() {
+		addMode = false;
+		editMode = false;
+		drawTimeline();
 	}
 </script>
 
-<h3>
-	syncing {Object.keys(syncing)
-		.map((e) => e + ' ' + syncing[e])
-		.join(' ')}
-</h3>
-
 <p>
-	{new Date(curM)}
 	{#if live}LIVE{/if}
+	{#if curM}
+		{new Date(curM)}
+	{/if}
+	&nbsp;
 </p>
-<button on:click={add}>Add</button>
 
-<div
-	class="timeline"
-	style="background-color: grey; height: 100px; display: flex"
-	on:mousewheel={rangeScroll}
-	on:mousemove={rangeHover}
-	on:mousedown={() => (drag = true)}
-	on:mouseup={() => (drag = false)}
->
-	{#each timeline as e}
-		{#if e.draw}
-			<div style="background-color: {e.color}; height: 100px; width: {e.percent}%" class="event">
-				<span>
-					{e.title} <br />
-					{new Date(e.start).toLocaleTimeString()} - {new Date(e.end).toLocaleTimeString()} <br />
-					{durationToString(e.duration)}
-				</span>
-			</div>
-		{/if}
-	{/each}
-</div>
-{#if editMode}
-	<h2>Editing...</h2>
-	<input bind:value={n.title} placeholder="entry title" />
-	<br />
-	{new Date(n.start).toLocaleTimeString()} - {new Date(n.end).toLocaleTimeString()} <br />
-	{durationToString(n.duration)}
-	<button on:click={save}>Save</button>
-{/if}
+<canvas
+	id="timeline"
+	on:mousemove={mouseMove}
+	on:mouseout={mouseOut}
+	on:blur={() => null}
+	on:wheel={rangeScroll}
+	on:mouseup={() => {
+		drag = false;
+	}}
+	on:mousedown={() => {
+		drag = true;
+	}}
+	on:click={() => {
+		editInterval(hoveredInterval);
+	}}
+/>
+<p>
+	{#if !addMode || editMode}
+		<button on:click={() => addInterval()}>add</button>
+	{/if}
+	{#if addMode}
+		<input type="text" value={newInterval.title} on:input={updateTitle} />
+		{durationToString(newInterval.end - newInterval.start, 1)}
+		<input
+			type="datetime-local"
+			value={toDateTimeString(newInterval.start)}
+			on:change={updateStart}
+		/>
+		<input type="datetime-local" value={toDateTimeString(newInterval.end)} on:change={updateEnd} />
+		<button on:click={commitNewInterval}>add</button>
+		<button on:click={cancel}>cancel</button>
+	{:else if editMode}
+		<input type="text" value={editingInterval.title} on:input={updateEditingInterval} />
+		{toDateTimeString(editingInterval.start)} - {toDateTimeString(editingInterval.end)}
+		{durationToString(editingInterval.end - editingInterval.start, 1)}
+		<button on:click={commitEditingInterval}>edit</button>
+		<button on:click={cancel}>cancel</button>
+	{:else if hoveredInterval}
+		{hoveredInterval.title}
+		{toDateTimeString(hoveredInterval.start)} - {toDateTimeString(hoveredInterval.end)}
+		{durationToString(hoveredInterval.end - hoveredInterval.start, 1)}
+	{:else}
+		&nbsp;
+	{/if}
+</p>
 
 <style>
-	/* Tooltip container */
-	.event {
-		position: relative;
-		display: inline-block;
+	#timeline {
+		width: 100%;
+		height: 175px;
 	}
-
-	.event:hover {
-		position: relative;
-		display: inline-block;
-		border: 1px solid;
-	}
-
-	/* Tooltip text */
-	.event span {
-		visibility: hidden;
-		width: 120px;
-		background-color: black;
-		color: #fff;
-		text-align: center;
-		padding: 5px 0;
-		border-radius: 6px;
-
-		/* Position the tooltip text - see examples below! */
-		position: absolute;
-		z-index: 1;
-		bottom: 100%;
-		left: 50%;
-		margin-left: -60px; /* Use half of the width (120/2 = 60), to center the tooltip */
-	}
-
-	/* Show the tooltip text when you mouse over the tooltip container */
-	.event:hover span {
-		visibility: visible;
+	#timeline:hover {
+		cursor: none;
 	}
 </style>
