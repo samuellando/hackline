@@ -74,7 +74,7 @@ class Running:
 class FrontendRunning(Running):
     def __init__(self, title, start, end=None, fallback=None):
         super().__init__(title, start)
-        if (end == None and fallback == None) or (isinstance(end, (int, float, complex)) and isinstance(fallback, Running)):
+        if (end == None and fallback == None) or (isinstance(end, (int, float, complex)) and isinstance(fallback, str)):
             self.end =end
             self.fallback = fallback
         else:
@@ -99,7 +99,7 @@ class FrontendRunning(Running):
                 }
         if self.end != None and self.fallback != None:
             d["end"] = self.end
-            d["fallback"] = self.fallback.toDict()
+            d["fallback"] = self.fallback
         return d
 
 @app.route('/api/running', methods=["get"])
@@ -109,6 +109,8 @@ def getRunning():
 
     if len(timeline) > 0:
         interval = Interval.fromDict(timeline[-1])
+        if interval.id != "running":
+            interval = Interval.fromDict(ar.get("intervals/"+interval.id))
     else:
         interval = None
     
@@ -118,7 +120,7 @@ def getRunning():
         fallback = Running("No running interval started yet.", time.time() * 1000)
 
     if interval is not None and interval.id != "running":
-        running = FrontendRunning.fromInterval(interval, fallback)
+        running = FrontendRunning.fromInterval(interval, fallback.title)
     elif interval is not None:
         running = FrontendRunning.fromInterval(interval)
     else:

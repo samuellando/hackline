@@ -332,7 +332,7 @@ export class ApiClient extends BaseClient {
     if (this.data.running === null) return null;
     let running = deepClone<running>(this.data.running);
     let now = (new Date()).getTime();
-    if (running.end === undefined || running.end > now || typeof running.fallback == "undefined") {
+    if (typeof running.end == "undefined" || running.end > now || typeof running.fallback == "undefined") {
       return running;
     } else {
       return { title: running.fallback, start: running.end }
