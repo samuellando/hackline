@@ -402,11 +402,17 @@ export class ApiClient extends BaseClient {
       }
     }
 
+    var inserted = false
     for (let i = 0; i < timeline.length; i++) {
       if (timeline[i].start >= log.end) {
         timeline.splice(i, 0, log);
+        inserted = true;
         break;
       }
+    }
+
+    if (!inserted) {
+      timeline.push(log);
     }
 
     return timeline;
