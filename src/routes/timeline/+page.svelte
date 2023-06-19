@@ -53,6 +53,7 @@
 	var rangeStartM: number;
 	var rangeEndM: number;
 
+	let live = true;
 	setRangeToday();
 
 	$: rangeStart = toDateTimeString(new Date(rangeStartM));
@@ -73,6 +74,7 @@
 
 		rangeStartM = rangeStartD.getTime();
 		rangeEndM = rangeEndD.getTime();
+		live = true;
 	}
 
 	function setRangeYesterday() {
@@ -80,6 +82,7 @@
 		setRangeToday();
 		rangeStartM -= diff;
 		rangeEndM = rangeStartM + diff;
+		live = false;
 	}
 
 	function setRangeThisWeek() {
@@ -92,6 +95,7 @@
 
 		rangeStartM = rangeStartD.getTime();
 		rangeEndM = rangeEndD.getTime();
+		live = false;
 	}
 
 	function setRangeLastWeek() {
@@ -99,6 +103,7 @@
 		setRangeThisWeek();
 		rangeStartM -= diff;
 		rangeEndM = rangeStartM + diff;
+		live = false;
 	}
 </script>
 
@@ -122,7 +127,7 @@
 	<button on:click={setRangeThisWeek}>This Week</button>
 	<button on:click={setRangeLastWeek}>Last Week</button>
 
-	<Timeline bind:apiClient bind:rangeStartM bind:rangeEndM live={true} />
+	<Timeline bind:apiClient bind:rangeStartM bind:rangeEndM bind:live />
 
 	<h2>Summary</h2>
 	<Summary bind:apiClient bind:rangeStartM bind:rangeEndM />

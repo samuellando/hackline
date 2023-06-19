@@ -4,7 +4,6 @@
 	import type { ApiClient } from './Api';
 	import { makeColorIterator } from './colors';
 	import { durationToString, toDateTimeString, getTimeDivisions } from './timePrint';
-	import { prevent_default } from 'svelte/internal';
 
 	export let rangeStartM: number;
 	export let rangeEndM: number;
@@ -25,11 +24,18 @@
 	let editMode = false;
 	let colorIterator = makeColorIterator();
 	onMount(async () => {
+		function lastChange() {
+			return Math.max(
+				apiClient.lastChangeTimeline(),
+				apiClient.lastChangeSettings(),
+				apiClient.lastChangeRunning()
+			);
+		}
 		function update() {
 			if (!editMode && !addMode) {
-				if (apiClient.lastChangeTimeline() != updated) {
+				if (lastChange() != updated) {
 					drawTimeline();
-					updated = apiClient.lastChangeTimeline();
+					updated = lastChange();
 				}
 			}
 		}
@@ -39,7 +45,7 @@
 				rangeEndM = new Date().getTime();
 			}
 			update();
-		}, 1000);
+		}, 300);
 
 		update();
 		loading = false;
@@ -48,6 +54,8 @@
 	onDestroy(() => {
 		clearInterval(interval);
 	});
+
+	$: rangeStartM, rangeEndM, drawTimeline();
 
 	function toDrawInterval(i: interval, duration: number, width: number): drawInterval {
 		let color: string;
@@ -103,6 +111,9 @@
 
 		const drawHeight = 150;
 		const canvas = <HTMLCanvasElement>document.getElementById('timeline');
+		if (canvas == null) {
+			return;
+		}
 		const ctx = canvas.getContext('2d');
 		if (ctx == null) {
 			return;
