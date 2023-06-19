@@ -4,8 +4,6 @@
 	import { auth } from './Auth';
 	import type { authDef } from './types';
 
-	let apiUrl = '';
-
 	var authDef: authDef = {
 		authClient: undefined,
 		isAuthenticated: false,
@@ -13,13 +11,11 @@
 		accessToken: undefined
 	};
 
+	var loading = true;
+
 	onMount(async () => {
-		apiUrl = window.location.origin;
-		if (import.meta.env.DEV) {
-			apiUrl = 'http://localhost:8080';
-		}
 		authDef = await auth();
-		console.log(authDef);
+		loading = false;
 	});
 
 	afterUpdate(() => {
@@ -29,9 +25,9 @@
 	});
 </script>
 
-<h1>Time Logger</h1>
-<p>Backend URL is : {apiUrl}</p>
-
-<h2>This is the landing page...</h2>
-
-<Auth bind:authDef /> <br />
+<h1>HackLine.io</h1>
+{#if !loading}
+	<Auth bind:authDef /> <br />
+{:else}
+	Loading...
+{/if}

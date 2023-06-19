@@ -19,10 +19,8 @@
 		if (import.meta.env.DEV) {
 			apiUrl = 'http://localhost:8080';
 		}
-		let a = await auth();
-		if (a === undefined) return;
-		apiClient = new ApiClient(apiUrl, a.accessToken);
 		authDef = await auth();
+		apiClient = new ApiClient(apiUrl, authDef.accessToken);
 		loading = false;
 	});
 
@@ -35,9 +33,9 @@
 		if (
 			typeof authDef !== 'undefined' &&
 			typeof authDef.authClient !== 'undefined' &&
-			authDef.isAuthenticated === false
+			!authDef.isAuthenticated
 		) {
-			window.location.pathname = '/timeline';
+			window.location.pathname = '/';
 		}
 	});
 
@@ -110,7 +108,7 @@
 {:else}
 	<p>Backend URL is : {apiUrl}</p>
 
-	<Auth bind:authDef /> <br />
+	<Auth {authDef} /> <br />
 
 	<a href="/settings">settings</a>
 

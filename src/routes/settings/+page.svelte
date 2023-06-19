@@ -3,6 +3,7 @@
 	import { auth } from '../Auth';
 	import { ApiClient } from '../Api';
 	import type { authDef } from '../types';
+	import Auth from '../Auth.svelte';
 
 	let apiUrl: string;
 	let apiClient: ApiClient;
@@ -18,8 +19,7 @@
 		if (import.meta.env.DEV) {
 			apiUrl = 'http://localhost:8080';
 		}
-		let authDef = await auth();
-		if (authDef === undefined) return;
+		authDef = await auth();
 		apiClient = new ApiClient(apiUrl, authDef.accessToken);
 		content = { json: apiClient.getSettings() } as JSONContent;
 		loading = false;
@@ -64,6 +64,7 @@
 
 {#if !loading}
 	<a href="/timeline">back</a>
+	<Auth {authDef} />
 
 	<div>
 		<JSONEditor
