@@ -64,10 +64,10 @@
 			} else {
 				color = colorIterator.next().value;
 			}
-		}
-		if (!addMode && !editMode && !(i.title in colormap)) {
-			colormap[i.title] = color;
-			apiClient.setSetting('colormap', colormap);
+			if (!addMode && !editMode && !(i.title in colormap)) {
+				colormap[i.title] = color;
+				apiClient.setSetting('colormap', colormap);
+			}
 		}
 
 		var startPx = ((i.start - rangeStartM) / duration) * width;
