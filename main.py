@@ -163,6 +163,17 @@ def setSetting():
     del settings["id"]
     return settings
 
+@app.route('/api/settings', methods=["PUT"])
+def setSettings():
+    data = json.loads(request.data)
+    try:
+        settings = ar.put("settings/settings", data)
+    except:
+        settings = ar.post("settings/settings", data)
+    settings =  ar.get("settings/settings")
+    del settings["id"]
+    return settings
+
 @app.route('/api/timeline', methods=["POST"])
 def postTimeline():
     new = Interval.fromDict(json.loads(request.data))
