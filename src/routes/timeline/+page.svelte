@@ -7,6 +7,7 @@
 	import Timeline from '../Timeline.svelte';
 	import Summary from '../Summary.svelte';
 	import Running from '../Running.svelte';
+	import { toDateTimeString } from '../timePrint';
 
 	let apiUrl: string;
 	let apiClient: ApiClient;
@@ -19,10 +20,8 @@
 		if (import.meta.env.DEV) {
 			apiUrl = 'http://localhost:8080';
 		}
-		let a = await auth();
-		if (a === undefined) return;
-		apiClient = new ApiClient(apiUrl, a.accessToken);
 		authDef = await auth();
+		apiClient = new ApiClient(apiUrl, authDef.accessToken);
 		loading = false;
 	});
 
@@ -35,30 +34,20 @@
 		if (
 			typeof authDef !== 'undefined' &&
 			typeof authDef.authClient !== 'undefined' &&
-			authDef.isAuthenticated === false
+			!authDef.isAuthenticated
 		) {
-			window.location.pathname = '/timeline';
+			window.location.pathname = '/';
 		}
 	});
-
-	function toDateTimeString(now: Date) {
-		let month = '' + (now.getMonth() + 1);
-		let day = '' + now.getDate();
-		let year = now.getFullYear();
-
-		if (month.length < 2) month = '0' + month;
-		if (day.length < 2) day = '0' + day;
-
-		return [year, month, day].join('-') + 'T' + now.toLocaleTimeString();
-	}
 
 	var rangeStartM: number;
 	var rangeEndM: number;
 
+	let live = true;
 	setRangeToday();
 
-	$: rangeStart = toDateTimeString(new Date(rangeStartM));
-	$: rangeEnd = toDateTimeString(new Date(rangeEndM));
+	$: rangeStart = toDateTimeString(rangeStartM);
+	$: rangeEnd = toDateTimeString(rangeEndM);
 
 	function updateRange() {
 		rangeStartM = Date.parse(rangeStart);
@@ -75,6 +64,7 @@
 
 		rangeStartM = rangeStartD.getTime();
 		rangeEndM = rangeEndD.getTime();
+		live = true;
 	}
 
 	function setRangeYesterday() {
@@ -82,6 +72,7 @@
 		setRangeToday();
 		rangeStartM -= diff;
 		rangeEndM = rangeStartM + diff;
+		live = false;
 	}
 
 	function setRangeThisWeek() {
@@ -94,6 +85,7 @@
 
 		rangeStartM = rangeStartD.getTime();
 		rangeEndM = rangeEndD.getTime();
+		live = false;
 	}
 
 	function setRangeLastWeek() {
@@ -101,20 +93,18 @@
 		setRangeThisWeek();
 		rangeStartM -= diff;
 		rangeEndM = rangeStartM + diff;
+		live = false;
 	}
 </script>
 
-<h1>Time Logger</h1>
+<h1>HackLine.io</h1>
 {#if loading}
 	<h2>loading</h2>
 {:else}
-	<p>Backend URL is : {apiUrl}</p>
-
-	<Auth bind:authDef /> <br />
+	<Auth {authDef} /> <br />
 
 	<a href="/settings">settings</a>
 
-	<h1>Data</h1>
 	<Running bind:apiClient />
 
 	<input type="datetime-local" bind:value={rangeStart} on:change={updateRange} />
@@ -124,7 +114,7 @@
 	<button on:click={setRangeThisWeek}>This Week</button>
 	<button on:click={setRangeLastWeek}>Last Week</button>
 
-	<Timeline bind:apiClient bind:rangeStartM bind:rangeEndM live={true} />
+	<Timeline bind:apiClient bind:rangeStartM bind:rangeEndM bind:live />
 
 	<h2>Summary</h2>
 	<Summary bind:apiClient bind:rangeStartM bind:rangeEndM />

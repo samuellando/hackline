@@ -313,6 +313,17 @@ export class ApiClient extends BaseClient {
     }
   }
 
+  setSettings(value: settings): promises[endpoints.settings] {
+    this.syncing.settings++;
+    this.commit(endpoints.settings, value, (new Date()).getTime());
+    this.promises.settings = this.promises.settings.then(async () => {
+      let settings = await this.put<settings>('settings', value)
+      this.syncing.settings--;
+      return settings;
+    });
+    return this.promises.settings;
+  }
+
   setSetting(key: string, value: any): promises[endpoints.settings] {
     this.syncing.settings++;
     let settings = this.getSettings();
@@ -402,11 +413,17 @@ export class ApiClient extends BaseClient {
       }
     }
 
+    var inserted = false
     for (let i = 0; i < timeline.length; i++) {
       if (timeline[i].start >= log.end) {
         timeline.splice(i, 0, log);
+        inserted = true;
         break;
       }
+    }
+
+    if (!inserted) {
+      timeline.push(log);
     }
 
     return timeline;

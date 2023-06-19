@@ -37,6 +37,7 @@
 		"@sveltejs/adapter-static": "^2.0.2",
 		"moment": "^2.29.4",
 		"svelte-chartjs": "^3.1.2",
-		"svelte-frappe-charts": "^1.10.0"
+		"svelte-frappe-charts": "^1.10.0",
+		"svelte-jsoneditor": "^0.17.7"
 	}
 }

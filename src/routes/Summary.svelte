@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { durationToString } from './timePrint';
+
 	import type { interval } from './types';
 	import type { ApiClient } from './Api';
 	import { onMount, onDestroy } from 'svelte';
@@ -73,7 +75,7 @@
 		{log.title}
 	</h3>
 	<input type="color" bind:value={colormap[log.title]} on:change={update} />
-	<p>time: {log.time / 3600000} hours</p>
+	<p>time: {durationToString(log.time, 2)}</p>
 {/each}
 
 <style>

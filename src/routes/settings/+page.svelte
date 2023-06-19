@@ -1,33 +1,82 @@
 <script lang="ts">
-	import { onMount, afterUpdate } from 'svelte';
+	import { onMount, afterUpdate, onDestroy } from 'svelte';
+	import { auth } from '../Auth';
+	import { ApiClient } from '../Api';
+	import type { authDef } from '../types';
 	import Auth from '../Auth.svelte';
-	import type { User } from '@auth0/auth0-spa-js';
 
-	let apiUrl = '';
+	let apiUrl: string;
+	let apiClient: ApiClient;
+	let authDef: authDef;
 
-	var isAuthenticated: boolean;
-	var userProfile: User | undefined;
-	var accessToken: string;
+	let loading = true;
+
+	import { JSONEditor, Mode } from 'svelte-jsoneditor';
+	import type { Content, TextContent, JSONContent } from 'svelte-jsoneditor';
 
 	onMount(async () => {
 		apiUrl = window.location.origin;
 		if (import.meta.env.DEV) {
 			apiUrl = 'http://localhost:8080';
 		}
+		authDef = await auth();
+		apiClient = new ApiClient(apiUrl, authDef.accessToken);
+		content = { json: apiClient.getSettings() } as JSONContent;
+		loading = false;
+	});
+
+	onDestroy(() => {
+		if (apiClient === undefined) return;
+		apiClient.close();
 	});
 
 	afterUpdate(() => {
-		if (isAuthenticated === false) {
+		if (
+			typeof authDef !== 'undefined' &&
+			typeof authDef.authClient !== 'undefined' &&
+			authDef.isAuthenticated === false
+		) {
 			window.location.pathname = '/';
 		}
 	});
+
+	let content: Content;
+
+	let errors: any | null = null;
+
+	function save() {
+		let newSettings;
+		if (errors == null) {
+			if ('text' in content) {
+				newSettings = JSON.parse((content as TextContent).text);
+			} else {
+				newSettings = (content as JSONContent).json;
+			}
+
+			apiClient.setSettings(newSettings);
+		}
+	}
+
+	onMount(async () => {});
+
+	afterUpdate(() => {});
 </script>
 
-<h1>Time Logger</h1>
-<p>Backend URL is : {apiUrl}</p>
+{#if !loading}
+	<a href="/timeline">back</a>
+	<Auth {authDef} />
 
-<h2>This is the settings page...</h2>
+	<div>
+		<JSONEditor
+			bind:content
+			mode={Mode.text}
+			onChange={(updatedContent, previousContent, { contentErrors, patchResult }) => {
+				errors = contentErrors;
+			}}
+		/>
+	</div>
 
-<a href="/timeline">back</a>
-
-<Auth bind:accessToken bind:userProfile bind:isAuthenticated /> <br />
+	{#if errors == null}
+		<button on:click={save}>save</button>
+	{/if}
+{/if}
