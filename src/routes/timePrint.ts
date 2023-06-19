@@ -37,7 +37,7 @@ export function durationToString(millis: number, recur = 0) {
     r += d + " " + s;
   }
   if (recur > 0) {
-    r += " " + durationToString(millis - d * m)
+    r += " " + durationToString(millis - d * m, recur - 1)
   }
 
   return r;

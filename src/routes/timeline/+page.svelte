@@ -7,6 +7,7 @@
 	import Timeline from '../Timeline.svelte';
 	import Summary from '../Summary.svelte';
 	import Running from '../Running.svelte';
+	import { toDateTimeString } from '../timePrint';
 
 	let apiUrl: string;
 	let apiClient: ApiClient;
@@ -39,25 +40,14 @@
 		}
 	});
 
-	function toDateTimeString(now: Date) {
-		let month = '' + (now.getMonth() + 1);
-		let day = '' + now.getDate();
-		let year = now.getFullYear();
-
-		if (month.length < 2) month = '0' + month;
-		if (day.length < 2) day = '0' + day;
-
-		return [year, month, day].join('-') + 'T' + now.toLocaleTimeString();
-	}
-
 	var rangeStartM: number;
 	var rangeEndM: number;
 
 	let live = true;
 	setRangeToday();
 
-	$: rangeStart = toDateTimeString(new Date(rangeStartM));
-	$: rangeEnd = toDateTimeString(new Date(rangeEndM));
+	$: rangeStart = toDateTimeString(rangeStartM);
+	$: rangeEnd = toDateTimeString(rangeEndM);
 
 	function updateRange() {
 		rangeStartM = Date.parse(rangeStart);
@@ -107,17 +97,14 @@
 	}
 </script>
 
-<h1>Time Logger</h1>
+<h1>HackLine.io</h1>
 {#if loading}
 	<h2>loading</h2>
 {:else}
-	<p>Backend URL is : {apiUrl}</p>
-
 	<Auth {authDef} /> <br />
 
 	<a href="/settings">settings</a>
 
-	<h1>Data</h1>
 	<Running bind:apiClient />
 
 	<input type="datetime-local" bind:value={rangeStart} on:change={updateRange} />
