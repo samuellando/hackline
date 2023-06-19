@@ -228,6 +228,8 @@
 
 	function mouseOut() {
 		curM = null;
+		x = -1;
+		y = -1;
 		drawTimeline();
 	}
 
