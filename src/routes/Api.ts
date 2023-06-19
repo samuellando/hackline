@@ -313,6 +313,17 @@ export class ApiClient extends BaseClient {
     }
   }
 
+  setSettings(value: settings): promises[endpoints.settings] {
+    this.syncing.settings++;
+    this.commit(endpoints.settings, value, (new Date()).getTime());
+    this.promises.settings = this.promises.settings.then(async () => {
+      let settings = await this.put<settings>('settings', value)
+      this.syncing.settings--;
+      return settings;
+    });
+    return this.promises.settings;
+  }
+
   setSetting(key: string, value: any): promises[endpoints.settings] {
     this.syncing.settings++;
     let settings = this.getSettings();
