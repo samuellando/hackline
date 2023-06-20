@@ -75,7 +75,9 @@
 		{log.title}
 	</h3>
 	<input type="color" bind:value={colormap[log.title]} on:change={update} />
-	<p>time: {durationToString(log.time, 2)}</p>
+	<p>
+		time: {durationToString(log.time, '%y years %m months %d days %H hours %M minutes %S seconds')}
+	</p>
 {/each}
 
 <style>

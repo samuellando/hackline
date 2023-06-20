@@ -407,7 +407,7 @@
 	{/if}
 	{#if addMode}
 		<input type="text" value={newInterval.title} on:input={updateTitle} />
-		{durationToString(newInterval.end - newInterval.start, 1)}
+		{durationToString(newInterval.end - newInterval.start, '%H hours %M minutes %S seconds')}
 		<input
 			type="datetime-local"
 			value={toDateTimeString(newInterval.start)}
@@ -419,13 +419,19 @@
 	{:else if editMode}
 		<input type="text" value={editingInterval.title} on:input={updateEditingInterval} />
 		{toDateTimeString(editingInterval.start)} - {toDateTimeString(editingInterval.end)}
-		{durationToString(editingInterval.end - editingInterval.start, 1)}
+		{durationToString(
+			editingInterval.end - editingInterval.start,
+			'%H hours %M minutes %S seconds'
+		)}
 		<button on:click={commitEditingInterval}>edit</button>
 		<button on:click={cancel}>cancel</button>
 	{:else if hoveredInterval}
 		{hoveredInterval.title}
 		{toDateTimeString(hoveredInterval.start)} - {toDateTimeString(hoveredInterval.end)}
-		{durationToString(hoveredInterval.end - hoveredInterval.start, 1)}
+		{durationToString(
+			hoveredInterval.end - hoveredInterval.start,
+			'%H hours %M minutes %S seconds'
+		)}
 	{:else}
 		&nbsp;
 	{/if}

@@ -8,39 +8,34 @@ const YEAR = 365 * DAY;
 
 import moment from 'moment';
 
-export function durationToString(millis: number, recur = 0) {
-  let d = millis;
-  let m = 1;
-  let s = "millis";
+export function durationToString(millis: number, format: string) {
+  /*
+   * %y %m %d %H %M %S 
+   */
 
+  let dur = moment.duration(millis);
 
-  if (d >= DAY) {
-    d = Math.floor(d / DAY);
-    m = DAY;
-    s = 'day' + ((d > 1) ? "s" : "");
-  } else if (d >= HOUR) {
-    d = Math.floor(d / HOUR);
-    m = HOUR;
-    s = 'hour' + ((d > 1) ? "s" : "");
-  } else if (d >= MINUTE) {
-    d = Math.floor(d / MINUTE);
-    m = MINUTE;
-    s = 'min' + ((d > 1) ? "s" : "");
-  } else if (d >= SECOUND) {
-    d = Math.floor(d / SECOUND);
-    m = SECOUND;
-    s = 'sec' + ((d > 1) ? "s" : "");
+  let s = format;
+  let first = true;
+  function replace(f: string, nFirst: number, n: number) {
+    let use = first ? Math.floor(nFirst) : n;
+    if (first && s.indexOf(f) >= 0) {
+      s = f + s.split(f)[1]
+    }
+    if (!first || use != 0) {
+      s = s.replaceAll(f, `${use}`);
+      first = false;
+    }
   }
 
-  let r = "";
-  if (d != 0) {
-    r += d + " " + s;
-  }
-  if (recur > 0) {
-    r += " " + durationToString(millis - d * m, recur - 1)
-  }
+  replace("%y", dur.asYears(), dur.years());
+  replace("%m", dur.asMonths(), dur.months());
+  replace("%d", dur.asDays(), dur.days());
+  replace("%H", dur.asHours(), dur.hours());
+  replace("%M", dur.asMinutes(), dur.minutes());
+  replace("%S", dur.asSeconds(), dur.seconds());
 
-  return r;
+  return s;
 }
 
 export function toDateTimeString(now: number) {
