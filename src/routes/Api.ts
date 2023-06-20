@@ -112,11 +112,14 @@ export class ApiClient extends BaseClient {
   syncing: meta;
   pullInterval: ReturnType<typeof setInterval>;
   updateInterval: ReturnType<typeof setInterval>;
+  readyWaiting: Promise<key extends keyof endpointTypes ? endpointTypes[key] : never>[];
+
 
   constructor(apiUrl: string, accessToken: string | undefined = undefined, refresh_interval = 60000, update_interval = 10000) {
     super(apiUrl, accessToken);
     this.refresh_interval = refresh_interval;
     this.update_interval = update_interval;
+    this.readyWaiting = [];
 
     this.data = Object.fromEntries(
       Object.values(endpoints).map(key => [key, null])
@@ -140,11 +143,13 @@ export class ApiClient extends BaseClient {
 
     // Try to load the data from local storage, and start a new pull.
     for (const k in endpoints) {
+      let p = this.pullData(k as endpoints);
       var s = localStorage.getItem(k);
       if (s != null) {
         this.data[k as endpoints] = JSON.parse(s);
+      } else {
+        this.readyWaiting.push(p);
       }
-      this.pullData(k as endpoints);
     }
 
     // Set up the pull and update intervals. 
@@ -158,6 +163,10 @@ export class ApiClient extends BaseClient {
       this.updateTimeline();
       this.pullData(endpoints.running);
     }, update_interval);
+  }
+
+  async ready() {
+    await Promise.all(this.readyWaiting)
   }
 
   close(): void {

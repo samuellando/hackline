@@ -22,6 +22,7 @@
 		}
 		authDef = await auth();
 		apiClient = new ApiClient(apiUrl, authDef.accessToken);
+		await apiClient.ready();
 		loading = false;
 	});
 

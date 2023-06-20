@@ -21,6 +21,7 @@
 		}
 		authDef = await auth();
 		apiClient = new ApiClient(apiUrl, authDef.accessToken);
+		await apiClient.ready();
 		content = { json: apiClient.getSettings() } as JSONContent;
 		loading = false;
 	});
