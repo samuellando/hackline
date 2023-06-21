@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { interval } from './types';
 	import { onMount, onDestroy } from 'svelte';
-	import type { ApiClient } from './Api';
+	import { ApiClient } from './Api';
 	import { makeColorIterator } from './colors';
 	import { durationToString, toDateTimeString, getTimeDivisions } from './timePrint';
 
@@ -20,8 +20,6 @@
 
 	let updated = -1;
 	let loading = true;
-	let addMode = false;
-	let editMode = false;
 	let colorIterator = makeColorIterator();
 	onMount(async () => {
 		function lastChange() {
@@ -32,7 +30,7 @@
 			);
 		}
 		function update() {
-			if (!editMode && !addMode) {
+			if (!apiClient.isPreview()) {
 				if (lastChange() != updated) {
 					drawTimeline();
 					updated = lastChange();
@@ -41,7 +39,7 @@
 		}
 
 		interval = setInterval(() => {
-			if (live && !addMode && !editMode) {
+			if (live && !apiClient.isPreview()) {
 				rangeEndM = new Date().getTime();
 			}
 			update();
@@ -55,27 +53,18 @@
 		clearInterval(interval);
 	});
 
-	$: rangeStartM, rangeEndM, drawTimeline();
-
 	function toDrawInterval(i: interval, duration: number, width: number): drawInterval {
 		let color: string;
-		let colormap: { [k: string]: string } = {};
-		if ('color' in i) {
-			color = (i as drawInterval).color;
+		let colormap = apiClient.getSetting('colormap');
+		if (colormap == null) {
+			colormap = {};
+		}
+		if (i.title in colormap) {
+			color = colormap[i.title];
 		} else {
-			colormap = apiClient.getSetting('colormap');
-			if (colormap == null) {
-				colormap = {};
-			}
-			if (i.title in colormap) {
-				color = colormap[i.title];
-			} else {
-				color = colorIterator.next().value;
-			}
-			if (!addMode && !editMode && !(i.title in colormap)) {
-				colormap[i.title] = color;
-				apiClient.setSetting('colormap', colormap);
-			}
+			color = colorIterator.next().value;
+			colormap[i.title] = color;
+			apiClient.setSetting('colormap', colormap);
 		}
 
 		var startPx = ((i.start - rangeStartM) / duration) * width;
@@ -95,19 +84,7 @@
 	function drawTimeline() {
 		// Get the timeline, and edit it depending on the state.
 		let timeline: interval[];
-		if (addMode) {
-			timeline = apiClient.timelinePreviewAdd(newInterval, rangeStartM, rangeEndM);
-		} else {
-			timeline = apiClient.getTimeline(rangeStartM, rangeEndM);
-			if (editMode) {
-				for (let i = 0; i < timeline.length; i++) {
-					if (timeline[i].id == editingInterval.id) {
-						timeline[i] = editingInterval;
-						break;
-					}
-				}
-			}
-		}
+		timeline = apiClient.getTimeline(rangeStartM, rangeEndM);
 
 		const drawHeight = 150;
 		const canvas = <HTMLCanvasElement>document.getElementById('timeline');
@@ -141,8 +118,8 @@
 				hovering = true;
 			}
 			if (
-				(editMode && e.id == editingInterval.id) ||
-				(hoveredInterval && e.id == hoveredInterval.id && !editMode)
+				(apiClient.isPreviewEditing() && e.id == apiClient.getPreviewEditingInterval().id) ||
+				(hoveredInterval && e.id == hoveredInterval.id && !apiClient.isPreviewEditing())
 			) {
 				ctx.strokeStyle = 'black';
 				ctx.lineWidth = 2;
@@ -170,9 +147,9 @@
 			ctx.stroke();
 		}
 		// Fade out the other sections on add.
-		if (addMode) {
+		if (apiClient.isPreviewAdding()) {
 			ctx.fillStyle = '#00000040';
-			var n = toDrawInterval(newInterval, rangeEndM - rangeStartM, width);
+			var n = toDrawInterval(apiClient.getPreviewAddingInterval(), rangeEndM - rangeStartM, width);
 			ctx.fillRect(0, 0, n.drawStart, drawHeight);
 			ctx.fillRect(n.drawEnd, 0, width - n.drawEnd, drawHeight);
 		}
@@ -210,13 +187,18 @@
 		if (drag) {
 			if (event.shiftKey) {
 				let curMin = Math.round(curM / 60000) * 60000;
-				if (!addMode || curM < newInterval.start || !shiftHeld) {
+				let newInterval: interval;
+				if (apiClient.isPreviewAdding()) {
+					newInterval = apiClient.getPreviewAddingInterval();
+				} else {
+					newInterval = { id: 'NO', title: 'Theres a problem here', start: 0, end: 0 };
+				}
+				if (!apiClient.isPreviewAdding() || curM < newInterval.start || !shiftHeld) {
 					addInterval(curMin, curMin);
 					shiftHeld = true;
-					addMode = true;
-					editMode = false;
 				} else {
 					newInterval.end = curMin;
+					apiClient.timelinePreviewAdd(newInterval);
 				}
 			} else {
 				let oldS = rangeStartM;
@@ -274,106 +256,111 @@
 		drawTimeline();
 	}
 
-	function previewToDrawInterval(i: interval) {
-		let color: string;
-		let colormap = apiClient.getSetting('colormap') || {};
-		if (i.title in colormap) {
-			color = colormap[i.title];
-		} else if (!('color' in i)) {
-			color = colorIterator.next().value;
-		} else {
-			color = (i as drawInterval).color;
-			for (let k in colormap) {
-				if (color == colormap[k]) {
-					color = colorIterator.next().value;
-				}
-			}
-		}
-
-		return {
-			id: i.id,
-			title: i.title,
-			start: i.start,
-			end: i.end,
-			drawStart: -1,
-			drawEnd: -1,
-			color: color
-		};
-	}
-
-	let editingInterval: drawInterval;
 	function editInterval(i: interval | null) {
-		if (i != null && !addMode && i.id != 'running') {
-			editMode = true;
-			editingInterval = previewToDrawInterval(i);
+		if (i != null && i.id != 'running') {
+			editing = true;
+			adding = false;
+			apiClient.timelinePreviewEdit(i);
 			drawTimeline();
 		}
 	}
 
 	function updateEditingInterval(e: Event) {
 		let t = e.target as HTMLInputElement;
+		let editingInterval = apiClient.getPreviewEditingInterval();
 		editingInterval.title = t.value;
-		editingInterval = previewToDrawInterval(editingInterval);
-
+		apiClient.timelinePreviewEdit(editingInterval);
 		drawTimeline();
 	}
 
 	function commitEditingInterval() {
-		if (editMode && editingInterval) {
-			apiClient.timelineEdit(editingInterval);
+		if (apiClient.isPreviewEditing()) {
+			let previewColormap = apiClient.getSetting('colormap') || {};
+			let editingInterval = apiClient.getPreviewEditingInterval();
+			apiClient.timelineEdit();
 			let colormap = apiClient.getSetting('colormap') || {};
-			colormap[editingInterval.title] = editingInterval.color;
+			for (let key in colormap) {
+				if (key in previewColormap) {
+					colormap[key] = previewColormap[key];
+				}
+			}
+			colormap[editingInterval.title] = previewColormap[editingInterval.title];
 			apiClient.setSetting('colormap', colormap);
-			editMode = false;
+			editing = false;
 			drawTimeline();
 		}
 	}
 
-	let newInterval: drawInterval;
 	function addInterval(start: number = -1, end: number = -1) {
 		let defaultTitle = apiClient.getSetting('defaultTitle') || 'productive';
-		newInterval = previewToDrawInterval({ id: 'new', title: defaultTitle, start: start, end: end });
-		addMode = true;
-		editMode = false;
 		start = start >= 0 ? start : (rangeStartM + rangeEndM) / 2;
 		end = end >= start ? end : start + 15 * 60 * 1000;
+		let interval: interval = { id: 'new', title: defaultTitle, start: start, end: end };
+		apiClient.timelinePreviewAdd(interval);
+		adding = true;
+		editing = false;
 		drawTimeline();
 	}
 
 	function commitNewInterval() {
-		if (addMode && newInterval) {
-			apiClient.timelineAdd(newInterval);
+		if (apiClient.isPreviewAdding()) {
+			let previewColormap = apiClient.getSetting('colormap') || {};
+			let newInterval = apiClient.getPreviewAddingInterval();
+			apiClient.timelineAdd();
 			let colormap = apiClient.getSetting('colormap') || {};
-			colormap[newInterval.title] = newInterval.color;
+			for (let key in colormap) {
+				if (key in previewColormap) {
+					colormap[key] = previewColormap[key];
+				}
+			}
+			colormap[newInterval.title] = previewColormap[newInterval.title];
 			apiClient.setSetting('colormap', colormap);
-			addMode = false;
+			adding = false;
 			drawTimeline();
 		}
 	}
 
 	function updateTitle(e: Event) {
 		let t = e.target as HTMLInputElement;
+		let newInterval = apiClient.getPreviewAddingInterval();
 		newInterval.title = t.value;
-		newInterval = previewToDrawInterval(newInterval);
+		apiClient.timelinePreviewAdd(newInterval);
 		drawTimeline();
 	}
 
 	function updateStart(e: Event) {
 		let t = e.target as HTMLInputElement;
+		let newInterval = apiClient.getPreviewAddingInterval();
 		newInterval.start = Date.parse(t.value);
+		apiClient.timelinePreviewAdd(newInterval);
 		drawTimeline();
 	}
 
 	function updateEnd(e: Event) {
 		let t = e.target as HTMLInputElement;
+		let newInterval = apiClient.getPreviewAddingInterval();
 		newInterval.end = Date.parse(t.value);
+		apiClient.timelinePreviewAdd(newInterval);
 		drawTimeline();
 	}
 
 	function cancel() {
-		addMode = false;
-		editMode = false;
+		apiClient.stopPreview();
+		adding = false;
+		editing = false;
 		drawTimeline();
+	}
+
+	$: rangeStartM, rangeEndM, drawTimeline();
+	let adding = false;
+	let addingInterval: interval;
+	$: if ((curM && adding) || adding) {
+		addingInterval = apiClient.getPreviewAddingInterval();
+	}
+	let editing = false;
+	let editingInterval: interval;
+	$: if (hoveredInterval && editing) {
+		editingInterval = apiClient.getPreviewEditingInterval();
 	}
 </script>
 
@@ -402,21 +389,25 @@
 	}}
 />
 <p>
-	{#if !addMode || editMode}
+	{#if !adding}
 		<button on:click={() => addInterval()}>add</button>
 	{/if}
-	{#if addMode}
-		<input type="text" value={newInterval.title} on:input={updateTitle} />
-		{durationToString(newInterval.end - newInterval.start, '%H hours %M minutes %S seconds')}
+	{#if adding}
+		<input type="text" value={addingInterval.title} on:input={updateTitle} />
+		{durationToString(addingInterval.end - addingInterval.start, '%H hours %M minutes %S seconds')}
 		<input
 			type="datetime-local"
-			value={toDateTimeString(newInterval.start)}
+			value={toDateTimeString(addingInterval.start)}
 			on:change={updateStart}
 		/>
-		<input type="datetime-local" value={toDateTimeString(newInterval.end)} on:change={updateEnd} />
+		<input
+			type="datetime-local"
+			value={toDateTimeString(addingInterval.end)}
+			on:change={updateEnd}
+		/>
 		<button on:click={commitNewInterval}>add</button>
 		<button on:click={cancel}>cancel</button>
-	{:else if editMode}
+	{:else if editing}
 		<input type="text" value={editingInterval.title} on:input={updateEditingInterval} />
 		{toDateTimeString(editingInterval.start)} - {toDateTimeString(editingInterval.end)}
 		{durationToString(
