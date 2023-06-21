@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { onMount, afterUpdate, onDestroy } from 'svelte';
-	import { auth } from '../Auth';
-	import { ApiClient } from '../Api';
-	import type { authDef } from '../types';
-	import Auth from '../Auth.svelte';
+	import { auth } from '$lib/Auth';
+	import { ApiClient } from '$lib/Api';
+	import type { authDef } from '$lib/types';
+	import Auth from '$lib/Auth.svelte';
 
 	let apiUrl: string;
 	let apiClient: ApiClient;

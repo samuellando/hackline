@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { onMount, afterUpdate } from 'svelte';
 	import Auth from './Auth.svelte';
-	import { auth } from './Auth';
-	import type { authDef } from './types';
+	import { auth } from '$lib/Auth';
+	import type { authDef } from '$lib/types';
 
 	var authDef: authDef = {
 		authClient: undefined,
