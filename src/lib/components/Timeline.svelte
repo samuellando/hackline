@@ -1,13 +1,14 @@
 <script lang="ts">
 	import type { interval } from '$lib/types';
 	import { onMount, onDestroy } from 'svelte';
-	import { ApiClient } from '$lib/Api';
+	import type { ApiClient } from '$lib/Api';
 	import { makeColorIterator } from '$lib/colors';
 	import { durationToString, toDateTimeString, getTimeDivisions } from '$lib/timePrint';
+	import moment from 'moment';
 
-	export let rangeStartM: number;
-	export let rangeEndM: number;
-	export let live: boolean;
+	export let rangeStartM: number = moment().startOf('day').valueOf();
+	export let rangeEndM: number = moment().valueOf();
+	export let live: boolean = true;
 	export var apiClient: ApiClient;
 
 	var interval: ReturnType<typeof setInterval>;
@@ -21,7 +22,7 @@
 	let updated = -1;
 	let loading = true;
 	let colorIterator = makeColorIterator();
-	onMount(async () => {
+	onMount(() => {
 		function lastChange() {
 			return Math.max(
 				apiClient.lastChangeTimeline(),
