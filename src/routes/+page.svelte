@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount, afterUpdate } from 'svelte';
-	import Auth from './Auth.svelte';
+	import Auth from '$lib/components/Auth.svelte';
 	import { auth } from '$lib/Auth';
 	import type { authDef } from '$lib/types';
 

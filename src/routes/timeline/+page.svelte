@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { onMount, afterUpdate, onDestroy } from 'svelte';
-	import Auth from '$lib/Auth.svelte';
+	import Auth from '$lib/components/Auth.svelte';
 	import { auth } from '$lib/Auth';
 	import { ApiClient } from '$lib/Api';
 	import type { authDef } from '$lib/types';
-	import Timeline from '$lib/Timeline.svelte';
-	import Summary from '$lib/Summary.svelte';
-	import Running from '$lib/Running.svelte';
+	import Timeline from '$lib/components/Timeline.svelte';
+	import Summary from '$lib/components/Summary.svelte';
+	import Running from '$lib/components/Running.svelte';
 	import { toDateTimeString } from '$lib/timePrint';
 
 	let apiUrl: string;

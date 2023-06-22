@@ -1,5 +1,5 @@
 import { createAuth0Client } from "@auth0/auth0-spa-js";
-import config from "$lib/auth_config";
+import config from "$src/auth_config";
 
 async function createClient(redirect: string) {
   let auth0Client = await createAuth0Client({

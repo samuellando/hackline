@@ -3,7 +3,7 @@
 	import { auth } from '$lib/Auth';
 	import { ApiClient } from '$lib/Api';
 	import type { authDef } from '$lib/types';
-	import Auth from '$lib/Auth.svelte';
+	import Auth from '$lib/components/Auth.svelte';
 
 	let apiUrl: string;
 	let apiClient: ApiClient;
