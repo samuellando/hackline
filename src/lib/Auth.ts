@@ -1,5 +1,5 @@
-import createAuthClient from './auth_service';
-import type { authDef } from './types';
+import createAuthClient from '$lib/auth_service';
+import type { authDef } from '$lib/types';
 
 export async function auth(): Promise<authDef> {
   let authDef: authDef = {

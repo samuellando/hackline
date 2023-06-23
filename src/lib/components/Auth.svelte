@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { authDef } from './types';
+	import type { authDef } from '$lib/types';
 
 	export var authDef: authDef;
 
