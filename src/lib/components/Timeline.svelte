@@ -40,9 +40,6 @@
 		}
 
 		interval = setInterval(() => {
-			if (live && !apiClient.isPreview()) {
-				rangeEndM = new Date().getTime();
-			}
 			update();
 		}, 300);
 
@@ -259,35 +256,7 @@
 
 	function editInterval(i: interval | null) {
 		if (i != null && i.id != 'running') {
-			editing = true;
-			adding = false;
 			apiClient.timelinePreviewEdit(i);
-			drawTimeline();
-		}
-	}
-
-	function updateEditingInterval(e: Event) {
-		let t = e.target as HTMLInputElement;
-		let editingInterval = apiClient.getPreviewEditingInterval();
-		editingInterval.title = t.value;
-		apiClient.timelinePreviewEdit(editingInterval);
-		drawTimeline();
-	}
-
-	function commitEditingInterval() {
-		if (apiClient.isPreviewEditing()) {
-			let previewColormap = apiClient.getSetting('colormap') || {};
-			let editingInterval = apiClient.getPreviewEditingInterval();
-			apiClient.timelineEdit();
-			let colormap = apiClient.getSetting('colormap') || {};
-			for (let key in colormap) {
-				if (key in previewColormap) {
-					colormap[key] = previewColormap[key];
-				}
-			}
-			colormap[editingInterval.title] = previewColormap[editingInterval.title];
-			apiClient.setSetting('colormap', colormap);
-			editing = false;
 			drawTimeline();
 		}
 	}
@@ -298,71 +267,10 @@
 		end = end >= start ? end : start + 15 * 60 * 1000;
 		let interval: interval = { id: 'new', title: defaultTitle, start: start, end: end };
 		apiClient.timelinePreviewAdd(interval);
-		adding = true;
-		editing = false;
-		drawTimeline();
-	}
-
-	function commitNewInterval() {
-		if (apiClient.isPreviewAdding()) {
-			let previewColormap = apiClient.getSetting('colormap') || {};
-			let newInterval = apiClient.getPreviewAddingInterval();
-			apiClient.timelineAdd();
-			let colormap = apiClient.getSetting('colormap') || {};
-			for (let key in colormap) {
-				if (key in previewColormap) {
-					colormap[key] = previewColormap[key];
-				}
-			}
-			colormap[newInterval.title] = previewColormap[newInterval.title];
-			apiClient.setSetting('colormap', colormap);
-			adding = false;
-			drawTimeline();
-		}
-	}
-
-	function updateTitle(e: Event) {
-		let t = e.target as HTMLInputElement;
-		let newInterval = apiClient.getPreviewAddingInterval();
-		newInterval.title = t.value;
-		apiClient.timelinePreviewAdd(newInterval);
-		drawTimeline();
-	}
-
-	function updateStart(e: Event) {
-		let t = e.target as HTMLInputElement;
-		let newInterval = apiClient.getPreviewAddingInterval();
-		newInterval.start = Date.parse(t.value);
-		apiClient.timelinePreviewAdd(newInterval);
-		drawTimeline();
-	}
-
-	function updateEnd(e: Event) {
-		let t = e.target as HTMLInputElement;
-		let newInterval = apiClient.getPreviewAddingInterval();
-		newInterval.end = Date.parse(t.value);
-		apiClient.timelinePreviewAdd(newInterval);
-		drawTimeline();
-	}
-
-	function cancel() {
-		apiClient.stopPreview();
-		adding = false;
-		editing = false;
 		drawTimeline();
 	}
 
 	$: rangeStartM, rangeEndM, drawTimeline();
-	let adding = false;
-	let addingInterval: interval;
-	$: if ((curM && adding) || adding) {
-		addingInterval = apiClient.getPreviewAddingInterval();
-	}
-	let editing = false;
-	let editingInterval: interval;
-	$: if (hoveredInterval && editing) {
-		editingInterval = apiClient.getPreviewEditingInterval();
-	}
 </script>
 
 <p>
@@ -390,34 +298,7 @@
 	}}
 />
 <p>
-	{#if !adding}
-		<button on:click={() => addInterval()}>add</button>
-	{/if}
-	{#if adding}
-		<input type="text" value={addingInterval.title} on:input={updateTitle} />
-		{durationToString(addingInterval.end - addingInterval.start, '%H hours %M minutes %S seconds')}
-		<input
-			type="datetime-local"
-			value={toDateTimeString(addingInterval.start)}
-			on:change={updateStart}
-		/>
-		<input
-			type="datetime-local"
-			value={toDateTimeString(addingInterval.end)}
-			on:change={updateEnd}
-		/>
-		<button on:click={commitNewInterval}>add</button>
-		<button on:click={cancel}>cancel</button>
-	{:else if editing}
-		<input type="text" value={editingInterval.title} on:input={updateEditingInterval} />
-		{toDateTimeString(editingInterval.start)} - {toDateTimeString(editingInterval.end)}
-		{durationToString(
-			editingInterval.end - editingInterval.start,
-			'%H hours %M minutes %S seconds'
-		)}
-		<button on:click={commitEditingInterval}>edit</button>
-		<button on:click={cancel}>cancel</button>
-	{:else if hoveredInterval}
+	{#if hoveredInterval}
 		{hoveredInterval.title}
 		{toDateTimeString(hoveredInterval.start)} - {toDateTimeString(hoveredInterval.end)}
 		{durationToString(

@@ -302,11 +302,15 @@ export class ApiClient extends BaseClient {
         } else {
           let running = this.getRunning();
           if (running !== null) {
-            running.start = last.end;
-            running.end = end;
-            let interval = running as interval;
-            interval.id = "running";
-            timeline.push(interval);
+            if (running.title == last.title) {
+              last.end = end;
+            } else {
+              running.start = last.end;
+              running.end = end;
+              let interval = running as interval;
+              interval.id = "running";
+              timeline.push(interval);
+            }
           }
         }
       }
