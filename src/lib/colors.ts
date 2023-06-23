@@ -3,13 +3,10 @@ export function makeColorIterator() {
 
   const rangeIterator = {
     next() {
-      let done = true;
       let value = hslToHex(nextIndex, 50, 50);
-      if (nextIndex < 350) {
-        done = false;
-        nextIndex += 20;
-      }
-      return { value: value, done: done };
+      nextIndex += 20;
+      nextIndex = nextIndex % 360;
+      return { value: value, done: false };
     },
   };
   return rangeIterator;

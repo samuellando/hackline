@@ -1,8 +1,8 @@
 <script lang="ts">
-	import type { running } from './types';
+	import type { running } from '$lib/types';
 	import { onMount, onDestroy } from 'svelte';
-	import type { ApiClient } from './Api';
-	import { durationToString } from './timePrint';
+	import type { ApiClient } from '$lib/Api';
+	import { durationToString } from '$lib/timePrint';
 
 	export var apiClient: ApiClient;
 

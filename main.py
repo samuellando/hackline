@@ -292,15 +292,16 @@ def cutOverlaps(all, backfill=True):
 
 
         if backfill: 
-            if interval.start != s["ref"].start and not (i == len(starts) - 1 and  interval.id == "running"):
-                res = ar.post("intervals", interval.toDict())
-                interval = Interval.fromDict(res)
-            elif interval.end != s["ref"].end:
-                if interval.id != "":
-                    ar.patch("intervals/"+interval.id, interval.toDict())
-                else:
-                   res = ar.post("intervals", interval.toDict())
-                   interval = Interval.fromDict(res)
+            if not (i == len(starts) - 1 and  interval.id == "running"):
+                if interval.start != s["ref"].start or interval.id == 'running':
+                    res = ar.post("intervals", interval.toDict())
+                    interval = Interval.fromDict(res)
+                elif interval.end != s["ref"].end:
+                    if interval.id != "":
+                        ar.patch("intervals/"+interval.id, interval.toDict())
+                    else:
+                       res = ar.post("intervals", interval.toDict())
+                       interval = Interval.fromDict(res)
 
         results.append(interval)
 

@@ -1,4 +1,4 @@
-import type { interval, settings, running, apiKey } from './types';
+import type { interval, settings, running, apiKey } from '$lib/types';
 
 class BaseClient {
   apiUrl: string;
@@ -112,11 +112,20 @@ export class ApiClient extends BaseClient {
   syncing: meta;
   pullInterval: ReturnType<typeof setInterval>;
   updateInterval: ReturnType<typeof setInterval>;
+  readyWaiting: Promise<any>[];
+  adding: interval | null;
+  editing: interval | null;
+  previewSettings: settings | null;
+
 
   constructor(apiUrl: string, accessToken: string | undefined = undefined, refresh_interval = 60000, update_interval = 10000) {
     super(apiUrl, accessToken);
     this.refresh_interval = refresh_interval;
     this.update_interval = update_interval;
+    this.adding = null;
+    this.editing = null;
+    this.previewSettings = null;
+    this.readyWaiting = [];
 
     this.data = Object.fromEntries(
       Object.values(endpoints).map(key => [key, null])
@@ -140,11 +149,13 @@ export class ApiClient extends BaseClient {
 
     // Try to load the data from local storage, and start a new pull.
     for (const k in endpoints) {
+      let p = this.pullData(k as endpoints);
       var s = localStorage.getItem(k);
       if (s != null) {
         this.data[k as endpoints] = JSON.parse(s);
+      } else {
+        this.readyWaiting.push(p);
       }
-      this.pullData(k as endpoints);
     }
 
     // Set up the pull and update intervals. 
@@ -158,6 +169,10 @@ export class ApiClient extends BaseClient {
       this.updateTimeline();
       this.pullData(endpoints.running);
     }, update_interval);
+  }
+
+  async ready() {
+    await Promise.all(this.readyWaiting)
   }
 
   close(): void {
@@ -287,20 +302,44 @@ export class ApiClient extends BaseClient {
         } else {
           let running = this.getRunning();
           if (running !== null) {
-            running.start = last.end;
-            running.end = end;
-            let interval = running as interval;
-            interval.id = "running";
-            timeline.push(interval);
+            if (running.title == last.title) {
+              last.end = end;
+            } else {
+              running.start = last.end;
+              running.end = end;
+              let interval = running as interval;
+              interval.id = "running";
+              timeline.push(interval);
+            }
           }
         }
       }
     }
-    return timeline;
+    if (this.isPreviewAdding()) {
+      return this.timelinePreviewAdd(this.adding as interval, start, end, timeline);
+    } else if (this.isPreviewEditing()) {
+      return this.timelinePreviewEdit(this.editing as interval, start, end, timeline);
+    } else {
+      return timeline;
+    }
   }
 
   getSettings(): settings {
-    if (this.data.settings === null) return {};
+    if (this.isPreview()) {
+      if (this.previewSettings != null) {
+        return deepClone(this.previewSettings as settings);
+      } else {
+        if (this.data.settings == null) {
+          return {};
+        } else {
+          this.previewSettings = deepClone(this.data.settings);
+          return deepClone(this.previewSettings as settings);
+        }
+      }
+    }
+    if (this.data.settings === null) {
+      return {};
+    }
     return deepClone<settings>(this.data.settings);
   }
 
@@ -314,6 +353,10 @@ export class ApiClient extends BaseClient {
   }
 
   setSettings(value: settings): promises[endpoints.settings] {
+    if (this.isPreview()) {
+      this.previewSettings = value;
+      return Promise.resolve(deepClone(this.previewSettings));
+    }
     this.syncing.settings++;
     this.commit(endpoints.settings, value, (new Date()).getTime());
     this.promises.settings = this.promises.settings.then(async () => {
@@ -325,6 +368,13 @@ export class ApiClient extends BaseClient {
   }
 
   setSetting(key: string, value: any): promises[endpoints.settings] {
+    if (this.isPreview()) {
+      if (this.previewSettings == null) {
+        this.previewSettings = deepClone(this.data.settings as settings);
+      }
+      this.previewSettings[key] = value;
+      return Promise.resolve(deepClone(this.previewSettings));
+    }
     this.syncing.settings++;
     let settings = this.getSettings();
     settings[key] = value;
@@ -362,21 +412,61 @@ export class ApiClient extends BaseClient {
     return this.promises.running;
   }
 
-  timelineAdd(log: interval): promises[endpoints.timeline] {
+  timelineAdd(log: interval | undefined = undefined): promises[endpoints.timeline] {
+    if (typeof log == 'undefined') {
+      if (this.isPreviewAdding()) {
+        log = this.adding as interval;
+      } else {
+        throw new Error('TimlineAdd requires a parameter or preview adding mode.')
+      }
+    }
     this.syncing.timeline++;
     var limit = (new Date()).getTime();
     var timeline = this.timelinePreviewAdd(log);
+    this.stopPreview();
     this.commit(endpoints.timeline, timeline, limit);
     this.promises.timeline = this.promises.timeline.then(async () => {
-      await this.post<interval>('timeline', log);
+      await this.post<interval>('timeline', log as interval);
       this.syncing.timeline--;
       return timeline;
     });
     return this.promises.timeline;
   }
 
-  timelinePreviewAdd(log: interval, start: number | undefined = undefined, end: number | undefined = undefined): timeline {
-    let timeline = this.getTimeline(start, end);
+  isPreview(): boolean {
+    return this.isPreviewAdding() || this.isPreviewEditing();
+  }
+
+  isPreviewAdding(): boolean {
+    return this.adding != null;
+  }
+
+  isPreviewEditing(): boolean {
+    return this.editing != null;
+  }
+
+  stopPreview() {
+    this.adding = null;
+    this.editing = null;
+    this.previewSettings = null;
+  }
+
+  getPreviewAddingInterval(): interval {
+    if (this.isPreviewAdding()) {
+      return this.adding as interval;
+    } else {
+      throw new Error("Not adding");
+    }
+  }
+
+  timelinePreviewAdd(log: interval, start: number | undefined = undefined, end: number | undefined = undefined, tl: timeline | undefined = undefined): timeline {
+    let timeline: timeline;
+    this.adding = deepClone(log);
+    if (typeof tl === 'undefined') {
+      timeline = this.getTimeline(start, end);
+    } else {
+      timeline = deepClone(tl);
+    }
     for (let i = 0; i < timeline.length; i++) {
       let e = timeline[i];
       /*
@@ -425,24 +515,55 @@ export class ApiClient extends BaseClient {
     if (!inserted) {
       timeline.push(log);
     }
-
     return timeline;
   }
 
-  timelineEdit(log: interval): promises[endpoints.timeline] {
+  timelinePreviewEdit(log: interval, start: number | undefined = undefined, end: number | undefined = undefined, tl: timeline | undefined = undefined): timeline {
+    let timeline: timeline;
+    this.editing = deepClone(log);
+    if (typeof tl === 'undefined') {
+      timeline = this.getTimeline(start, end);
+    } else {
+      timeline = deepClone(tl);
+    }
+    timeline.forEach((e: interval) => {
+      if (e.id == log.id) {
+        e.title = (log).title;
+      }
+    });
+    return timeline;
+  }
+
+  getPreviewEditingInterval(): interval {
+    if (this.isPreviewEditing()) {
+      return this.editing as interval;
+    } else {
+      throw new Error("Not editing");
+    }
+  }
+
+  timelineEdit(log: interval | undefined = undefined): promises[endpoints.timeline] {
+    if (typeof log == 'undefined') {
+      if (this.isPreviewEditing()) {
+        log = this.editing as interval;
+        this.stopPreview();
+      } else {
+        throw new Error('TimlineEdit requires a parameter or preview  mode.')
+      }
+    }
     this.syncing.timeline++;
     let id = log.id;
     var limit = (new Date()).getTime();
     var timeline = this.getTimeline();
     timeline.forEach((e: interval) => {
       if (e.id == id) {
-        e.title = log.title;
+        e.title = (log as interval).title;
       }
     });
     this.commit(endpoints.timeline, timeline, limit);
 
     this.promises.timeline = this.promises.timeline.then(async () => {
-      await this.patch('timeline/' + id, { title: log.title })
+      await this.patch('timeline/' + id, { title: (log as interval).title })
       this.syncing.timeline--;
       return timeline;
     });
