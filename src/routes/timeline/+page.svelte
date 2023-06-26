@@ -7,7 +7,6 @@
 	import Timeline from '$lib/components/Timeline.svelte';
 	import Summary from '$lib/components/Summary.svelte';
 	import Running from '$lib/components/Running.svelte';
-	import { toDateTimeString } from '$lib/timePrint';
 	import RangeSelector from '$lib/components/RangeSelector.svelte';
 
 	let apiUrl: string;
@@ -30,7 +29,7 @@
 			if (live && !apiClient.isPreview()) {
 				rangeEndM = new Date().getTime();
 			}
-		}, 300);
+		}, 1000);
 		loading = false;
 	});
 

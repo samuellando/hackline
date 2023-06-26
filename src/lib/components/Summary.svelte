@@ -11,7 +11,6 @@
 	export let apiClient: ApiClient;
 
 	var interval: ReturnType<typeof setInterval>;
-	var updated = -1;
 
 	type summary = {
 		title: string;
@@ -23,12 +22,7 @@
 	var summary: summary[];
 
 	onMount(async () => {
-		interval = setInterval(() => {
-			if (apiClient.isPreview() || apiClient.lastChangeTimeline() != updated) {
-				summary = getSummary();
-				updated = apiClient.lastChangeTimeline();
-			}
-		}, 300);
+		apiClient.subscribe(() => (summary = getSummary()));
 	});
 
 	onDestroy(() => {

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { interval } from '$lib/types';
 	import { onMount, onDestroy } from 'svelte';
+	import type { Unsubscriber } from 'svelte/store';
 	import type { ApiClient } from '$lib/Api';
 	import { makeColorIterator } from '$lib/colors';
 	import { durationToString, toDateTimeString, getTimeDivisions } from '$lib/timePrint';
@@ -19,36 +20,20 @@
 		drawEnd: number;
 	}
 
-	let updated = -1;
+	let unsubscribe: Unsubscriber;
 	let loading = true;
 	let colorIterator = makeColorIterator();
 	onMount(() => {
-		function lastChange() {
-			return Math.max(
-				apiClient.lastChangeTimeline(),
-				apiClient.lastChangeSettings(),
-				apiClient.lastChangeRunning()
-			);
-		}
-		function update() {
-			if (!apiClient.isPreview()) {
-				if (lastChange() != updated) {
-					drawTimeline();
-					updated = lastChange();
-				}
-			}
-		}
-
-		interval = setInterval(() => {
-			update();
-		}, 300);
-
-		update();
+		unsubscribe = apiClient.subscribe(() => {
+			console.log('Subscription updated');
+			drawTimeline();
+		});
 		loading = false;
 	});
 
 	onDestroy(() => {
 		clearInterval(interval);
+		unsubscribe();
 	});
 
 	function toDrawInterval(i: interval, duration: number, width: number): drawInterval {
@@ -257,7 +242,6 @@
 	function editInterval(i: interval | null) {
 		if (i != null && i.id != 'running') {
 			apiClient.timelinePreviewEdit(i);
-			drawTimeline();
 		}
 	}
 
@@ -267,7 +251,6 @@
 		end = end >= start ? end : start + 15 * 60 * 1000;
 		let interval: interval = { id: 'new', title: defaultTitle, start: start, end: end };
 		apiClient.timelinePreviewAdd(interval);
-		drawTimeline();
 	}
 
 	$: rangeStartM, rangeEndM, drawTimeline();
