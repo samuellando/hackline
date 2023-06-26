@@ -164,7 +164,8 @@
 	/>
 	time: {durationToString(
 		addingInterval.end - addingInterval.start,
-		'%y years %m months %d days %H hours %M minutes %S seconds'
+		apiClient.getSetting('summary-duration-format') ||
+			'%y years %m months %d days %H hours %M minutes %S seconds'
 	)}
 	<input
 		type="datetime-local"
@@ -186,7 +187,11 @@
 	>
 	<input type="color" value={s.color} on:input={(e) => update(s.title, e)} />
 	{s.title}
-	time: {durationToString(s.totalTime, '%y years %m months %d days %H hours %M minutes %S seconds')}
+	time: {durationToString(
+		s.totalTime,
+		apiClient.getSetting('summary-duration-format') ||
+			'%y years %m months %d days %H hours %M minutes %S seconds'
+	)}
 	<button on:click={() => apiClient.setRunning(s.title)}>Run</button>
 	<button on:click={() => addByTitle(s.title)}>Add</button>
 	{#if s.title in dropdown && dropdown[s.title]}
@@ -219,7 +224,8 @@
 				{/if}
 				time: {durationToString(
 					i.end - i.start,
-					'%y years %m months %d days %H hours %M minutes %S seconds'
+					apiClient.getSetting('summary-duration-format') ||
+						'%y years %m months %d days %H hours %M minutes %S seconds'
 				)}
 				{toDateTimeString(i.start)} - {toDateTimeString(i.end)}
 				{#if apiClient.isPreviewEditing() && apiClient.getPreviewEditingInterval().id == i.id}

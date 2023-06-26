@@ -55,20 +55,38 @@
 	let live: boolean;
 </script>
 
-<h1>HackLine.io</h1>
 {#if loading}
 	<h2>loading</h2>
 {:else}
-	<Auth {authDef} /> <br />
+	<div
+		id="timeline-container"
+		style="
+background-color: {apiClient.getSetting('background-color') || '#413C58'};
+color: {apiClient.getSetting('text-color') || '#FFF1D0'};
+"
+	>
+		<h1>HackLine.io</h1>
+		<Auth {authDef} /> <br />
 
-	<a href="/settings">settings</a>
+		<a href="/settings">settings</a>
 
-	<Running bind:apiClient />
+		<Running bind:apiClient />
 
-	<RangeSelector bind:rangeStartM bind:rangeEndM bind:live />
+		<RangeSelector bind:rangeStartM bind:rangeEndM bind:live />
 
-	<Timeline bind:apiClient bind:rangeStartM bind:rangeEndM bind:live />
+		<Timeline bind:apiClient bind:rangeStartM bind:rangeEndM bind:live />
 
-	<h2>Summary</h2>
-	<Summary bind:apiClient bind:rangeStartM bind:rangeEndM />
+		<h2>Summary</h2>
+		<Summary bind:apiClient bind:rangeStartM bind:rangeEndM />
+	</div>
 {/if}
+
+<style>
+	#timeline-container {
+		height: 100%;
+		width: 100%;
+		position: absolute;
+		top: 0px;
+		left: 0px;
+	}
+</style>

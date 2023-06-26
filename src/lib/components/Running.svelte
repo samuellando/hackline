@@ -26,11 +26,21 @@
 	<h1>Running:</h1>
 	<h2>{running.title}</h2>
 	{#if typeof running.end != 'undefined'}
-		<h3>{durationToString(running.end - new Date().getTime(), '%H:%M:%S')} remaining</h3>
+		<h3>
+			{durationToString(
+				running.end - new Date().getTime(),
+				apiClient.getSetting('running-duration-format') || '%H:%M:%S'
+			)} remaining
+		</h3>
 		{#if typeof running.fallback != 'undefined'}
 			<p>Then {running.fallback}</p>
 		{/if}
 	{:else}
-		<h3>{durationToString(new Date().getTime() - running.start, '%H:%M:%S')}</h3>
+		<h3>
+			{durationToString(
+				new Date().getTime() - running.start,
+				apiClient.getSetting('running-duration-format') || '%H:%M:%S'
+			)}
+		</h3>
 	{/if}
 {/if}
