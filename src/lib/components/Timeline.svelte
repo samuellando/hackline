@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { interval } from '$lib/types';
 	import { onMount, onDestroy } from 'svelte';
+	import type { Unsubscriber } from 'svelte/store';
 	import type { ApiClient } from '$lib/Api';
 	import { makeColorIterator } from '$lib/colors';
 	import { durationToString, toDateTimeString, getTimeDivisions } from '$lib/timePrint';
@@ -19,36 +20,19 @@
 		drawEnd: number;
 	}
 
-	let updated = -1;
+	let unsubscribe: Unsubscriber;
 	let loading = true;
 	let colorIterator = makeColorIterator();
 	onMount(() => {
-		function lastChange() {
-			return Math.max(
-				apiClient.lastChangeTimeline(),
-				apiClient.lastChangeSettings(),
-				apiClient.lastChangeRunning()
-			);
-		}
-		function update() {
-			if (!apiClient.isPreview()) {
-				if (lastChange() != updated) {
-					drawTimeline();
-					updated = lastChange();
-				}
-			}
-		}
-
-		interval = setInterval(() => {
-			update();
-		}, 300);
-
-		update();
+		unsubscribe = apiClient.subscribe(() => {
+			drawTimeline();
+		});
 		loading = false;
 	});
 
 	onDestroy(() => {
 		clearInterval(interval);
+		unsubscribe();
 	});
 
 	function toDrawInterval(i: interval, duration: number, width: number): drawInterval {
@@ -100,7 +84,7 @@
 		canvas.height = height;
 
 		// Draw the default background.
-		ctx.fillStyle = '#b3b0ad';
+		ctx.fillStyle = apiClient.getSetting('timeline-background') || '#b3b0ad';
 		ctx.fillRect(0, 0, width, drawHeight);
 
 		// Convert the timeline.
@@ -119,7 +103,7 @@
 				(apiClient.isPreviewEditing() && e.id == apiClient.getPreviewEditingInterval().id) ||
 				(hoveredInterval && e.id == hoveredInterval.id && !apiClient.isPreviewEditing())
 			) {
-				ctx.strokeStyle = 'black';
+				ctx.strokeStyle = apiClient.getSetting('timeline-highlight') || 'black';
 				ctx.lineWidth = 2;
 				ctx.strokeRect(
 					e.drawStart + ctx.lineWidth / 2,
@@ -136,8 +120,9 @@
 		// draw the cursor.
 		if (x >= 0 && x <= width && y > 0 && y <= drawHeight) {
 			// draw the cursor
-			ctx.strokeStyle = 'black';
+			ctx.strokeStyle = apiClient.getSetting('timeline-cursor') || 'black';
 			ctx.lineWidth = 0.25;
+			ctx.beginPath();
 			ctx.moveTo(x, 0);
 			ctx.lineTo(x, drawHeight);
 			ctx.moveTo(0, y);
@@ -146,17 +131,18 @@
 		}
 		// Fade out the other sections on add.
 		if (apiClient.isPreviewAdding()) {
-			ctx.fillStyle = '#00000040';
+			ctx.fillStyle = apiClient.getSetting('timeline-blur') || '#00000040';
 			var n = toDrawInterval(apiClient.getPreviewAddingInterval(), rangeEndM - rangeStartM, width);
 			ctx.fillRect(0, 0, n.drawStart, drawHeight);
 			ctx.fillRect(n.drawEnd, 0, width - n.drawEnd, drawHeight);
 		}
 		// x-axis
+		ctx.beginPath();
 		let divs = getTimeDivisions(rangeStartM, rangeEndM);
-		ctx.strokeStyle = 'black';
-		ctx.fillStyle = 'black';
+		ctx.strokeStyle = apiClient.getSetting('timeline-x-axis-hashes') || 'black';
+		ctx.fillStyle = apiClient.getSetting('timeline-x-axis-text') || 'black';
 		ctx.lineWidth = 1;
-		ctx.font = '15px serif';
+		ctx.font = apiClient.getSetting('timeline-x-axis-font') || '15px serif';
 		divs.forEach((e: [number, string]) => {
 			let x = ((e[0] - rangeStartM) / (rangeEndM - rangeStartM)) * width;
 			ctx.moveTo(x, drawHeight);
@@ -257,29 +243,19 @@
 	function editInterval(i: interval | null) {
 		if (i != null && i.id != 'running') {
 			apiClient.timelinePreviewEdit(i);
-			drawTimeline();
 		}
 	}
 
 	function addInterval(start: number = -1, end: number = -1) {
-		let defaultTitle = apiClient.getSetting('defaultTitle') || 'productive';
+		let defaultTitle = apiClient.getSetting('default-title') || 'productive';
 		start = start >= 0 ? start : (rangeStartM + rangeEndM) / 2;
 		end = end >= start ? end : start + 15 * 60 * 1000;
 		let interval: interval = { id: 'new', title: defaultTitle, start: start, end: end };
 		apiClient.timelinePreviewAdd(interval);
-		drawTimeline();
 	}
 
 	$: rangeStartM, rangeEndM, drawTimeline();
 </script>
-
-<p>
-	{#if live}LIVE{/if}
-	{#if curM}
-		{new Date(curM)}
-	{/if}
-	&nbsp;
-</p>
 
 <canvas
 	id="timeline"
@@ -298,12 +274,17 @@
 	}}
 />
 <p>
+	{#if curM}
+		{new Date(curM)}
+	{/if}
+	&nbsp;
+	<br />
 	{#if hoveredInterval}
 		{hoveredInterval.title}
 		{toDateTimeString(hoveredInterval.start)} - {toDateTimeString(hoveredInterval.end)}
 		{durationToString(
 			hoveredInterval.end - hoveredInterval.start,
-			'%H hours %M minutes %S seconds'
+			apiClient.getSetting('timeline-duration-format') || '%H hours %M minutes %S seconds'
 		)}
 	{:else}
 		&nbsp;
@@ -312,7 +293,7 @@
 
 <style>
 	#timeline {
-		width: 100%;
+		width: 95%;
 		height: 175px;
 	}
 	#timeline:hover {
