@@ -79,6 +79,7 @@
 		<button
 			on:click={() => {
 				[rangeStartM, rangeEndM] = getRange(options[selected]);
+				live = options[selected].moveBack == 0;
 			}}
 			style={match ? 'color:' + primary + '; background-color:' + secondary + ';' : null}
 		>

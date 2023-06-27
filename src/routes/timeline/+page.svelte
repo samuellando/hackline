@@ -90,7 +90,7 @@ font-family: {apiClient.getSetting('text-font') || 'courier, monospace'};
 
 		<div id="top-of-timeline">
 			<div id="live">
-				<Live {live} />
+				<Live bind:live />
 			</div>
 
 			<div id="range-selector">
