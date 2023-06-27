@@ -8,6 +8,9 @@
 	import Summary from '$lib/components/Summary.svelte';
 	import Running from '$lib/components/Running.svelte';
 	import RangeSelector from '$lib/components/RangeSelector.svelte';
+	import Button from '$lib/components/Button.svelte';
+	import Live from '$lib/components/Live.svelte';
+	import { goto } from '$app/navigation';
 
 	let apiUrl: string;
 	let apiClient: ApiClient;
@@ -30,6 +33,8 @@
 				rangeEndM = new Date().getTime();
 			}
 		}, 1000);
+		primary = apiClient.getSetting('background-color') || '#b3b0ad';
+		secondary = apiClient.getSetting('text-color') || '#FFF1D0';
 		loading = false;
 	});
 
@@ -53,6 +58,9 @@
 	var rangeEndM: number;
 
 	let live: boolean;
+
+	let primary: string;
+	let secondary: string;
 </script>
 
 {#if loading}
@@ -61,32 +69,82 @@
 	<div
 		id="timeline-container"
 		style="
-background-color: {apiClient.getSetting('background-color') || '#413C58'};
-color: {apiClient.getSetting('text-color') || '#FFF1D0'};
+background-color: {primary};
+color: {secondary};
+font-family: {apiClient.getSetting('text-font') || 'courier, monospace'};
 "
 	>
-		<h1>HackLine.io</h1>
-		<Auth {authDef} /> <br />
+		<div id="title-container">
+			<h1>HackLine.io</h1>
 
-		<a href="/settings">settings</a>
+			<div id="navigation-container">
+				<Button text="Settings" {primary} {secondary} onClick={() => goto('/settings')} />
 
-		<Running bind:apiClient />
+				<Auth {primary} {secondary} {authDef} />
+			</div>
+		</div>
 
-		<RangeSelector bind:rangeStartM bind:rangeEndM bind:live />
+		<div id="running">
+			<Running bind:apiClient />
+		</div>
+
+		<div id="top-of-timeline">
+			<div id="live">
+				<Live {live} />
+			</div>
+
+			<div id="range-selector">
+				<RangeSelector bind:rangeStartM bind:rangeEndM bind:live {primary} {secondary} />
+			</div>
+		</div>
 
 		<Timeline bind:apiClient bind:rangeStartM bind:rangeEndM bind:live />
 
 		<h2>Summary</h2>
-		<Summary bind:apiClient bind:rangeStartM bind:rangeEndM />
+		<Summary bind:apiClient bind:rangeStartM bind:rangeEndM {primary} {secondary} />
 	</div>
 {/if}
 
 <style>
+	#title-container {
+		display: grid;
+		grid-template-columns: 200px auto 200px;
+		grid-template-rows: 50px;
+		padding: 10px;
+	}
+	#title-container h1 {
+		font-size: 50px;
+		margin: 0;
+		width: auto;
+		grid-column-start: 2;
+		grid-row-start: 2;
+	}
+
+	#navigation-container {
+		grid-column-start: 3;
+	}
+
+	#running {
+		margin-top: 100px;
+	}
+
+	#top-of-timeline {
+		display: grid;
+		grid-template-columns: 200px auto 200px;
+		grid-template-rows: 50px;
+		margin-top: 100px;
+		margin-bottom: 10px;
+	}
+	#top-of-timeline #range-selector {
+		grid-column-start: 3;
+	}
+
 	#timeline-container {
-		height: 100%;
+		padding-bottom: 50vh;
 		width: 100%;
 		position: absolute;
 		top: 0px;
 		left: 0px;
+		text-align: center;
 	}
 </style>

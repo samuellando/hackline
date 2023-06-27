@@ -257,14 +257,6 @@
 	$: rangeStartM, rangeEndM, drawTimeline();
 </script>
 
-<p>
-	{#if live}LIVE{/if}
-	{#if curM}
-		{new Date(curM)}
-	{/if}
-	&nbsp;
-</p>
-
 <canvas
 	id="timeline"
 	on:mousemove={mouseMove}
@@ -282,6 +274,11 @@
 	}}
 />
 <p>
+	{#if curM}
+		{new Date(curM)}
+	{/if}
+	&nbsp;
+	<br />
 	{#if hoveredInterval}
 		{hoveredInterval.title}
 		{toDateTimeString(hoveredInterval.start)} - {toDateTimeString(hoveredInterval.end)}

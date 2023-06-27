@@ -2,6 +2,9 @@
 	import moment from 'moment';
 	import { toDateTimeString } from '$lib/timePrint';
 
+	export let primary: string = 'white';
+	export let secondary: string = 'black';
+
 	type option = {
 		title: string;
 		unit: moment.unitOfTime.StartOf;
@@ -57,6 +60,8 @@
 		rangeStartM == getRange(options[selected])[0] &&
 		(rangeEndM == getRange(options[selected])[1] || live);
 
+	$: a = console.log(match);
+
 	$: rangeStart = toDateTimeString(rangeStartM);
 	$: rangeEnd = toDateTimeString(rangeEndM);
 
@@ -69,39 +74,118 @@
 	}
 </script>
 
-<div
-	on:click={() => {
-		[rangeStartM, rangeEndM] = getRange(options[selected]);
-	}}
->
-	{options[selected].title}
-</div>
-<button
-	on:click={() => {
-		dropdown = true;
-	}}>V</button
->
-{#if match}
-	MARTH
-{/if}
-{#if dropdown}
-	<div>
-		{#each options as option, i}
-			<div
-				on:click={() => {
-					[rangeStartM, rangeEndM] = getRange(option);
-					dropdown = false;
-					selected = i;
-					live = option.moveBack == 0;
-				}}
-			>
-				{option.title}
-			</div>
-		{/each}
-		<div>
-			custom
-			<input type="datetime-local" bind:value={rangeStart} on:change={updateRange} />
-			<input type="datetime-local" bind:value={rangeEnd} on:change={updateRange} />
-		</div>
+<div id="range-selector" style="--primary: {primary}; --secondary: {secondary}">
+	<div id="top">
+		<button
+			on:click={() => {
+				[rangeStartM, rangeEndM] = getRange(options[selected]);
+			}}
+			style={match ? 'color:' + primary + '; background-color:' + secondary + ';' : null}
+		>
+			{options[selected].title}
+		</button>
+		<button
+			on:click={() => {
+				dropdown = dropdown ? false : true;
+			}}
+			style={match ? 'color:' + primary + '; background-color:' + secondary + ';' : null}>▼</button
+		>
 	</div>
-{/if}
+	{#if dropdown}
+		<div id="selector">
+			{#each options as option, i}
+				<button
+					on:click={() => {
+						[rangeStartM, rangeEndM] = getRange(option);
+						dropdown = false;
+						selected = i;
+						live = option.moveBack == 0;
+					}}
+				>
+					{option.title}
+				</button>
+			{/each}
+			<div>
+				custom
+				<input
+					type="datetime-local"
+					bind:value={rangeStart}
+					on:input={updateRange}
+					on:change={() => (dropdown = false)}
+				/>
+				<input
+					type="datetime-local"
+					bind:value={rangeEnd}
+					on:input={updateRange}
+					on:change={() => (dropdown = false)}
+				/>
+			</div>
+		</div>
+	{/if}
+</div>
+
+<style>
+	button {
+		padding: 10px;
+		border-style: solid;
+		border-width: 1px;
+		height: 50px;
+		border-color: var(--secondary);
+		color: var(--secondary);
+		background-color: var(--primary);
+	}
+	button:hover {
+		cursor: pointer;
+		color: var(--primary);
+		background-color: var(--secondary);
+	}
+
+	#top {
+		display: inline-flex;
+	}
+	#top:hover button {
+		cursor: pointer;
+		color: var(--primary);
+		background-color: var(--secondary);
+	}
+	#top button:nth-of-type(1) {
+		border-radius: 100px 0 0 100px;
+		border-right: none;
+		width: 75px;
+	}
+	#top button:nth-of-type(2) {
+		border-radius: 0 100px 100px 0;
+		border-left: none;
+		width: 25px;
+	}
+
+	#range-selector {
+		width: 100px;
+	}
+
+	#selector {
+		position: absolute;
+	}
+	#selector > * {
+		display: block;
+		width: 100px;
+	}
+	#selector div > * {
+		display: block;
+		width: 100px;
+	}
+	#selector div {
+		border-color: var(--secondary);
+	}
+	#selector div input {
+		color: var(--secondary);
+		background-color: var(--primary);
+		border-color: var(--secondary);
+		color: var(--secondary);
+		background-color: var(--primary);
+		border-width: 0 0 1px 0;
+	}
+	::-webkit-calendar-picker-indicator {
+		background-color: var(--secondary) !important;
+	}
+</style>

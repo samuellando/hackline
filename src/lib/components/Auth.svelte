@@ -1,7 +1,10 @@
 <script lang="ts">
 	import type { authDef } from '$lib/types';
+	import Button from '$lib/components/Button.svelte';
 
 	export var authDef: authDef;
+	export var primary: string;
+	export var secondary: string;
 
 	async function login() {
 		authDef.authClient.loginWithRedirect();
@@ -18,7 +21,7 @@
 </script>
 
 {#if authenticated}
-	<button on:click={logout}>Logout</button>
+	<Button {primary} {secondary} onClick={logout} text="Logout" />
 {:else}
-	<button on:click={login}>Login</button>
+	<Button {primary} {secondary} onClick={login} text="Login" />
 {/if}
