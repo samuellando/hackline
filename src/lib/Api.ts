@@ -1,4 +1,6 @@
 import type { interval, settings, running, apiKey } from '$lib/types';
+import { writable, get, derived } from 'svelte/store';
+import type { Writable, Subscriber } from 'svelte/store';
 
 class BaseClient {
   apiUrl: string;
@@ -87,6 +89,12 @@ function deepClone<T>(e: T): T {
   return JSON.parse(JSON.stringify(e));
 }
 
+type store = {
+  subscribe: Function,
+  set: Function,
+  update: Function
+}
+
 /* 
 * This class provides all the essential methods for interacting with the backend. It takes care of centralizing and syncing data for the timeline, and settings endpoints.
  * It also provies some general rest API enpoints for workarounds and prototyping.
@@ -108,11 +116,13 @@ export class ApiClient extends BaseClient {
    * 3. after 5 secounds, the data recieved from the read operation will be discarded because lastChange > start time of the read.
    */
   commitPromises: promises;
-  lastChange: meta;
+  lastChange: Writable<meta>;
   syncing: meta;
   pullInterval: ReturnType<typeof setInterval>;
   updateInterval: ReturnType<typeof setInterval>;
   readyWaiting: Promise<any>[];
+
+  previewUpdates: store;
   adding: interval | null;
   editing: interval | null;
   previewSettings: settings | null;
@@ -127,6 +137,13 @@ export class ApiClient extends BaseClient {
     this.previewSettings = null;
     this.readyWaiting = [];
 
+    let { subscribe, set, update } = writable(0);
+    this.previewUpdates = {
+      subscribe,
+      set,
+      update: () => update((n) => n + 1)
+    }
+
     this.data = Object.fromEntries(
       Object.values(endpoints).map(key => [key, null])
     ) as data;
@@ -139,9 +156,9 @@ export class ApiClient extends BaseClient {
       Object.values(endpoints).map(key => [key, Promise.resolve(null)])
     ) as promises;
 
-    this.lastChange = Object.fromEntries(
+    this.lastChange = writable(Object.fromEntries(
       Object.values(endpoints).map(key => [key, 0])
-    ) as meta;
+    ) as meta);
 
     this.syncing = Object.fromEntries(
       Object.values(endpoints).map(key => [key, 0])
@@ -180,13 +197,19 @@ export class ApiClient extends BaseClient {
     clearInterval(this.updateInterval);
   }
 
+  subscribe(f: Subscriber<any>) {
+    return derived([this.lastChange, this.previewUpdates as Writable<number>], ([lc, pu]) => [lc, pu]).subscribe(f);
+  }
+
   private commit<T extends endpoints>(k: T, data: endpointTypes[T], asOf: number = (new Date()).getTime()): promises[T] {
     this.commitPromises[k] = this.commitPromises[k].then(() => {
-      if (this.lastChange[k] > asOf) {
+      let lc = get(this.lastChange);
+      if (lc[k] > asOf) {
         console.error("Cannot change value", k, "Value has already been overwriten locally.")
         return this.data[k];
       }
-      this.lastChange[k] = (new Date()).getTime();
+      lc[k] = (new Date()).getTime();
+      this.lastChange.set(lc);
       this.data[k] = data;
       localStorage.setItem(k, JSON.stringify(this.data[k]));
       return data;
@@ -245,15 +268,15 @@ export class ApiClient extends BaseClient {
   }
 
   lastChangeTimeline(): number {
-    return this.lastChange.timeline;
+    return get(this.lastChange).timeline;
   }
 
   lastChangeSettings(): number {
-    return this.lastChange.settings;
+    return get(this.lastChange).settings;
   }
 
   lastChangeRunning(): number {
-    return this.lastChange.running;
+    return get(this.lastChange).running;
   }
 
   getSyncing(): { [id: string]: number } {
@@ -355,6 +378,7 @@ export class ApiClient extends BaseClient {
   setSettings(value: settings): promises[endpoints.settings] {
     if (this.isPreview()) {
       this.previewSettings = value;
+      this.previewUpdates.update();
       return Promise.resolve(deepClone(this.previewSettings));
     }
     this.syncing.settings++;
@@ -373,6 +397,7 @@ export class ApiClient extends BaseClient {
         this.previewSettings = deepClone(this.data.settings as settings);
       }
       this.previewSettings[key] = value;
+      this.previewUpdates.update();
       return Promise.resolve(deepClone(this.previewSettings));
     }
     this.syncing.settings++;
@@ -449,6 +474,7 @@ export class ApiClient extends BaseClient {
     this.adding = null;
     this.editing = null;
     this.previewSettings = null;
+    this.previewUpdates.update();
   }
 
   getPreviewAddingInterval(): interval {
@@ -464,6 +490,7 @@ export class ApiClient extends BaseClient {
     this.adding = deepClone(log);
     if (typeof tl === 'undefined') {
       timeline = this.getTimeline(start, end);
+      this.previewUpdates.update();
     } else {
       timeline = deepClone(tl);
     }
@@ -523,6 +550,7 @@ export class ApiClient extends BaseClient {
     this.editing = deepClone(log);
     if (typeof tl === 'undefined') {
       timeline = this.getTimeline(start, end);
+      this.previewUpdates.update();
     } else {
       timeline = deepClone(tl);
     }

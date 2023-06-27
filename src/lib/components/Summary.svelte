@@ -5,13 +5,16 @@
 	import type { ApiClient } from '$lib/Api';
 	import { onMount, onDestroy } from 'svelte';
 	import { toDateTimeString } from '$lib/timePrint';
+	import Button from '$lib/components/Button.svelte';
 
 	export let rangeStartM: number;
 	export let rangeEndM: number;
 	export let apiClient: ApiClient;
 
+	export let primary: string;
+	export let secondary: string;
+
 	var interval: ReturnType<typeof setInterval>;
-	var updated = -1;
 
 	type summary = {
 		title: string;
@@ -23,12 +26,7 @@
 	var summary: summary[];
 
 	onMount(async () => {
-		interval = setInterval(() => {
-			if (apiClient.isPreview() || apiClient.lastChangeTimeline() != updated) {
-				summary = getSummary();
-				updated = apiClient.lastChangeTimeline();
-			}
-		}, 300);
+		apiClient.subscribe(() => (summary = getSummary()));
 	});
 
 	onDestroy(() => {
@@ -159,87 +157,191 @@
 	var dropdown: { [title: string]: boolean } = {};
 </script>
 
-{#if adding}
-	<input type="color" value={addingColor} on:input={(e) => update(addingInterval.title, e)} />
-	<input
-		type="text"
-		bind:value={addingInterval.title}
-		on:input={() => {
-			add(addingInterval);
-		}}
-	/>
-	time: {durationToString(
-		addingInterval.end - addingInterval.start,
-		'%y years %m months %d days %H hours %M minutes %S seconds'
-	)}
-	<input
-		type="datetime-local"
-		value={toDateTimeString(addingInterval.start)}
-		on:change={updateStart}
-	/>
-	<input type="datetime-local" value={toDateTimeString(addingInterval.end)} on:change={updateEnd} />
-	<button on:click={commitAddingInterval}>Add</button>
-	<button
-		on:click={() => {
-			apiClient.stopPreview();
-		}}>cancel</button
-	>
-	<br />
-{/if}
-{#each summary as s}
-	<button on:click={() => (dropdown[s.title] = !(s.title in dropdown && dropdown[s.title]))}
-		>V</button
-	>
-	<input type="color" value={s.color} on:input={(e) => update(s.title, e)} />
-	{s.title}
-	time: {durationToString(s.totalTime, '%y years %m months %d days %H hours %M minutes %S seconds')}
-	<button on:click={() => apiClient.setRunning(s.title)}>Run</button>
-	<button on:click={() => addByTitle(s.title)}>Add</button>
-	{#if s.title in dropdown && dropdown[s.title]}
-		{#each s.intervals as i}
-			<div>
-				{#if i.id != 'running'}
-					{#if apiClient.isPreviewEditing() && apiClient.getPreviewEditingInterval().id == i.id}
-						<input
-							type="text"
-							bind:value={i.title}
-							on:input={() => {
-								edit(i);
-							}}
-							autofocus
-						/>
+<div style="--secondary: {secondary}">
+	{#if adding}
+		<div id="adding">
+			<input
+				class="color"
+				type="color"
+				value={addingColor}
+				on:input={(e) => update(addingInterval.title, e)}
+			/>
+			<input
+				class="title"
+				type="text"
+				bind:value={addingInterval.title}
+				on:input={() => {
+					add(addingInterval);
+				}}
+			/>
+			<span>
+				{durationToString(
+					addingInterval.end - addingInterval.start,
+					apiClient.getSetting('summary-duration-format') ||
+						'%y years %m months %d days %H hours %M minutes %S seconds'
+				)}
+			</span>
+			<input
+				class="datetime start"
+				type="datetime-local"
+				value={toDateTimeString(addingInterval.start)}
+				on:input={updateStart}
+			/>
+			<input
+				class="datetime"
+				type="datetime-local"
+				value={toDateTimeString(addingInterval.end)}
+				on:input={updateEnd}
+			/>
+			<Button onClick={commitAddingInterval} text="Add" {primary} {secondary} />
+			<Button onClick={() => apiClient.stopPreview()} text="Cancel" {primary} {secondary} />
+		</div>
+	{/if}
+	<div id="summary">
+		{#each summary as s}
+			<div class="dropdown">
+				<Button
+					onClick={() => (dropdown[s.title] = !(s.title in dropdown && dropdown[s.title]))}
+					text="V"
+					{primary}
+					{secondary}
+				/>
+			</div>
+			<input class="color" type="color" value={s.color} on:input={(e) => update(s.title, e)} />
+			<span class="title">
+				{s.title}
+			</span>
+			<span class="time">
+				{durationToString(
+					s.totalTime,
+					apiClient.getSetting('summary-duration-format') ||
+						'%y years %m months %d days %H hours %M minutes %S seconds'
+				)}
+			</span>
+			<div class="run">
+				<Button onClick={() => apiClient.setRunning(s.title)} text="Run" {primary} {secondary} />
+			</div>
+			<div class="add">
+				<Button onClick={() => addByTitle(s.title)} text="Add" {primary} {secondary} />
+			</div>
+			{#if s.title in dropdown && dropdown[s.title]}
+				{#each s.intervals as i}
+					{#if i.id != 'running'}
+						{#if apiClient.isPreviewEditing() && apiClient.getPreviewEditingInterval().id == i.id}
+							<input
+								class="title"
+								type="text"
+								bind:value={i.title}
+								on:input={() => {
+									edit(i);
+								}}
+								autofocus
+							/>
+						{:else}
+							<input
+								class="title"
+								type="text"
+								bind:value={i.title}
+								on:input={() => {
+									edit(i);
+								}}
+								on:focus={() => {
+									edit(i);
+								}}
+							/>
+						{/if}
 					{:else}
-						<input
-							type="text"
-							bind:value={i.title}
-							on:input={() => {
-								edit(i);
+						<span class="title">
+							{i.title}
+						</span>
+					{/if}
+					<span>
+						{durationToString(
+							i.end - i.start,
+							apiClient.getSetting('summary-duration-format') ||
+								'%y years %m months %d days %H hours %M minutes %S seconds'
+						)}
+					</span>
+					<span class="date-range">
+						{toDateTimeString(i.start)} <br />
+						{toDateTimeString(i.end)}
+					</span>
+					{#if apiClient.isPreviewEditing() && apiClient.getPreviewEditingInterval().id == i.id}
+						<Button onClick={commitEditingInterval} text="save" {primary} {secondary} />
+						<Button
+							onClick={() => {
+								apiClient.stopPreview();
 							}}
-							on:focus={() => {
-								edit(i);
-							}}
+							text="cancel"
+							{primary}
+							{secondary}
 						/>
 					{/if}
-				{:else}
-					{i.title}
-				{/if}
-				time: {durationToString(
-					i.end - i.start,
-					'%y years %m months %d days %H hours %M minutes %S seconds'
-				)}
-				{toDateTimeString(i.start)} - {toDateTimeString(i.end)}
-				{#if apiClient.isPreviewEditing() && apiClient.getPreviewEditingInterval().id == i.id}
-					<button on:click={commitEditingInterval}>save</button>
-					<button
-						on:click={() => {
-							apiClient.stopPreview();
-						}}>cancel</button
-					>
-				{/if}
-				<br />
-			</div>
+				{/each}
+			{/if}
 		{/each}
-	{/if}
-	<br />
-{/each}
-<button on:click={() => addByTitle()}>add</button>
+	</div>
+	<Button
+		text="add"
+		onClick={() => addByTitle(apiClient.getSetting('default-title') || 'productive')}
+		{primary}
+		{secondary}
+	/>
+</div>
+
+<style>
+	#adding {
+		display: grid;
+		grid-template-columns: 50px 50px 300px 300px 50px 50px 100px 50px 50px;
+		justify-content: center;
+	}
+	#summary {
+		display: grid;
+		grid-template-columns: 50px 50px 300px 300px 50px 50px 100px 50px 50px;
+		justify-content: center;
+	}
+	.run {
+		grid-column-start: 8;
+	}
+	.dropdown {
+		grid-column-start: 1;
+	}
+	.title {
+		grid-column-start: 3;
+	}
+	input.title {
+		background: transparent;
+		border-width: 0 0 1px 0;
+		border-style: solid;
+		border-color: var(--secondary);
+		font: inherit;
+		color: inherit;
+		height: 50px;
+	}
+	.date-range {
+		grid-column-start: 5;
+		grid-column-end: 8;
+	}
+	.color {
+		width: 50px;
+		height: 50px;
+		border: none;
+		padding: 0px;
+		background: transparent;
+		grid-column-start: 2;
+	}
+	.datetime.start {
+		grid-column-start: 5;
+		grid-column-end: 7;
+	}
+	.datetime {
+		color: var(--secondary);
+		border-color: var(--secondary);
+		color: var(--secondary);
+		background-color: transparent;
+		border-width: 0 0 1px 0;
+	}
+	::-webkit-calendar-picker-indicator {
+		background-color: var(--secondary, red) !important;
+	}
+</style>
