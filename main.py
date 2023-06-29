@@ -1,20 +1,20 @@
 from flask import Flask, request, abort
 from flask import send_from_directory
 import json
-import firebase_admin
-from firebase_admin import firestore
 import anyrest
 import time
 from datetime import datetime
+from pymongo import MongoClient
+from pymongo.server_api import ServerApi
 
-import os
-os.environ['GRPC_DNS_RESOLVER'] = 'native'
-
-firebase_app = firebase_admin.initialize_app(options={'projectId': 'timelogger-slando'})
-db = firestore.client()
-
+uri = "mongodb+srv://hackline.1ofbp0v.mongodb.net/?authSource=%24external&authMechanism=MONGODB-X509&retryWrites=true&w=majority"
+client = MongoClient(uri,
+                     tls=True,
+                     tlsCertificateKeyFile='key.pem',
+                     server_api=ServerApi('1'))
+db = client['test']
 app = Flask(__name__)
-ar = anyrest.addAnyrestHandlers(app, db, "dev-pnkvmziz4ai48pb8.us.auth0.com", "https://timelogger/api", True)
+ar = anyrest.addAnyrestHandlersMongoDB(app, db, "dev-pnkvmziz4ai48pb8.us.auth0.com", "https://timelogger/api", True)
 
 class Interval:
     def __init__(self, id, title, start, end):
@@ -134,6 +134,7 @@ def run():
     if not 'start' in data:
         data['start'] = time.time() * 1000
     running = Running(data['title'], data['start'])
+    print(running.toDict())
     try: 
         running = ar.put("running/running", running.toDict())
     except:
