@@ -198,41 +198,59 @@ def patchTimeline(id):
 @app.route('/api/timeline', methods=["GET"])
 def getTimeline(start=None, end=None):
     args = request.args
+    query = {"$or": []}
     if "start" in args:
         start = float(args["start"])
-    else: 
-        start = 0
     if "end" in args:
         end = float(args["end"])
-    else: 
-        end = time.time() * 1000
+
+    if start != None and end != None:
+        query["$or"].append({"$and": [
+            {"start": {"$gte": start}},
+            {"start": {"$lte": end}},
+            ]})
+        query["$or"].append({"$and": [
+            {"end": {"$gte": start}},
+            {"end": {"$lte": end}},
+            ]})
+        query["$or"].append({"$and": [
+            {"start": {"$lte": start}},
+            {"end": {"$gte": end}},
+            ]})
+    elif start != None:
+        query["$or"].append({"end": {"$gte": start}})
+        query["$or"].append({"start": {"$gte": start}})
+    elif end != None:
+        query["$or"].append({"end": {"$lte": end}})
+        query["$or"].append({"start": {"$lte": end}})
+    else:
+        query = {}
 
     running = Running.fromDict(ar.get("running/running"))
-    db = ar.get("intervals", False)
+    db = ar.query("intervals", query)
 
     intervals = []
     for v in db:
         intervals.append(Interval.fromDict(v))
 
-    intervals.append(Interval("running", running.title, running.start, end))
+    if end is None:
+        rend = time.time() * 1000
+    else:
+        rend = end
+
+    intervals.append(Interval("running", running.title, running.start, rend))
 
     intervals = cutOverlaps(intervals)
 
     out = []
     for i in intervals:
-        insert = True
-        if i.end < start:
-            insert = False
-        elif i.start < start:
+        if start is not None and i.start < start:
             i.start = start
 
-        if i.start > end:
-            insert = False
-        elif i.end > end:
+        if end is not None and i.end > end:
             i.end = end
 
-        if insert:
-            out.append(i.toDict())
+        out.append(i.toDict())
 
     return out
 
