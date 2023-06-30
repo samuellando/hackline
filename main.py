@@ -7,10 +7,10 @@ from datetime import datetime
 from pymongo import MongoClient
 from pymongo.server_api import ServerApi
 
-uri = "mongodb+srv://hackline.1ofbp0v.mongodb.net/?authSource=%24external&authMechanism=MONGODB-X509&retryWrites=true&w=majority"
+import os
+uri = "mongodb+srv://{}:{}@hackline.1ofbp0v.mongodb.net/?retryWrites=true&w=majority".format(os.environ["MONGODB_USER"], os.environ["MONGODB_PASSWORD"])
 client = MongoClient(uri,
                      tls=True,
-                     tlsCertificateKeyFile='key.pem',
                      server_api=ServerApi('1'))
 db = client['test']
 app = Flask(__name__)
