@@ -371,7 +371,6 @@ export class ApiClient extends BaseClient {
       end += padding;
     }
     let gaps = findMissingRanges(start, end, this.data.timeline);
-    console.log(gaps);
     gaps.forEach((gap) => {
       console.log("Pulling GAP", new Date(gap.start), new Date(gap.end));
       this.promises.timeline.then(async () => {

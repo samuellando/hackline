@@ -105,24 +105,25 @@ class FrontendRunning(Running):
 @app.route('/api/running', methods=["get"])
 def getRunning():
     now = time.time() * 1000
-    timeline = getTimeline(now, now)
+    timeline = ar.query("intervals",[{"start": {"$lte": now}}, {"end": -1}, 1])
 
-    if len(timeline) > 0:
-        interval = Interval.fromDict(timeline[-1])
-        if interval.id != "running":
-            interval = Interval.fromDict(ar.get("intervals/"+interval.id))
-    else:
-        interval = None
-    
     try:
         fallback = Running.fromDict(ar.get("running/running"))
     except:
         fallback = Running("No running interval started yet.", time.time() * 1000)
 
-    if interval is not None and interval.id != "running":
+    if len(timeline) > 0:
+        interval = Interval.fromDict(timeline[-1])
+        fallback.start = max(int(str(fallback.start)), interval.end)
+        if interval.end < now:
+            interval = None
+    else:
+        interval = None
+    
+
+
+    if interval is not None:
         running = FrontendRunning.fromInterval(interval, fallback.title)
-    elif interval is not None:
-        running = FrontendRunning.fromInterval(interval)
     else:
         running = FrontendRunning.fromRunning(fallback)
 
@@ -226,7 +227,7 @@ def getTimeline(start=None, end=None):
         query = {}
 
     running = Running.fromDict(ar.get("running/running"))
-    db = ar.query("intervals", query)
+    db = ar.query("intervals", [query])
 
     intervals = []
     for v in db:
