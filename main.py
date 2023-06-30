@@ -9,7 +9,6 @@ from pymongo.server_api import ServerApi
 
 import os
 uri = "mongodb+srv://{}:{}@hackline.1ofbp0v.mongodb.net/?retryWrites=true&w=majority".format(os.environ["MONGODB_USER"], os.environ["MONGODB_PASSWORD"])
-print(uri)
 client = MongoClient(uri,
                      tls=True,
                      server_api=ServerApi('1'))
