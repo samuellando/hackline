@@ -59,6 +59,12 @@ class BaseClient {
   }
 }
 
+type timeline = interval[];
+type range = {
+  start: number,
+  end: number
+}
+
 enum endpoints {
   settings = "settings",
   timeline = "timeline",
@@ -71,38 +77,43 @@ type endpointTypes = {
   running: running | null;
 };
 
-type timeline = interval[];
-
+// Combine all the data from all the endpoints.
 type data = {
   [key in endpoints]: key extends keyof endpointTypes ? endpointTypes[key] : never;
 }
 
+// A promise for each endpoint.
 type promises = {
   [key in endpoints]: Promise<key extends keyof endpointTypes ? endpointTypes[key] : never>;
 }
 
+// A metadata for each endpoint.
 type meta = {
   [key in endpoints]: number
 }
 
+// Helper function to avoid overwriting.
 function deepClone<T>(e: T): T {
   return JSON.parse(JSON.stringify(e));
 }
 
+// For subscribing to updates.
 type store = {
   subscribe: Function,
   set: Function,
   update: Function
 }
 
-/* 
-* This class provides all the essential methods for interacting with the backend. It takes care of centralizing and syncing data for the timeline, and settings endpoints.
- * It also provies some general rest API enpoints for workarounds and prototyping.
-*/
+/*
+ * This class provides a easy to use abstraction for the backend. It handles:
+ * 1. Syncing with all the endpoints.
+ * 2. Handling preview modes for adding and edditing intervals on the timeline.
+ * 3. Providing subscriptions for the frontend code to listen to updates on.
+ */
 export class ApiClient extends BaseClient {
   data: data;
-  refresh_interval: number;
-  update_interval: number;
+  pullInterval: ReturnType<typeof setInterval>;
+  updateInterval: ReturnType<typeof setInterval>;
   /*
    * These can be used to chain promises for each data element. That way we can ensure the operations do not run concurently.
    */
@@ -116,33 +127,37 @@ export class ApiClient extends BaseClient {
    * 3. after 5 secounds, the data recieved from the read operation will be discarded because lastChange > start time of the read.
    */
   commitPromises: promises;
-  lastChange: Writable<meta>;
-  syncing: meta;
-  pullInterval: ReturnType<typeof setInterval>;
-  updateInterval: ReturnType<typeof setInterval>;
+  /*
+   * Used when there is no local data saved, allowing for the frontend to keep "loading"
+   */
   readyWaiting: Promise<any>[];
+  /*
+   * What is currently syncing, for PUSHES
+   */
+  syncing: meta;
 
-  previewUpdates: store;
+  /*
+   * When editing or adding (preview mode) keep track of the intervals, and cache the settings
+   */
   adding: interval | null;
   editing: interval | null;
   previewSettings: settings | null;
 
+  /*
+   * Stores used for subscriptions.
+   */
+  lastChange: Writable<meta>;
+  previewUpdates: store;
+
+  lastStart: number;
+  lastEnd: number;
 
   constructor(apiUrl: string, accessToken: string | undefined = undefined, refresh_interval = 60000, update_interval = 10000) {
     super(apiUrl, accessToken);
-    this.refresh_interval = refresh_interval;
-    this.update_interval = update_interval;
     this.adding = null;
     this.editing = null;
     this.previewSettings = null;
     this.readyWaiting = [];
-
-    let { subscribe, set, update } = writable(0);
-    this.previewUpdates = {
-      subscribe,
-      set,
-      update: () => update((n) => n + 1)
-    }
 
     this.data = Object.fromEntries(
       Object.values(endpoints).map(key => [key, null])
@@ -164,13 +179,28 @@ export class ApiClient extends BaseClient {
       Object.values(endpoints).map(key => [key, 0])
     ) as meta;
 
+    let { subscribe, set, update } = writable(0);
+    this.previewUpdates = {
+      subscribe,
+      set,
+      update: () => update((n) => n + 1)
+    }
+
+    // Default to one day.
+    this.lastEnd = (new Date()).getTime();
+    this.lastStart = (new Date()).getTime() - 1000 * 60 * 60 * 24;
     // Try to load the data from local storage, and start a new pull.
     for (const k in endpoints) {
-      let p = this.pullData(k as endpoints);
       var s = localStorage.getItem(k);
+      let p;
       if (s != null) {
         this.data[k as endpoints] = JSON.parse(s);
       } else {
+        if (k as endpoints == endpoints.timeline) {
+          p = this.pullTimeline();
+        } else {
+          p = this.pullData(k as endpoints);
+        }
         this.readyWaiting.push(p);
       }
     }
@@ -178,14 +208,19 @@ export class ApiClient extends BaseClient {
     // Set up the pull and update intervals. 
     this.pullInterval = setInterval(() => {
       for (const k in endpoints) {
-        this.pullData(k as endpoints);
+        if (k as endpoints == endpoints.timeline) {
+          this.pullTimeline();
+        } else {
+          this.pullData(k as endpoints);
+        }
       }
     }, refresh_interval);
 
     this.updateInterval = setInterval(() => {
-      this.updateTimeline();
       this.pullData(endpoints.running);
+      this.updateTimeline();
     }, update_interval);
+
   }
 
   async ready() {
@@ -233,50 +268,114 @@ export class ApiClient extends BaseClient {
     }) as promises[T];
   }
 
-  private updateTimeline(): promises[endpoints.timeline] {
+  private findMissingRanges(start: number, end: number, timeline: timeline | null): range[] {
+    if (timeline == null) {
+      return [{ start: start, end: end }];
+    }
+    const gaps = [];
+
+    let currentStart = start;
+    let currentEnd = start;
+
+    timeline.forEach(range => {
+      if (range.start > currentEnd) {
+        gaps.push({ start: currentEnd, end: range.start });
+      }
+
+      currentStart = range.start;
+      currentEnd = Math.max(currentEnd, range.end);
+    });
+
+    if (end > currentEnd) {
+      gaps.push({ start: currentEnd, end: end });
+    }
+
+    return gaps;
+  }
+
+  /*
+   * Refresh eveything.
+   */
+  private pullTimeline(start: number | undefined = undefined, end: number | undefined = undefined): promises[endpoints.timeline] {
+    if (typeof start == "undefined" || typeof end == "undefined") {
+      start = this.lastStart;
+      end = this.lastEnd;
+    }
+    return this.promises.timeline;
     this.syncing.timeline++;
     return this.promises.timeline.then(async () => {
-      if (this.data.timeline === null || this.data.timeline.length == 0) {
-        return this.data.timeline;
-      }
-      let now = (new Date).getTime();
-      // We want to pull since the end of the last entry.
-      let lastE = this.data.timeline[this.data.timeline.length - 1];
-      let last = lastE.end;
-      if (last >= now) {
+      // This is the max commit time.
+      var limit = (new Date()).getTime();
+      console.log("pulling timeline", new Date(start as number), new Date(end as number));
+      return await this.get<timeline>(endpoints.timeline, { start: start, end: end }).then(async (res) => {
+        console.log("Done pulling timeline and commiting.");
+        await this.commit(endpoints.timeline, res, limit);
         this.syncing.timeline--;
-        return this.data.timeline;
-      }
-      console.log("updateing timeline from", (now - last) / 1000);
-      return await this.get<timeline>('timeline', { start: last }).then(async (res) => {
-        var timeline: timeline;
-        if (res.length == 0) return this.data.timeline;
-        if (this.data.timeline == null) return res; // Impossible.
-        if (res[0].id == lastE.id) {
-          // Merge the last entry with the first.
-          lastE.end = res[0].end;
-          timeline = this.data.timeline.concat(res.slice(1));
-        } else {
-          timeline = this.data.timeline.concat(res);
-        }
-        console.log("Done updateing timeline and commiting.");
-        await this.commit(endpoints.timeline, timeline, now);
-        this.syncing.timeline--;
-        return timeline;
-      }, () => { console.error("Failed to udpate timeline"); return this.data.timeline; });
+        return res;
+      }, () => { console.error("Failed to pull timeline"); return this.data.timeline; });
     });
   }
 
-  lastChangeTimeline(): number {
-    return get(this.lastChange).timeline;
+  private mergeTimelines(timeline1: timeline | null, timeline2: timeline) {
+    if (timeline1 == null) {
+      return timeline2;
+    }
+
+    // Combine both timelines into a single array
+    const combinedTimeline = timeline1.concat(timeline2);
+
+    // Sort the combined timeline based on the start timestamps
+    combinedTimeline.sort((a, b) => a.start - b.start);
+
+    const mergedTimeline: timeline = [];
+
+    // Iterate over the combined timeline and merge overlapping or adjacent ranges
+    combinedTimeline.forEach(range => {
+      const lastMergedRange = mergedTimeline[mergedTimeline.length - 1];
+
+      if (!lastMergedRange || range.start > lastMergedRange.end) {
+        // If the current range does not overlap with the last merged range,
+        // add it to the merged timeline
+        mergedTimeline.push(range);
+      } else {
+        if (range.end > lastMergedRange.end) {
+          if (range.id == lastMergedRange.id) {
+            lastMergedRange.end = range.end;
+          } else {
+            lastMergedRange.end = range.start;
+            mergedTimeline.push(range);
+          }
+        }
+      }
+    });
+
+    return mergedTimeline;
   }
 
-  lastChangeSettings(): number {
-    return get(this.lastChange).settings;
-  }
-
-  lastChangeRunning(): number {
-    return get(this.lastChange).running;
+  /*
+   * Pull all the gaps.
+   */
+  private updateTimeline(start: number | undefined = undefined, end: number | undefined = undefined): promises[endpoints.timeline] {
+    if (typeof start == "undefined" || typeof end == "undefined") {
+      start = this.lastStart;
+      end = this.lastEnd;
+    }
+    let gaps = this.findMissingRanges(start, end, this.data.timeline);
+    console.log(gaps);
+    gaps.forEach((gap) => {
+      console.log("Pulling GAP", new Date(gap.start), new Date(gap.end));
+      this.promises.timeline.then(async () => {
+        // This is the max commit time.
+        var limit = (new Date()).getTime();
+        return await this.get<timeline>(endpoints.timeline, { start: start, end: end }).then(async (res) => {
+          console.log("Done pulling", gap, "and mergeing and commiting.");
+          let tl = this.mergeTimelines(this.data.timeline, res);
+          await this.commit(endpoints.timeline, tl, limit);
+          return res;
+        }, () => { console.error("Failed to pull", gap); return this.data.timeline; });
+      });
+    });
+    return this.promises.timeline;
   }
 
   getSyncing(): { [id: string]: number } {
@@ -290,6 +389,10 @@ export class ApiClient extends BaseClient {
   }
 
   getTimeline(start: number | undefined = undefined, end: number | undefined = undefined): timeline {
+    if (typeof start != "undefined" && typeof end != "undefined") {
+      this.lastStart = start;
+      this.lastEnd = end;
+    }
     if (this.data.timeline === null) return [];
     let timeline = deepClone<timeline>(this.data.timeline);
     if (typeof start !== "undefined") {
@@ -317,22 +420,22 @@ export class ApiClient extends BaseClient {
         } else {
           break;
         }
-      }
-      let last = timeline[timeline.length - 1];
-      if (last.end < end) {
-        if (last.id == "running") {
-          last.end = end;
-        } else {
-          let running = this.getRunning();
-          if (running !== null) {
-            if (running.title == last.title) {
-              last.end = end;
-            } else {
-              running.start = last.end;
-              running.end = end;
-              let interval = running as interval;
-              interval.id = "running";
-              timeline.push(interval);
+        let last = timeline[timeline.length - 1];
+        if (last && last.end < end) {
+          if (last.id == "running") {
+            last.end = end;
+          } else {
+            let running = this.getRunning();
+            if (running !== null) {
+              if (running.title == last.title) {
+                last.end = end;
+              } else {
+                running.start = last.end;
+                running.end = end;
+                let interval = running as interval;
+                interval.id = "running";
+                timeline.push(interval);
+              }
             }
           }
         }

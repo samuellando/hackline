@@ -134,7 +134,6 @@ def run():
     if not 'start' in data:
         data['start'] = time.time() * 1000
     running = Running(data['title'], data['start'])
-    print(running.toDict())
     try: 
         running = ar.put("running/running", running.toDict())
     except:

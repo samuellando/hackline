@@ -1,6 +1,8 @@
-import { expect, test } from '@playwright/test';
+import { describe, expect, test } from '@jest/globals';
+import { ApiClient } from "$lib/Api";
 
-test('index page has expected h1', async ({ page }) => {
-	await page.goto('/');
-	await expect(page.getByRole('heading', { name: 'Welcome to SvelteKit' })).toBeVisible();
+describe('sum module', () => {
+  test('adds 1 + 2 to equal 3', () => {
+    expect(1 + 2).toBe(3);
+  });
 });
