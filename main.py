@@ -1,20 +1,20 @@
 from flask import Flask, request, abort
 from flask import send_from_directory
 import json
-import firebase_admin
-from firebase_admin import firestore
 import anyrest
 import time
 from datetime import datetime
+from pymongo import MongoClient
+from pymongo.server_api import ServerApi
 
-import os
-os.environ['GRPC_DNS_RESOLVER'] = 'native'
-
-firebase_app = firebase_admin.initialize_app(options={'projectId': 'timelogger-slando'})
-db = firestore.client()
-
+uri = "mongodb+srv://hackline.1ofbp0v.mongodb.net/?authSource=%24external&authMechanism=MONGODB-X509&retryWrites=true&w=majority"
+client = MongoClient(uri,
+                     tls=True,
+                     tlsCertificateKeyFile='key.pem',
+                     server_api=ServerApi('1'))
+db = client['test']
 app = Flask(__name__)
-ar = anyrest.addAnyrestHandlers(app, db, "dev-pnkvmziz4ai48pb8.us.auth0.com", "https://timelogger/api", True)
+ar = anyrest.addAnyrestHandlersMongoDB(app, db, "dev-pnkvmziz4ai48pb8.us.auth0.com", "https://timelogger/api", True)
 
 class Interval:
     def __init__(self, id, title, start, end):
@@ -105,24 +105,25 @@ class FrontendRunning(Running):
 @app.route('/api/running', methods=["get"])
 def getRunning():
     now = time.time() * 1000
-    timeline = getTimeline(now, now)
+    timeline = ar.query("intervals",[{"start": {"$lte": now}}, {"end": -1}, 1])
 
-    if len(timeline) > 0:
-        interval = Interval.fromDict(timeline[-1])
-        if interval.id != "running":
-            interval = Interval.fromDict(ar.get("intervals/"+interval.id))
-    else:
-        interval = None
-    
     try:
         fallback = Running.fromDict(ar.get("running/running"))
     except:
         fallback = Running("No running interval started yet.", time.time() * 1000)
 
-    if interval is not None and interval.id != "running":
+    if len(timeline) > 0:
+        interval = Interval.fromDict(timeline[-1])
+        fallback.start = max(int(str(fallback.start)), interval.end)
+        if interval.end < now:
+            interval = None
+    else:
+        interval = None
+    
+
+
+    if interval is not None:
         running = FrontendRunning.fromInterval(interval, fallback.title)
-    elif interval is not None:
-        running = FrontendRunning.fromInterval(interval)
     else:
         running = FrontendRunning.fromRunning(fallback)
 
@@ -197,41 +198,59 @@ def patchTimeline(id):
 @app.route('/api/timeline', methods=["GET"])
 def getTimeline(start=None, end=None):
     args = request.args
+    query = {"$or": []}
     if "start" in args:
         start = float(args["start"])
-    else: 
-        start = 0
     if "end" in args:
         end = float(args["end"])
-    else: 
-        end = time.time() * 1000
+
+    if start != None and end != None:
+        query["$or"].append({"$and": [
+            {"start": {"$gte": start}},
+            {"start": {"$lte": end}},
+            ]})
+        query["$or"].append({"$and": [
+            {"end": {"$gte": start}},
+            {"end": {"$lte": end}},
+            ]})
+        query["$or"].append({"$and": [
+            {"start": {"$lte": start}},
+            {"end": {"$gte": end}},
+            ]})
+    elif start != None:
+        query["$or"].append({"end": {"$gte": start}})
+        query["$or"].append({"start": {"$gte": start}})
+    elif end != None:
+        query["$or"].append({"end": {"$lte": end}})
+        query["$or"].append({"start": {"$lte": end}})
+    else:
+        query = {}
 
     running = Running.fromDict(ar.get("running/running"))
-    db = ar.get("intervals", False)
+    db = ar.query("intervals", [query])
 
     intervals = []
     for v in db:
         intervals.append(Interval.fromDict(v))
 
-    intervals.append(Interval("running", running.title, running.start, end))
+    if end is None:
+        rend = time.time() * 1000
+    else:
+        rend = end
+
+    intervals.append(Interval("running", running.title, running.start, rend))
 
     intervals = cutOverlaps(intervals)
 
     out = []
     for i in intervals:
-        insert = True
-        if i.end < start:
-            insert = False
-        elif i.start < start:
+        if start is not None and i.start < start:
             i.start = start
 
-        if i.start > end:
-            insert = False
-        elif i.end > end:
+        if end is not None and i.end > end:
             i.end = end
 
-        if insert:
-            out.append(i.toDict())
+        out.append(i.toDict())
 
     return out
 

@@ -60,8 +60,6 @@
 		rangeStartM == getRange(options[selected])[0] &&
 		(rangeEndM == getRange(options[selected])[1] || live);
 
-	$: a = console.log(match);
-
 	$: rangeStart = toDateTimeString(rangeStartM);
 	$: rangeEnd = toDateTimeString(rangeEndM);
 
