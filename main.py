@@ -12,7 +12,7 @@ uri = "mongodb+srv://{}:{}@hackline.1ofbp0v.mongodb.net/?retryWrites=true&w=majo
 client = MongoClient(uri,
                      tls=True,
                      server_api=ServerApi('1'))
-db = client['test']
+db = client['production']
 app = Flask(__name__)
 ar = anyrest.addAnyrestHandlersMongoDB(app, db, "dev-pnkvmziz4ai48pb8.us.auth0.com", "https://timelogger/api", True)
 
