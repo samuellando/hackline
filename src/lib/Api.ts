@@ -2,6 +2,71 @@ import type { interval, settings, running, apiKey } from '$lib/types';
 import { writable, get, derived } from 'svelte/store';
 import type { Writable, Subscriber } from 'svelte/store';
 
+export function findMissingRanges(start: number, end: number, timeline: timeline | null): range[] {
+  if (timeline == null) {
+    return [{ start: start, end: end }];
+  }
+  const gaps = [];
+
+  let p = start;
+
+  for (let i = 0; i < timeline.length; i++) {
+    let range = timeline[i];
+    if (range.start >= end) {
+      break;
+    }
+    if (range.start > p) {
+      gaps.push({ start: p, end: Math.min(range.start, end) });
+    }
+
+    p = Math.max(p, range.end);
+  };
+
+  if (end > p) {
+    gaps.push({ start: p, end: end });
+  }
+
+  return gaps;
+}
+
+
+export function mergeTimelines(timeline1: timeline | null, timeline2: timeline) {
+  if (timeline1 == null) {
+    return timeline2;
+  }
+
+  // Combine both timelines into a single array
+  const combinedTimeline = timeline1.concat(timeline2);
+
+  // Sort the combined timeline based on the start timestamps
+  combinedTimeline.sort((a, b) => a.start - b.start);
+
+  const mergedTimeline: timeline = [];
+
+  // Iterate over the combined timeline and merge overlapping or adjacent ranges
+  combinedTimeline.forEach(range => {
+    const lastMergedRange = mergedTimeline[mergedTimeline.length - 1];
+
+    if (!lastMergedRange || range.start > lastMergedRange.end) {
+      // If the current range does not overlap with the last merged range,
+      // add it to the merged timeline
+      mergedTimeline.push(range);
+    } else {
+      if (range.end > lastMergedRange.end) {
+        if (range.id == lastMergedRange.id) {
+          lastMergedRange.end = range.end;
+        } else {
+          lastMergedRange.end = range.start;
+          mergedTimeline.push(range);
+        }
+      }
+    }
+  });
+
+  return mergedTimeline;
+}
+
+
 class BaseClient {
   apiUrl: string;
   accessToken: string | undefined;
@@ -151,13 +216,15 @@ export class ApiClient extends BaseClient {
 
   lastStart: number;
   lastEnd: number;
+  timelinePadding: number;
 
-  constructor(apiUrl: string, accessToken: string | undefined = undefined, refresh_interval = 60000, update_interval = 10000) {
+  constructor(apiUrl: string, accessToken: string | undefined = undefined, refresh_interval = 60000, update_interval = 10000, timelinePadding = 2) {
     super(apiUrl, accessToken);
     this.adding = null;
     this.editing = null;
     this.previewSettings = null;
     this.readyWaiting = [];
+    this.timelinePadding = timelinePadding;
 
     this.data = Object.fromEntries(
       Object.values(endpoints).map(key => [key, null])
@@ -220,7 +287,6 @@ export class ApiClient extends BaseClient {
       this.pullData(endpoints.running);
       this.updateTimeline();
     }, update_interval);
-
   }
 
   async ready() {
@@ -268,31 +334,6 @@ export class ApiClient extends BaseClient {
     }) as promises[T];
   }
 
-  private findMissingRanges(start: number, end: number, timeline: timeline | null): range[] {
-    if (timeline == null) {
-      return [{ start: start, end: end }];
-    }
-    const gaps = [];
-
-    let currentStart = start;
-    let currentEnd = start;
-
-    timeline.forEach(range => {
-      if (range.start > currentEnd) {
-        gaps.push({ start: currentEnd, end: range.start });
-      }
-
-      currentStart = range.start;
-      currentEnd = Math.max(currentEnd, range.end);
-    });
-
-    if (end > currentEnd) {
-      gaps.push({ start: currentEnd, end: end });
-    }
-
-    return gaps;
-  }
-
   /*
    * Refresh eveything.
    */
@@ -300,8 +341,10 @@ export class ApiClient extends BaseClient {
     if (typeof start == "undefined" || typeof end == "undefined") {
       start = this.lastStart;
       end = this.lastEnd;
+      let padding = ((end - start) * this.timelinePadding - (end - start)) / 2
+      start -= padding;
+      end += padding;
     }
-    return this.promises.timeline;
     this.syncing.timeline++;
     return this.promises.timeline.then(async () => {
       // This is the max commit time.
@@ -316,42 +359,6 @@ export class ApiClient extends BaseClient {
     });
   }
 
-  private mergeTimelines(timeline1: timeline | null, timeline2: timeline) {
-    if (timeline1 == null) {
-      return timeline2;
-    }
-
-    // Combine both timelines into a single array
-    const combinedTimeline = timeline1.concat(timeline2);
-
-    // Sort the combined timeline based on the start timestamps
-    combinedTimeline.sort((a, b) => a.start - b.start);
-
-    const mergedTimeline: timeline = [];
-
-    // Iterate over the combined timeline and merge overlapping or adjacent ranges
-    combinedTimeline.forEach(range => {
-      const lastMergedRange = mergedTimeline[mergedTimeline.length - 1];
-
-      if (!lastMergedRange || range.start > lastMergedRange.end) {
-        // If the current range does not overlap with the last merged range,
-        // add it to the merged timeline
-        mergedTimeline.push(range);
-      } else {
-        if (range.end > lastMergedRange.end) {
-          if (range.id == lastMergedRange.id) {
-            lastMergedRange.end = range.end;
-          } else {
-            lastMergedRange.end = range.start;
-            mergedTimeline.push(range);
-          }
-        }
-      }
-    });
-
-    return mergedTimeline;
-  }
-
   /*
    * Pull all the gaps.
    */
@@ -359,8 +366,11 @@ export class ApiClient extends BaseClient {
     if (typeof start == "undefined" || typeof end == "undefined") {
       start = this.lastStart;
       end = this.lastEnd;
+      let padding = ((end - start) * this.timelinePadding - (end - start)) / 2
+      start -= padding;
+      end += padding;
     }
-    let gaps = this.findMissingRanges(start, end, this.data.timeline);
+    let gaps = findMissingRanges(start, end, this.data.timeline);
     console.log(gaps);
     gaps.forEach((gap) => {
       console.log("Pulling GAP", new Date(gap.start), new Date(gap.end));
@@ -369,7 +379,7 @@ export class ApiClient extends BaseClient {
         var limit = (new Date()).getTime();
         return await this.get<timeline>(endpoints.timeline, { start: start, end: end }).then(async (res) => {
           console.log("Done pulling", gap, "and mergeing and commiting.");
-          let tl = this.mergeTimelines(this.data.timeline, res);
+          let tl = mergeTimelines(this.data.timeline, res);
           await this.commit(endpoints.timeline, tl, limit);
           return res;
         }, () => { console.error("Failed to pull", gap); return this.data.timeline; });
