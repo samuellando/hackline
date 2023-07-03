@@ -7,14 +7,7 @@ from datetime import datetime
 from pymongo import MongoClient
 from pymongo.server_api import ServerApi
 
-import os
-uri = "mongodb+srv://{}:{}@hackline.1ofbp0v.mongodb.net/?retryWrites=true&w=majority".format(os.environ["MONGODB_USER"], os.environ["MONGODB_PASSWORD"])
-client = MongoClient(uri,
-                     tls=True,
-                     server_api=ServerApi('1'))
-db = client['production']
 app = Flask(__name__)
-ar = anyrest.addAnyrestHandlersMongoDB(app, db, "dev-pnkvmziz4ai48pb8.us.auth0.com", "https://timelogger/api", True)
 
 class Interval:
     def __init__(self, id, title, start, end):
@@ -110,7 +103,7 @@ def getRunning():
     try:
         fallback = Running.fromDict(ar.get("running/running"))
     except:
-        fallback = Running("No running interval started yet.", time.time() * 1000)
+        abort(404)
 
     if len(timeline) > 0:
         interval = Interval.fromDict(timeline[-1])
@@ -130,11 +123,28 @@ def getRunning():
     return running.toDict()
 
 @app.route('/api/running', methods=["POST", "PUT"])
-def run():
-    data = json.loads(request.data)
+def run(title = None, start = None):
+    if title is not None:
+        data = {}
+        data["title"] = title
+        if start is not None:
+            data["start"] = start
+    else:
+        data = json.loads(request.data)
+
     if not 'start' in data:
         data['start'] = time.time() * 1000
+
     running = Running(data['title'], data['start'])
+
+    # First get the current running timer.
+    try:
+        current = FrontendRunning.fromDict(getRunning())
+        interval = Interval("", current.title, current.start, running.start)
+        postTimeline(interval)
+    except:
+        pass
+    
     try: 
         running = ar.put("running/running", running.toDict())
     except:
@@ -176,8 +186,11 @@ def setSettings():
     return settings
 
 @app.route('/api/timeline', methods=["POST"])
-def postTimeline():
-    new = Interval.fromDict(json.loads(request.data))
+def postTimeline(interval = None):
+    if interval is not None:
+        new = interval
+    else:
+        new = Interval.fromDict(json.loads(request.data))
 
     logsdb = ar.get("intervals", False)
     for v in logsdb:
@@ -197,13 +210,14 @@ def patchTimeline(id):
 
 @app.route('/api/timeline', methods=["GET"])
 def getTimeline(start=None, end=None):
-    args = request.args
-    query = {"$or": []}
-    if "start" in args:
-        start = float(args["start"])
-    if "end" in args:
-        end = float(args["end"])
+    if start is None and end is None:
+        args = request.args
+        if "start" in args:
+            start = float(args["start"])
+        if "end" in args:
+            end = float(args["end"])
 
+    query = {"$or": []}
     if start != None and end != None:
         query["$or"].append({"$and": [
             {"start": {"$gte": start}},
@@ -241,6 +255,7 @@ def getTimeline(start=None, end=None):
     intervals.append(Interval("running", running.title, running.start, rend))
 
     intervals = cutOverlaps(intervals)
+
 
     out = []
     for i in intervals:
@@ -337,9 +352,27 @@ def frontend(path):
     except:
         return send_from_directory("build", path+".html")
 
+import os
+uri = "mongodb+srv://{}:{}@hackline.1ofbp0v.mongodb.net/?retryWrites=true&w=majority".format(os.environ["MONGODB_USER"], os.environ["MONGODB_PASSWORD"])
+import sys
 if __name__ == '__main__':
     from flask_cors import CORS
     CORS(app)
+    client = MongoClient(uri,
+                         tls=True,
+                         server_api=ServerApi('1'))
+    db = client['test']
+    ar = anyrest.addAnyrestHandlersMongoDB(app, db, "dev-pnkvmziz4ai48pb8.us.auth0.com", "https://timelogger/api", True)
     app.run(host='127.0.0.1', port=8080, debug=True)
-    #client = app.test_client()
-    #client.get("/api/timeline?start=1681876800000&end=1681963200000", headers={"api-key": ""})
+elif 'unittest' in sys.modules.keys():
+    print("Using testing backend database.")
+    ar = anyrest.addAnyrestHandlersTesting(app)
+    def clear(): 
+        ar.clear()
+else:
+    client = MongoClient(uri,
+                         tls=True,
+                         server_api=ServerApi('1'))
+    db = client['production']
+    ar = anyrest.addAnyrestHandlersMongoDB(app, db, "dev-pnkvmziz4ai48pb8.us.auth0.com", "https://timelogger/api", True)
+

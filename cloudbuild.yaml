@@ -4,7 +4,16 @@ steps:
     args: ['install']
   - name: node
     entrypoint: npm
+    args: ['run', 'test']
+  - name: node
+    entrypoint: npm
     args: ['run', 'build']
+  - name: python
+    entrypoint: python
+    args: ['-m', 'pip', 'install','-r', 'requirements.txt']
+  - name: python
+    entrypoint: python
+    args: ['test.py']
   - name: gcr.io/cloud-builders/docker
     args:
       - build
