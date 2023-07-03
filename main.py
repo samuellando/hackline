@@ -353,7 +353,11 @@ def frontend(path):
         return send_from_directory("build", path+".html")
 
 import os
-uri = "mongodb+srv://{}:{}@hackline.1ofbp0v.mongodb.net/?retryWrites=true&w=majority".format(os.environ["MONGODB_USER"], os.environ["MONGODB_PASSWORD"])
+if "MONGODB_USER" in os.environ and "MONGODB_PASSWORD" in os.environ:
+    uri = "mongodb+srv://{}:{}@hackline.1ofbp0v.mongodb.net/?retryWrites=true&w=majority".format(os.environ["MONGODB_USER"], os.environ["MONGODB_PASSWORD"])
+else:
+    uri = ""
+    print("Missing username and password, this will fail if not in testing mode.")
 import sys
 if __name__ == '__main__':
     from flask_cors import CORS
