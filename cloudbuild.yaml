@@ -10,7 +10,7 @@ steps:
     args: ['run', 'build']
   - name: python
     entrypoint: python3
-    args: ['-m', 'pip', 'install','-r', 'requirements.txt']
+    args: ['-m', 'pip', 'install','-r', 'requirements.txt', '--user']
   - name: python
     entrypoint: python3
     args: ['test.py']
