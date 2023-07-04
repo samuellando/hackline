@@ -47,7 +47,7 @@ class Interval:
 
 class Running:
     def __init__(self, title, start):
-        if (isinstance(title, str) and isinstance(start, (int,float, complex))):
+        if (isinstance(title, str) and isinstance(start, (int,float))):
             self.title = title
             self.start = start
         else:
@@ -67,7 +67,7 @@ class Running:
 class FrontendRunning(Running):
     def __init__(self, title, start, end=None, fallback=None):
         super().__init__(title, start)
-        if (end == None and fallback == None) or (isinstance(end, (int, float, complex)) and isinstance(fallback, str)):
+        if (end == None and fallback == None) or (isinstance(end, (int, float)) and isinstance(fallback, str)):
             self.end =end
             self.fallback = fallback
         else:
@@ -107,7 +107,8 @@ def getRunning():
 
     if len(timeline) > 0:
         interval = Interval.fromDict(timeline[-1])
-        fallback.start = max(int(str(fallback.start)), interval.end)
+        import math
+        fallback.start = max(int(fallback.start), interval.end)
         if interval.end < now:
             interval = None
     else:
@@ -362,11 +363,14 @@ import sys
 if __name__ == '__main__':
     from flask_cors import CORS
     CORS(app)
+    """
     client = MongoClient(uri,
                          tls=True,
                          server_api=ServerApi('1'))
     db = client['test']
     ar = anyrest.addAnyrestHandlersMongoDB(app, db, "dev-pnkvmziz4ai48pb8.us.auth0.com", "https://timelogger/api", True)
+    """
+    ar = anyrest.addAnyrestHandlersTesting(app)
     app.run(host='127.0.0.1', port=8080, debug=True)
 elif 'unittest' in sys.modules.keys():
     print("Using testing backend database.")
