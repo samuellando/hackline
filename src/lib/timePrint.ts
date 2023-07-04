@@ -22,7 +22,7 @@ export function durationToString(millis: number, format: string, pad = 2) {
     if (first && s.indexOf(f) >= 0) {
       s = f + s.split(f)[1]
     }
-    if (s.indexOf(f) >= 0 && (!first || first && use != 0)) {
+    if (s.indexOf(f) >= 0 && (f == "%S" || !first || first && use != 0)) {
       let uses = `${use}`.padStart(pad, '0')
       s = s.replaceAll(f, uses);
       first = false;
