@@ -1,20 +1,13 @@
 from flask import Flask, request, abort
 from flask import send_from_directory
 import json
-import firebase_admin
-from firebase_admin import firestore
 import anyrest
 import time
 from datetime import datetime
-
-import os
-os.environ['GRPC_DNS_RESOLVER'] = 'native'
-
-firebase_app = firebase_admin.initialize_app(options={'projectId': 'timelogger-slando'})
-db = firestore.client()
+from pymongo import MongoClient
+from pymongo.server_api import ServerApi
 
 app = Flask(__name__)
-ar = anyrest.addAnyrestHandlers(app, db, "dev-pnkvmziz4ai48pb8.us.auth0.com", "https://timelogger/api", True)
 
 class Interval:
     def __init__(self, id, title, start, end):
@@ -54,7 +47,7 @@ class Interval:
 
 class Running:
     def __init__(self, title, start):
-        if (isinstance(title, str) and isinstance(start, (int,float, complex))):
+        if (isinstance(title, str) and isinstance(start, (int,float))):
             self.title = title
             self.start = start
         else:
@@ -74,7 +67,7 @@ class Running:
 class FrontendRunning(Running):
     def __init__(self, title, start, end=None, fallback=None):
         super().__init__(title, start)
-        if (end == None and fallback == None) or (isinstance(end, (int, float, complex)) and isinstance(fallback, str)):
+        if (end == None and fallback == None) or (isinstance(end, (int, float)) and isinstance(fallback, str)):
             self.end =end
             self.fallback = fallback
         else:
@@ -105,35 +98,54 @@ class FrontendRunning(Running):
 @app.route('/api/running', methods=["get"])
 def getRunning():
     now = time.time() * 1000
-    timeline = getTimeline(now, now)
+    timeline = ar.query("intervals",[{"start": {"$lte": now}}, {"end": -1}, 1])
 
-    if len(timeline) > 0:
-        interval = Interval.fromDict(timeline[-1])
-        if interval.id != "running":
-            interval = Interval.fromDict(ar.get("intervals/"+interval.id))
-    else:
-        interval = None
-    
     try:
         fallback = Running.fromDict(ar.get("running/running"))
     except:
-        fallback = Running("No running interval started yet.", time.time() * 1000)
+        abort(404)
 
-    if interval is not None and interval.id != "running":
+    if len(timeline) > 0:
+        interval = Interval.fromDict(timeline[-1])
+        import math
+        fallback.start = max(int(fallback.start), interval.end)
+        if interval.end < now:
+            interval = None
+    else:
+        interval = None
+    
+
+
+    if interval is not None:
         running = FrontendRunning.fromInterval(interval, fallback.title)
-    elif interval is not None:
-        running = FrontendRunning.fromInterval(interval)
     else:
         running = FrontendRunning.fromRunning(fallback)
 
     return running.toDict()
 
 @app.route('/api/running', methods=["POST", "PUT"])
-def run():
-    data = json.loads(request.data)
+def run(title = None, start = None):
+    if title is not None:
+        data = {}
+        data["title"] = title
+        if start is not None:
+            data["start"] = start
+    else:
+        data = json.loads(request.data)
+
     if not 'start' in data:
         data['start'] = time.time() * 1000
+
     running = Running(data['title'], data['start'])
+
+    # First get the current running timer.
+    try:
+        current = FrontendRunning.fromDict(getRunning())
+        interval = Interval("", current.title, current.start, running.start)
+        postTimeline(interval)
+    except:
+        pass
+    
     try: 
         running = ar.put("running/running", running.toDict())
     except:
@@ -175,8 +187,11 @@ def setSettings():
     return settings
 
 @app.route('/api/timeline', methods=["POST"])
-def postTimeline():
-    new = Interval.fromDict(json.loads(request.data))
+def postTimeline(interval = None):
+    if interval is not None:
+        new = interval
+    else:
+        new = Interval.fromDict(json.loads(request.data))
 
     logsdb = ar.get("intervals", False)
     for v in logsdb:
@@ -196,42 +211,62 @@ def patchTimeline(id):
 
 @app.route('/api/timeline', methods=["GET"])
 def getTimeline(start=None, end=None):
-    args = request.args
-    if "start" in args:
-        start = float(args["start"])
-    else: 
-        start = 0
-    if "end" in args:
-        end = float(args["end"])
-    else: 
-        end = time.time() * 1000
+    if start is None and end is None:
+        args = request.args
+        if "start" in args:
+            start = float(args["start"])
+        if "end" in args:
+            end = float(args["end"])
+
+    query = {"$or": []}
+    if start != None and end != None:
+        query["$or"].append({"$and": [
+            {"start": {"$gte": start}},
+            {"start": {"$lte": end}},
+            ]})
+        query["$or"].append({"$and": [
+            {"end": {"$gte": start}},
+            {"end": {"$lte": end}},
+            ]})
+        query["$or"].append({"$and": [
+            {"start": {"$lte": start}},
+            {"end": {"$gte": end}},
+            ]})
+    elif start != None:
+        query["$or"].append({"end": {"$gte": start}})
+        query["$or"].append({"start": {"$gte": start}})
+    elif end != None:
+        query["$or"].append({"end": {"$lte": end}})
+        query["$or"].append({"start": {"$lte": end}})
+    else:
+        query = {}
 
     running = Running.fromDict(ar.get("running/running"))
-    db = ar.get("intervals", False)
+    db = ar.query("intervals", [query])
 
     intervals = []
     for v in db:
         intervals.append(Interval.fromDict(v))
 
-    intervals.append(Interval("running", running.title, running.start, end))
+    if end is None:
+        rend = time.time() * 1000
+    else:
+        rend = end
+
+    intervals.append(Interval("running", running.title, running.start, rend))
 
     intervals = cutOverlaps(intervals)
 
+
     out = []
     for i in intervals:
-        insert = True
-        if i.end < start:
-            insert = False
-        elif i.start < start:
+        if start is not None and i.start < start:
             i.start = start
 
-        if i.start > end:
-            insert = False
-        elif i.end > end:
+        if end is not None and i.end > end:
             i.end = end
 
-        if insert:
-            out.append(i.toDict())
+        out.append(i.toDict())
 
     return out
 
@@ -318,9 +353,32 @@ def frontend(path):
     except:
         return send_from_directory("build", path+".html")
 
+import os
+if "MONGODB_USER" in os.environ and "MONGODB_PASSWORD" in os.environ:
+    uri = "mongodb+srv://{}:{}@hackline.1ofbp0v.mongodb.net/?retryWrites=true&w=majority".format(os.environ["MONGODB_USER"], os.environ["MONGODB_PASSWORD"])
+else:
+    uri = ""
+    print("Missing username and password, this will fail if not in testing mode.")
+import sys
 if __name__ == '__main__':
     from flask_cors import CORS
     CORS(app)
+    client = MongoClient(uri,
+                         tls=True,
+                         server_api=ServerApi('1'))
+    db = client['test']
+    ar = anyrest.addAnyrestHandlersMongoDB(app, db, "dev-pnkvmziz4ai48pb8.us.auth0.com", "https://timelogger/api", True)
+    #ar = anyrest.addAnyrestHandlersTesting(app)
     app.run(host='127.0.0.1', port=8080, debug=True)
-    #client = app.test_client()
-    #client.get("/api/timeline?start=1681876800000&end=1681963200000", headers={"api-key": ""})
+elif 'unittest' in sys.modules.keys():
+    print("Using testing backend database.")
+    ar = anyrest.addAnyrestHandlersTesting(app)
+    def clear(): 
+        ar.clear()
+else:
+    client = MongoClient(uri,
+                         tls=True,
+                         server_api=ServerApi('1'))
+    db = client['production']
+    ar = anyrest.addAnyrestHandlersMongoDB(app, db, "dev-pnkvmziz4ai48pb8.us.auth0.com", "https://timelogger/api", True)
+

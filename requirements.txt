@@ -1,5 +1,5 @@
 gunicorn
 flask
 flask-cors
-firebase-admin
+pymongo
 git+https://github.com/samuellando/anyREST
