@@ -13,7 +13,7 @@
 	};
 	const options: option[] = [
 		{ title: 'today', unit: 'day', moveBack: 0, width: 1 },
-		{ title: 'yeasterday', unit: 'day', moveBack: 1, width: 1 },
+		{ title: 'yesterday', unit: 'day', moveBack: 1, width: 1 },
 		{ title: 'this week', unit: 'isoWeek', moveBack: 0, width: 1 },
 		{ title: 'last week', unit: 'isoWeek', moveBack: 1, width: 1 },
 		{ title: 'last 7 days', unit: 'day', moveBack: 0, width: 7 },
@@ -21,7 +21,7 @@
 		{ title: 'last month', unit: 'month', moveBack: 1, width: 1 },
 		{ title: 'last 30 days', unit: 'day', moveBack: 0, width: 30 },
 		{ title: 'this quarter', unit: 'quarter', moveBack: 0, width: 1 },
-		{ title: 'last quater', unit: 'quarter', moveBack: 1, width: 1 },
+		{ title: 'last quarter', unit: 'quarter', moveBack: 1, width: 1 },
 		{ title: 'last 90 days', unit: 'day', moveBack: 0, width: 90 },
 		{ title: 'this year', unit: 'year', moveBack: 0, width: 1 },
 		{ title: 'last year', unit: 'year', moveBack: 1, width: 1 }
