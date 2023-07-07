@@ -13,7 +13,7 @@ steps:
     args: ['-m', 'pip', 'install','-r', 'requirements.txt', '--user']
   - name: python
     entrypoint: python3
-    args: ['test.py']
+    args: ['-m', 'unittest', 'discover', 'build/test']
   - name: gcr.io/cloud-builders/docker
     args:
       - build

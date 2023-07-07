@@ -3,102 +3,20 @@ from flask import send_from_directory
 import json
 import anyrest
 import time
-from datetime import datetime
 from pymongo import MongoClient
 from pymongo.server_api import ServerApi
 
+from interval import Interval
+from running import Running
+from frontendRunning import FrontendRunning
+
 app = Flask(__name__)
-
-class Interval:
-    def __init__(self, id, title, start, end):
-        if (isinstance(id, str) and isinstance(title, str) and isinstance(start, (int, float)) and isinstance(end, (int, float))):
-            self.id = id
-            self.title = title
-            self.start = start
-            self.end = end
-        else:
-            raise AttributeError()
-
-    def __eq__(self, other):
-        return self.id == other.id and self.title == other.title and self.start == other.start and self.end == other.end
-
-    @staticmethod 
-    def fromDict(d):
-        if not "id" in d:
-            d["id"] = ""
-        if not "start" in d:
-            d["start"] = time.time() * 1000
-        if 'duration' in d:
-            return Interval(d["id"], d["title"], d["start"], d["start"] + d["duration"])
-        else:
-            return Interval(d["id"], d["title"], d["start"], d["end"])
-
-    def toDict(self):
-        return {
-                "id": self.id,
-                "title": self.title,
-                "start": self.start,
-                "end": self.end
-                }
-
-    def copy(self):
-        return Interval.fromDict(self.toDict())
-
-
-class Running:
-    def __init__(self, title, start):
-        if (isinstance(title, str) and isinstance(start, (int,float))):
-            self.title = title
-            self.start = start
-        else:
-            raise AttributeError()
-
-    @staticmethod 
-    def fromDict(d):
-        return Running(d["title"], d["start"])
-
-
-    def toDict(self):
-        return {
-                "title": self.title,
-                "start": self.start,
-                }
-
-class FrontendRunning(Running):
-    def __init__(self, title, start, end=None, fallback=None):
-        super().__init__(title, start)
-        if (end == None and fallback == None) or (isinstance(end, (int, float)) and isinstance(fallback, str)):
-            self.end =end
-            self.fallback = fallback
-        else:
-            raise AttributeError()
-
-    @staticmethod 
-    def fromInterval(i, r=None):
-        return FrontendRunning(i.title, i.start, i.end if r is not None else None, r)
-
-    @staticmethod 
-    def fromRunning(r):
-        return FrontendRunning(r.title, r.start)
-
-    @staticmethod 
-    def fromDict(d):
-        return FrontendRunning(d["title"], d["start"])
-
-    def toDict(self):
-        d = {
-                "title": self.title,
-                "start": self.start,
-                }
-        if self.end != None and self.fallback != None:
-            d["end"] = self.end
-            d["fallback"] = self.fallback
-        return d
 
 @app.route('/api/running', methods=["get"])
 def getRunning():
     now = time.time() * 1000
-    timeline = ar.query("intervals",[{"start": {"$lte": now}}, {"end": -1}, 1])
+    timeline = ar.query("intervals", [{"start": {"$lte": now}}, {"end": -1}, 1])
+    # Todo: Overlaps...
 
     try:
         fallback = Running.fromDict(ar.get("running/running"))
@@ -107,7 +25,6 @@ def getRunning():
 
     if len(timeline) > 0:
         interval = Interval.fromDict(timeline[-1])
-        import math
         fallback.start = max(int(fallback.start), interval.end)
         if interval.end < now:
             interval = None
@@ -117,42 +34,46 @@ def getRunning():
 
 
     if interval is not None:
-        running = FrontendRunning.fromInterval(interval, fallback.title)
+        running = FrontendRunning.fromInterval(interval, fallback)
     else:
         running = FrontendRunning.fromRunning(fallback)
 
     return running.toDict()
 
 @app.route('/api/running', methods=["POST", "PUT"])
-def run(title = None, start = None):
-    if title is not None:
-        data = {}
-        data["title"] = title
-        if start is not None:
-            data["start"] = start
-    else:
+def postRunning(data = None):
+    if data is None:
         data = json.loads(request.data)
 
     if not 'start' in data:
         data['start'] = time.time() * 1000
 
-    running = Running(data['title'], data['start'])
+    new = Running(data['title'], data['start'])
 
-    # First get the current running timer.
+    # First save the current running as an interval, manually.
     try:
-        current = FrontendRunning.fromDict(getRunning())
-        interval = Interval("", current.title, current.start, running.start)
-        postTimeline(interval)
+        last = Running.fromDict(ar.get("running/running"))
+        ar.post('intervals', Interval('id', last.title, last.start, new.start).toDict())
     except:
         pass
+
+    # If we're curring off an interval, update it's end time.
+    timeline = ar.query("intervals",[{"$and": [
+            {"start": {"$lte": new.start}}, 
+            {"end": {"$gte": new.start}}
+        ]}, {"start": -1}, 1])
+    # Todo: Overlaps...
+    if len(timeline) > 0:
+        interval = Interval.fromDict(timeline[-1])
+        interval.end = new.start
+        ar.put("intervals/{}".format(interval.id), interval.toDict())
     
     try: 
-        running = ar.put("running/running", running.toDict())
+        res = ar.put("running/running", new.toDict())
     except:
-        running = ar.post("running/running", running.toDict())
+        res = ar.post("running/running", new.toDict())
 
-    running = FrontendRunning.fromDict(running)
-    return running.toDict()
+    return FrontendRunning.fromDict(res).toDict()
 
 
 @app.route('/api/settings', methods=["GET"])
@@ -344,14 +265,14 @@ def cutOverlaps(all, backfill=True):
 
 @app.route('/')
 def index():
-    return send_from_directory("build", "index.html")
+    return send_from_directory("../../build", "index.html")
 
 @app.route('/<path:path>')
 def frontend(path):
     try:
-        return send_from_directory("build", path)
+        return send_from_directory("../../build", path)
     except:
-        return send_from_directory("build", path+".html")
+        return send_from_directory("../../build", path+".html")
 
 import os
 if "MONGODB_USER" in os.environ and "MONGODB_PASSWORD" in os.environ:
@@ -373,8 +294,6 @@ if __name__ == '__main__':
 elif 'unittest' in sys.modules.keys():
     print("Using testing backend database.")
     ar = anyrest.addAnyrestHandlersTesting(app)
-    def clear(): 
-        ar.clear()
 else:
     client = MongoClient(uri,
                          tls=True,
