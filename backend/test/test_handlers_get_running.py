@@ -3,7 +3,6 @@ import sys
 sys.path.append("backend/src")
 
 from main import getRunning
-from main import postRunning
 from main import ar
 
 from interval import Interval

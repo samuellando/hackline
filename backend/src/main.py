@@ -85,49 +85,64 @@ def getSettings():
     except:
         return {}
 
-@app.route('/api/settings', methods=["POST", "PATCH"])
-def setSetting():
-    data = json.loads(request.data)
+@app.route('/api/setting', methods=["POST", "PATCH"])
+def setSetting(data = None):
+    if data is None:
+        data = json.loads(request.data)
+
     try:
         settings = ar.patch("settings/settings", data)
     except:
         settings = ar.post("settings/settings", data)
+
     settings =  ar.get("settings/settings")
     del settings["id"]
     return settings
 
 @app.route('/api/settings', methods=["PUT"])
-def setSettings():
-    data = json.loads(request.data)
+def setSettings(data = None):
+    if data is None:
+        data = json.loads(request.data)
+
     try:
         settings = ar.put("settings/settings", data)
     except:
         settings = ar.post("settings/settings", data)
+
     settings =  ar.get("settings/settings")
     del settings["id"]
     return settings
 
 @app.route('/api/timeline', methods=["POST"])
-def postTimeline(interval = None):
-    if interval is not None:
-        new = interval
+def postTimeline(data = None):
+    if data is not None:
+        new = Interval.fromDict(data)
     else:
         new = Interval.fromDict(json.loads(request.data))
 
-    logsdb = ar.get("intervals", False)
+    # Modify current intervals in case of a overlap.
+    #
+    #  new: |---|    |---| |---|
+    #  old:   |---| |---|   |-|
+    #  mod:     |-| |---|       
+    #
+    logsdb = ar.get("intervals")
     for v in logsdb:
         v = Interval.fromDict(v)
+        # The first case.
         if v.start >= new.start and v.start <= new.end and v.end >= new.end:
             v.start = new.end
             ar.patch("intervals/"+v.id, v.toDict())
+        # The last case.
         elif v.start >= new.start and v.end <= new.end:
             ar.delete("intervals/"+v.id, v.toDict())
 
     return ar.post("intervals", new.toDict())
 
 @app.route('/api/timeline/<id>', methods=["PATCH"])
-def patchTimeline(id):
-    data = json.loads(request.data)
+def patchTimeline(id, data = None):
+    if data is None:
+        data = json.loads(request.data)
     return ar.patch("intervals/" + id, {"title": data["title"]})
 
 @app.route('/api/timeline', methods=["GET"])

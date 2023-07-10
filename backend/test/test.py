@@ -2,7 +2,6 @@ import sys
 sys.path.append("backend/src")
 
 import unittest
-import time
 
 from main import cutOverlaps
 from interval import Interval
