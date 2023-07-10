@@ -3,7 +3,7 @@ sys.path.append("backend/src")
 
 import unittest
 
-from main import cutOverlaps
+from helpers import cutOverlaps
 from interval import Interval
 
 class CutOverlaps(unittest.TestCase):
