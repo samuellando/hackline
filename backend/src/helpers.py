@@ -1,71 +1,53 @@
-def cutOverlaps(all, backfill=True):
+from interval import Interval
+
+def cutOverlaps(all):
     intervals = sorted(all, key=lambda x: x.start)
 
     if len(intervals) == 0:
         return []
 
-    results = []
-
+    s = [] # stack of interval references.
     starts = []
-    s = [] # Stack of events at this time.
 
     t = 0
-
     for interval in intervals:
-        while len(s) > 0 and s[-1].end < interval.start:
-            # Clear all the passed events in stack.
-            t = s.pop().end
-            while len(s) > 0 and s[-1].end <= t:
-                s.pop()
-
-            # If there are any events left, cut it around.
-            if len(s) > 0:
-                p = s[-1]
-                starts.append({"start": t, "ref": p})
-
-        # Add the interval to starts
-        if len(starts) > 0 and interval.start == starts[-1]["start"]:
-            if not interval.id == "running":
-                starts[-1]["ref"] = interval
-        else:
-            starts.append({"start": interval.start, "ref": interval})
+        # Bring "t" to the start eof ethis interval.
+        while len(s) > 0 and t < interval.start:
+            i = s.pop()
+            # if passed.
+            if i.end < t:
+                continue
+            # This is the next start.
+            starts.append({"start": t, "ref": i})
+            t = i.end
+            # If the interval from the stack is not done, keep it in the stack.
+            if t > interval.start:
+                t = interval.start
+                s.append(i)
+        # Add the interval to stack.
+        t = interval.start
         s.append(interval)
-
-    t = starts[-1]["ref"].end
 
     # Clear the stack.
     while len(s) > 0:
-        while len(s) > 0 and s[-1].end <= t:
-            s.pop()
-        if len(s) > 0:
-            p = s.pop()
-            starts.append({"start": t, "ref": p})
-            t = p.end
+        i = s.pop()
+        # Skip if passed.
+        if i.end < t:
+            continue
 
+        starts.append({"start": t, "ref": i})
+        t = i.end
 
-    # Convert starts to actual events.
-    for i, s in enumerate(starts):
-        interval = s["ref"].copy()
-        istart = s["start"]
-        nextStart = starts[i+1]["start"] if i < len(starts) - 1 else interval.end
-        iend = min(nextStart, interval.end)
-
-        interval.start = istart
-        interval.end = iend
-
-
-        if backfill: 
-            if not (i == len(starts) - 1 and  interval.id == "running"):
-                if interval.start != s["ref"].start or interval.id == 'running':
-                    res = ar.post("intervals", interval.toDict())
-                    interval = Interval.fromDict(res)
-                elif interval.end != s["ref"].end:
-                    if interval.id != "":
-                        ar.patch("intervals/"+interval.id, interval.toDict())
-                    else:
-                       res = ar.post("intervals", interval.toDict())
-                       interval = Interval.fromDict(res)
-
-        results.append(interval)
-
-    return results
+    # Finally convert to intervals.
+    res = []
+    for i in range(len(starts)):
+        ref = starts[i]["ref"]
+        start = starts[i]["start"]
+        if i < len(starts) - 1:
+            # Leave a gap, if there is a gap.
+            next = min(ref.end, starts[i + 1]["start"])
+        else:
+            next = ref.end
+        res.append(Interval(ref.id, ref.title, start, next))
+    
+    return res

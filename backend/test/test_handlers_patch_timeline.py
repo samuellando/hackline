@@ -7,7 +7,7 @@ from main import patchTimeline
 from main import ar
 from werkzeug.exceptions import NotFound
 
-class TestSetSetting(unittest.TestCase):
+class TestPatchTimeline(unittest.TestCase):
     def setUp(self):
         ar.clear()
 

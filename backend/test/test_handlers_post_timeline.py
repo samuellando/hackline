@@ -6,7 +6,7 @@ import unittest
 from main import postTimeline
 from main import ar
 
-class TestSetSetting(unittest.TestCase):
+class TestPostTimeline(unittest.TestCase):
     def setUp(self):
         ar.clear()
 

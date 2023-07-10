@@ -10,7 +10,7 @@ from interval import Interval
 from running import Running
 from frontendRunning import FrontendRunning
 
-class PostRunnning(unittest.TestCase):
+class PostRunning(unittest.TestCase):
     def setUp(self):
         ar.clear()
 

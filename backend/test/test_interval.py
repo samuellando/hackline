@@ -2,6 +2,7 @@ import sys
 sys.path.append("backend/src")
 
 import unittest
+import time
 
 from interval import Interval
 
@@ -34,6 +35,13 @@ class IntervalTest(unittest.TestCase):
         d = {"id": "id", "title": "title", "start": 100, "end": 200}
         i1 = Interval.fromDict(d)
         i2 = Interval("id", "title", 100, 200)
+        self.assertEqual(i1, i2)
+
+    def testFromDictNoStart(self):
+        d = {"id": "id", "title": "title", "end": 200}
+        i1 = Interval.fromDict(d)
+        self.assertTrue(i1.start - time.time() * 1000 < 10000)
+        i2 = Interval("id", "title", i1.start, 200)
         self.assertEqual(i1, i2)
 
     def testFromDictDuration(self):

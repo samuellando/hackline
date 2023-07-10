@@ -297,7 +297,7 @@ def getTimeline(start=None, end=None):
         pass
 
     # cut the overlaps.
-    intervals = cutOverlaps(intervals, False)
+    intervals = cutOverlaps(intervals)
 
     # Make the end intervals fit the bounds.
     if len(intervals) > 0 and start is not None and intervals[0].start < start:
