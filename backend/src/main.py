@@ -14,6 +14,18 @@ app = Flask(__name__)
 
 @app.route('/api/running', methods=["get"])
 def getRunning():
+    '''
+    Get the current running interval. 
+
+    Returns:
+        - A dict with the current running interval, as a FrontendRunning type.
+            - start (int): the start time of the current running interval.
+            - title (str): the title of the current running interval.
+            - end (int): Optional, the end time of the current running interval.
+            - Fallback (str): optional, the title of the fallback interval, after end has passed.
+    Raises:
+        - 404 if there is no running interval.
+    '''
     now = time.time() * 1000
     timeline = ar.query("intervals", [{"start": {"$lte": now}}, {"end": -1}, 1])
     # Todo: Overlaps...
@@ -42,6 +54,19 @@ def getRunning():
 
 @app.route('/api/running', methods=["POST", "PUT"])
 def postRunning(data = None):
+    '''
+    Saves the current runing interval, and starts a new one. 
+
+    Params:
+        - data (dict): A dict with the new running interval.
+            - start: optional start time in milliseconds. Defaults to now.
+            - title: the title of the new running interval.
+
+    Returns:
+        - A dict with the updated running interval, as a FrontendRunning type.
+            - start: the start time of the new running interval.
+            - title: the title of the new running interval.
+    '''
     if data is None:
         data = json.loads(request.data)
 
@@ -78,6 +103,12 @@ def postRunning(data = None):
 
 @app.route('/api/settings', methods=["GET"])
 def getSettings():
+    '''
+    Get the current settings.
+
+    Returns:
+        Ket/value pairs of settings.
+    '''
     try:
         settings =  ar.get("settings/settings")
         del settings["id"]
@@ -87,6 +118,15 @@ def getSettings():
 
 @app.route('/api/setting', methods=["POST", "PATCH"])
 def setSetting(data = None):
+    '''
+    Set all settings. Replaces all settings.
+
+    Params:
+        - data (dict): A dict with the new settings.
+
+    Returns:
+        Ket/value pairs of settings.
+    '''
     if data is None:
         data = json.loads(request.data)
 
@@ -101,6 +141,15 @@ def setSetting(data = None):
 
 @app.route('/api/settings', methods=["PUT"])
 def setSettings(data = None):
+    '''
+    Set a individual setting. Keeps all other settings.
+
+    Params:
+        - data (dict): A dict with the new setting(s).
+
+    Returns:
+        Ket/value pairs of settings.
+    '''
     if data is None:
         data = json.loads(request.data)
 
@@ -115,6 +164,19 @@ def setSettings(data = None):
 
 @app.route('/api/timeline', methods=["POST"])
 def postTimeline(data = None):
+    '''
+    Add a new interval to the timeline. Will also modify existing intervals if there is a overlap.
+
+      new: |---|    |---| |---|
+      old:   |---| |---|   |-|
+      mod:     |-| |---|       
+
+    Params:
+        - data (dict): A dict with the new interval.
+
+    Returns:
+        - A dict with the new interval.
+    '''
     if data is not None:
         new = Interval.fromDict(data)
     else:
@@ -141,12 +203,44 @@ def postTimeline(data = None):
 
 @app.route('/api/timeline/<id>', methods=["PATCH"])
 def patchTimeline(id, data = None):
+    '''
+    Modify an existing interval in the timeline. Allows for changing the title.
+
+    Params:
+        - id (str): The id of the interval to modify.
+        - data (dict): A dict with the new interval.
+
+    Returns:
+        - A dict with the modified interval.
+    '''
     if data is None:
         data = json.loads(request.data)
     return ar.patch("intervals/" + id, {"title": data["title"]})
 
 @app.route('/api/timeline', methods=["GET"])
 def getTimeline(start=None, end=None):
+    '''
+    Get all the intervals as a timeline. Can be filtered by start and end time.
+
+    - gives precience to intervals with newer start times, and end times.
+
+    Foe example:
+    | 1 |           
+    | 2                |
+           | 3       |
+              | 4 | 
+
+    Becomes: 
+
+    | 1 | 2| 3| 4 |3 |2|
+
+    Params:
+        - start (int): The start time of the interval.
+        - end (int): The end time of the interval.
+
+    Returns:
+        - A list of intervals, with no overlaps.
+    '''
     if start is None and end is None:
         args = request.args
         if "start" in args:
