@@ -21,7 +21,7 @@ class TestGetTimeline(unittest.TestCase):
             {"start": 5, "end": 6, "title": "3"}
         ]
         for i in intervals:
-            ar.post('intervals', i.copy())
+            ar.post('intervals', i)
         res = getTimeline({})
         for i in res:
             del i['id']
@@ -42,7 +42,7 @@ class TestGetTimeline(unittest.TestCase):
             {"start": 6, "end": 200, "title": "r"}
         ]
         for i in intervals:
-            ar.post('intervals', i.copy())
+            ar.post('intervals', i)
         res = getTimeline({"end": 200})
         for i in res:
             del i['id']
@@ -60,7 +60,7 @@ class TestGetTimeline(unittest.TestCase):
         ]
 
         for i in intervals:
-            ar.post('intervals', i.copy())
+            ar.post('intervals', i)
         res = getTimeline({'start': 3})
         for i in res:
             del i['id']
@@ -77,7 +77,7 @@ class TestGetTimeline(unittest.TestCase):
         ]
 
         for i in intervals:
-            ar.post('intervals', i.copy())
+            ar.post('intervals', i)
         res = getTimeline({'end': 6})
         for i in res:
             del i['id']
@@ -94,7 +94,7 @@ class TestGetTimeline(unittest.TestCase):
         ]
 
         for i in intervals:
-            ar.post('intervals', i.copy())
+            ar.post('intervals', i)
         res = getTimeline({'start': 3, 'end': 6})
         for i in res:
             del i['id']
@@ -116,7 +116,7 @@ class TestGetTimeline(unittest.TestCase):
             {"start": 90, "end": 100, "title": "1"},
         ]
         for i in intervals:
-            ar.post('intervals', i.copy())
+            ar.post('intervals', i)
         res = getTimeline({})
         for i in res:
             del i['id']

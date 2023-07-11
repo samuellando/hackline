@@ -12,16 +12,16 @@ class TestPostTimeline(unittest.TestCase):
 
     def testEmpty(self):
         i = {'title': 'test', 'start': 0, 'end': 1000}
-        postTimeline(i.copy())
+        postTimeline(i)
         res = ar.get('intervals')
         del res[0]['id']
         self.assertListEqual(res, [i])
 
     def testPartialCover(self):
         old = {'title': 'old', 'start': 500, 'end': 1000}
-        ar.post('intervals', old.copy())
+        ar.post('intervals', old)
         i = {'title': 'new', 'start': 0, 'end': 750}
-        postTimeline(i.copy())
+        postTimeline(i)
         res = ar.get('intervals')
         del res[0]['id']
         del res[1]['id']
@@ -31,9 +31,9 @@ class TestPostTimeline(unittest.TestCase):
 
     def testCutOff(self):
         old = {'title': 'old', 'start': 0, 'end': 750}
-        ar.post('intervals', old.copy())
+        ar.post('intervals', old)
         i = {'title': 'new', 'start': 500, 'end': 1000}
-        postTimeline(i.copy())
+        postTimeline(i)
         res = ar.get('intervals')
         del res[0]['id']
         del res[1]['id']
@@ -42,9 +42,9 @@ class TestPostTimeline(unittest.TestCase):
 
     def testFullCover(self):
         old = {'title': 'old', 'start': 100, 'end': 750}
-        ar.post('intervals', old.copy())
+        ar.post('intervals', old)
         i = {'title': 'new', 'start': 0, 'end': 1000}
-        postTimeline(i.copy())
+        postTimeline(i)
         res = ar.get('intervals')
         del res[0]['id']
         self.assertListEqual(res, [i])

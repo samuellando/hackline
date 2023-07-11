@@ -18,7 +18,7 @@ class TestGetSettings(unittest.TestCase):
 
     def testGetSettings(self):
         d = {'a': 1, 'b': 2}
-        ar.post('settings/settings', d.copy())
+        ar.post('settings/settings', d)
         self.assertEqual(getSettings(), d)
 
 class TestSetSettings(unittest.TestCase):
@@ -27,16 +27,16 @@ class TestSetSettings(unittest.TestCase):
 
     def testEmpty(self):
         d = {'a': 1, 'b': 2}
-        setSettings(d.copy())
+        setSettings(d)
         res = ar.get('settings/settings')
         del res['id']
         self.assertEqual(res, d)
 
     def testReplace(self):
         d = {'a': 1, 'b': 2}
-        ar.post('settings/settings', d.copy())
+        ar.post('settings/settings', d)
         d = {'c': 3, 'd': 4}
-        setSettings(d.copy())
+        setSettings(d)
         res = ar.get('settings/settings')
         del res['id']
         self.assertEqual(res, d)
@@ -47,7 +47,7 @@ class TestSetSetting(unittest.TestCase):
 
     def testEmpty(self):
         d = {'a': 1}
-        setSettings(d.copy())
+        setSettings(d)
         res = ar.get('settings/settings')
         del res['id']
         self.assertEqual(res, d)
