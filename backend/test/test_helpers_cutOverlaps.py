@@ -1,73 +1,14 @@
+import sys
+sys.path.append("backend/src")
+
 import unittest
-import time
-from main import cutOverlaps
-from main import Interval
 
-from main import getRunning
-from main import run
-from main import clear
-from main import getTimeline
-from main import postTimeline
-class Runnning(unittest.TestCase):
-    def test_empty(self):
-        clear()
-        from werkzeug.exceptions import NotFound
-        with self.assertRaises(NotFound): 
-            getRunning()
-
-    def testRunning(self):
-        clear()
-        run("testing", 100)
-        expected = {"title": "testing", "start": 100}
-        self.assertEqual(getRunning(), expected)
-
-    def testRunningWithFallback(self):
-        clear()
-        run("fallback", 100)
-        now = time.time() * 1000
-        end = now + 15*60*1000
-
-        interval = Interval.fromDict({"start": now, "end": end, "title": "running"})
-        postTimeline(interval)
-
-        expected = {"title": "running", "start": now, "end": end, "fallback": "fallback"}
-        self.assertEqual(getRunning(), expected)
-
-    def testRunningWithElapasedSplice(self):
-        clear()
-        run("fallback", 100)
-        now = 1000
-        end = 2000
-
-        interval = Interval.fromDict({"start": now, "end": end, "title": "running"})
-        postTimeline(interval)
-
-        expected = {"title": "fallback", "start": end}
-        self.assertEqual(getRunning(), expected)
-
-    def testMultipleRun(self):
-        clear()
-        run("testing1", 100)
-        run("testing2", 200)
-        run("testing3", 300)
-
-        tl = getTimeline(0, 1000)
-        for i in tl:
-            if i["id"] != "running":
-                del i["id"]
-
-        expected = [
-                {"start": 100, "end": 200, "title": "testing1"},
-                {"start": 200, "end": 300, "title": "testing2"},
-                {"start": 300, "end": 1000, "id": "running", "title": "testing3"}
-        ]
-
-        self.assertListEqual(tl, expected)
-
+from helpers import cutOverlaps
+from interval import Interval
 
 class CutOverlaps(unittest.TestCase):
     def test_empty(self):
-        self.assertListEqual([], cutOverlaps([], False))
+        self.assertListEqual([], cutOverlaps([]))
 
     def test_no_overlaps(self):
         intervals = [
@@ -85,7 +26,24 @@ class CutOverlaps(unittest.TestCase):
         intervals = map(lambda d: Interval.fromDict(d), intervals)
         expected = list(map(lambda d: Interval.fromDict(d), expected))
 
-        self.assertListEqual(cutOverlaps(intervals, False), expected)
+        self.assertListEqual(cutOverlaps(intervals), expected)
+
+    def test_passed(self):
+        intervals = [
+                {"start": 1, "end": 4, "title": "1"},
+                {"start": 2, "end": 5, "title": "2"},
+                {"start": 6, "end": 10, "title": "3"},
+        ]
+        expected = [
+                {"start": 1, "end": 2, "title": "1"},
+                {"start": 2, "end": 5, "title": "2"},
+                {"start": 6, "end": 10, "title": "3"}
+        ]
+
+        intervals = map(lambda d: Interval.fromDict(d), intervals)
+        expected = list(map(lambda d: Interval.fromDict(d), expected))
+
+        self.assertListEqual(cutOverlaps(intervals), expected)
 
     def test_cut_around(self):
         intervals = [
@@ -102,7 +60,7 @@ class CutOverlaps(unittest.TestCase):
         intervals = map(lambda d: Interval.fromDict(d), intervals)
         expected = list(map(lambda d: Interval.fromDict(d), expected))
 
-        self.assertListEqual(cutOverlaps(intervals, False), expected)
+        self.assertListEqual(cutOverlaps(intervals), expected)
 
     def test_cut_off(self):
         intervals = [
@@ -118,7 +76,7 @@ class CutOverlaps(unittest.TestCase):
         intervals = map(lambda d: Interval.fromDict(d), intervals)
         expected = list(map(lambda d: Interval.fromDict(d), expected))
 
-        self.assertListEqual(cutOverlaps(intervals, False), expected)
+        self.assertListEqual(cutOverlaps(intervals), expected)
 
     def test_same_start(self):
         intervals = [
@@ -134,7 +92,7 @@ class CutOverlaps(unittest.TestCase):
         intervals = map(lambda d: Interval.fromDict(d), intervals)
         expected = list(map(lambda d: Interval.fromDict(d), expected))
 
-        self.assertListEqual(cutOverlaps(intervals, False), expected)
+        self.assertListEqual(cutOverlaps(intervals), expected)
 
     def test_nested(self):
         intervals = [
@@ -174,7 +132,7 @@ class CutOverlaps(unittest.TestCase):
         intervals = map(lambda d: Interval.fromDict(d), intervals)
         expected = list(map(lambda d: Interval.fromDict(d), expected))
 
-        self.assertListEqual(cutOverlaps(intervals, False), expected)
+        self.assertListEqual(cutOverlaps(intervals), expected)
 
 
 if __name__ == '__main__':

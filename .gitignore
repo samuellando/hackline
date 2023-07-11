@@ -12,3 +12,4 @@ venv/*
 key.json
 key.pem
 __pycache__/
+.coverage
