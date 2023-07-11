@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { mergeTimelines, findMissingRanges } from "$lib/Api";
+import { mergeTimelines, findMissingRanges } from "$lib/TimelineUtils";
 import type { interval } from "$lib/types";
 
 describe('findMissingRanges', () => {

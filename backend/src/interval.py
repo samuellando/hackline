@@ -12,6 +12,7 @@ class Interval:
 
     @staticmethod 
     def fromDict(d):
+        d = d.copy()
         if not "id" in d:
             d["id"] = ""
         if not "start" in d:

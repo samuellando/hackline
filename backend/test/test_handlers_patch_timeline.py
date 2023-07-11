@@ -14,13 +14,13 @@ class TestPatchTimeline(unittest.TestCase):
     def testEmpty(self):
         i = {'title': 'new', 'start': 0, 'end': 1000}
         with self.assertRaises(NotFound):
-            patchTimeline('', i.copy())
+            patchTimeline('', i)
 
     def testUpdate(self):
         i = {'title': 'old', 'start': 0, 'end': 1000}
-        r = ar.post('intervals', i.copy())
+        r = ar.post('intervals', i)
         i = {'title': 'new', 'start': 0, 'end': 1000}
-        patchTimeline(r['id'], i.copy())
+        patchTimeline(r['id'], i)
         r = ar.get('intervals/' + r['id'])
         self.assertEqual(r['title'], 'new')
 

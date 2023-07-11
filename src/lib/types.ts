@@ -5,6 +5,8 @@ export interface interval {
   id: string;
 }
 
+export type timeline = interval[];
+
 export interface running {
   title: string;
   start: number;
