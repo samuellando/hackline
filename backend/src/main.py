@@ -29,7 +29,6 @@ def getRunning():
     '''
     now = time.time() * 1000
     timeline = ar.query("intervals", [{"start": {"$lte": now}}, {"end": -1}, 1])
-    # Todo: Overlaps...
 
     try:
         fallback = Running.fromDict(ar.get("running/running"))
@@ -219,7 +218,7 @@ def patchTimeline(id, data = None):
     return ar.patch("intervals/" + id, {"title": data["title"]})
 
 @app.route('/api/timeline', methods=["GET"])
-def getTimeline(start=None, end=None):
+def getTimeline(args = None):
     '''
     Get all the intervals as a timeline. Can be filtered by start and end time.
 
@@ -236,20 +235,23 @@ def getTimeline(start=None, end=None):
     | 1 | 2| 3| 4 |3 |2|
 
     Params:
-        - start (int): The start time of the interval.
-        - end (int): The end time of the interval.
+        args (dict): A dict with the start and end times, optional.
+            - start (int): The start time of the interval.
+            - end (int): The end time of the interval.
 
     Returns:
         - A list of intervals, with no overlaps.
     '''
 
-    # Get the start and end times from the request.
-    if start is None and end is None:
+    if args is None:
         args = request.args
-        if "start" in args:
-            start = int(args["start"])
-        if "end" in args:
-            end = int(args["end"])
+    # Get the start and end times from the request.
+    start = None
+    end = None
+    if "start" in args:
+        start = int(args["start"])
+    if "end" in args:
+        end = int(args["end"])
 
     # Build the query.
     #
@@ -345,7 +347,7 @@ if __name__ == '__main__':
     app.run(host='127.0.0.1', port=8080, debug=True)
 elif 'unittest' in sys.modules.keys():
     print("Using testing backend database.")
-    ar = anyrest.addAnyrestHandlersTesting(app)
+    ar = anyrest.addAnyrestHandlersTesting(app, None, None, True)
 else:
     client = MongoClient(uri,
                          tls=True,

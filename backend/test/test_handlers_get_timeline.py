@@ -11,7 +11,7 @@ class TestGetTimeline(unittest.TestCase):
         ar.clear()
 
     def testEmpty(self):
-        res = getTimeline(0, 1000)
+        res = getTimeline({})
         self.assertListEqual(res, [])
 
     def testNoOverlaps(self):
@@ -22,10 +22,83 @@ class TestGetTimeline(unittest.TestCase):
         ]
         for i in intervals:
             ar.post('intervals', i.copy())
-        res = getTimeline(0, 1000)
+        res = getTimeline({})
         for i in res:
             del i['id']
-        self.assertEqual(res, res)
+        self.assertEqual(res, intervals)
+
+    def testWithrunning(self):
+        ar.post('running/running', {"start": 4, "title": "r"})
+        intervals = [
+            {"start": 1, "end": 2, "title": "1"},
+            {"start": 3, "end": 4, "title": "2"},
+            {"start": 5, "end": 6, "title": "3"}
+        ]
+        expected = [
+            {"start": 1, "end": 2, "title": "1"},
+            {"start": 3, "end": 4, "title": "2"},
+            {"start": 4, "end": 5, "title": "r"},
+            {"start": 5, "end": 6, "title": "3"},
+            {"start": 6, "end": 200, "title": "r"}
+        ]
+        for i in intervals:
+            ar.post('intervals', i.copy())
+        res = getTimeline({"end": 200})
+        for i in res:
+            del i['id']
+        self.assertEqual(res, expected)
+
+
+    def testCutOffStart(self):
+        intervals = [
+            {"start": 1, "end": 5, "title": "1"},
+            {"start": 5, "end": 6, "title": "3"}
+        ]
+        expected = [
+            {"start": 3, "end": 5, "title": "1"},
+            {"start": 5, "end": 6, "title": "3"}
+        ]
+
+        for i in intervals:
+            ar.post('intervals', i.copy())
+        res = getTimeline({'start': 3})
+        for i in res:
+            del i['id']
+        self.assertEqual(res, expected)
+
+    def testCutOffEnd(self):
+        intervals = [
+            {"start": 1, "end": 5, "title": "1"},
+            {"start": 5, "end": 10, "title": "3"}
+        ]
+        expected = [
+            {"start": 1, "end": 5, "title": "1"},
+            {"start": 5, "end": 6, "title": "3"}
+        ]
+
+        for i in intervals:
+            ar.post('intervals', i.copy())
+        res = getTimeline({'end': 6})
+        for i in res:
+            del i['id']
+        self.assertEqual(res, expected)
+
+    def testCutOffBoth(self):
+        intervals = [
+            {"start": 1, "end": 5, "title": "1"},
+            {"start": 5, "end": 10, "title": "3"}
+        ]
+        expected = [
+            {"start": 3, "end": 5, "title": "1"},
+            {"start": 5, "end": 6, "title": "3"}
+        ]
+
+        for i in intervals:
+            ar.post('intervals', i.copy())
+        res = getTimeline({'start': 3, 'end': 6})
+        for i in res:
+            del i['id']
+        self.assertEqual(res, expected)
 
     def testSoManyOverlaps(self):
         intervals = [
@@ -44,7 +117,7 @@ class TestGetTimeline(unittest.TestCase):
         ]
         for i in intervals:
             ar.post('intervals', i.copy())
-        res = getTimeline(0, 1000)
+        res = getTimeline({})
         for i in res:
             del i['id']
         self.assertEqual(res, expected)

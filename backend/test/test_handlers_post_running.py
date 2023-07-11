@@ -1,4 +1,5 @@
 import unittest
+import time
 import sys
 sys.path.append("backend/src")
 
@@ -17,6 +18,14 @@ class PostRunning(unittest.TestCase):
     def testPostEmpty(self):
         data = {'title': 'testing', 'start': 100}
         res = postRunning(data)
+        self.assertEqual(FrontendRunning.fromDict(res), FrontendRunning.fromDict(data))
+        self.assertEqual(Running.fromDict(ar.get('running/running')), Running.fromDict(data))
+
+    def testPostNoStart(self):
+        data = {'title': 'testing'}
+        res = postRunning(data)
+        self.assertTrue(res['start'] - time.time() * 1000 < 10000)
+        data['start'] = res['start']
         self.assertEqual(FrontendRunning.fromDict(res), FrontendRunning.fromDict(data))
         self.assertEqual(Running.fromDict(ar.get('running/running')), Running.fromDict(data))
 
