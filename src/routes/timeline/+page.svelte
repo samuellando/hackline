@@ -6,6 +6,7 @@
 	import type { authDef } from '$lib/types';
 	import Timeline from '$lib/components/Timeline.svelte';
 	import Summary from '$lib/components/Summary.svelte';
+	import Editor from '$lib/components/Editor.svelte';
 	import Running from '$lib/components/Running.svelte';
 	import RangeSelector from '$lib/components/RangeSelector.svelte';
 	import Button from '$lib/components/Button.svelte';
@@ -69,82 +70,50 @@
 	<div
 		id="timeline-container"
 		style="
-background-color: {primary};
-color: {secondary};
-font-family: {apiClient.getSetting('text-font') || 'courier, monospace'};
-"
+            background-color: {primary};
+            color: {secondary};
+        "
+		class="
+            font-mono
+            w-screen
+            h-screen
+        "
 	>
-		<div id="title-container">
-			<h1>HackLine.io</h1>
+		<div class="pt-5 pr-10 flex gap-10 justify-end">
+			<Button text="Settings" {primary} {secondary} onClick={() => goto('/settings')} />
 
-			<div id="navigation-container">
-				<Button text="Settings" {primary} {secondary} onClick={() => goto('/settings')} />
-
-				<Auth {primary} {secondary} {authDef} />
-			</div>
+			<Auth {primary} {secondary} {authDef} />
 		</div>
+		<h1
+			class="
+                mt-10
+                text-6xl
+                text-center
+               "
+		>
+			HackLine.io
+		</h1>
 
-		<div id="running">
+		<div class="mt-10 flex justify-center">
 			<Running bind:apiClient />
 		</div>
 
-		<div id="top-of-timeline">
-			<div id="live">
-				<Live bind:live />
-			</div>
-
-			<div id="range-selector">
-				<RangeSelector bind:rangeStartM bind:rangeEndM bind:live {primary} {secondary} />
-			</div>
+		<div class="mt-10 flex justify-between px-20">
+			<Live bind:live />
+			<RangeSelector bind:rangeStartM bind:rangeEndM bind:live {primary} {secondary} />
 		</div>
 
-		<Timeline bind:apiClient bind:rangeStartM bind:rangeEndM bind:live />
+		<div class="flex justify-center mt-5">
+			<Timeline bind:apiClient bind:rangeStartM bind:rangeEndM bind:live />
+		</div>
 
-		<h2>Summary</h2>
-		<Summary bind:apiClient bind:rangeStartM bind:rangeEndM {primary} {secondary} />
+		<div class="flex justify-center">
+			<Editor bind:apiClient {primary} {secondary} />
+		</div>
+
+		<h1 class="text-2xl text-center">Summary</h1>
+		<div class="flex justify-center">
+			<Summary bind:apiClient bind:rangeStartM bind:rangeEndM {primary} {secondary} />
+		</div>
 	</div>
 {/if}
-
-<style>
-	#title-container {
-		display: grid;
-		grid-template-columns: 200px auto 200px;
-		grid-template-rows: 50px;
-		padding: 10px;
-	}
-	#title-container h1 {
-		font-size: 50px;
-		margin: 0;
-		width: auto;
-		grid-column-start: 2;
-		grid-row-start: 2;
-	}
-
-	#navigation-container {
-		grid-column-start: 3;
-	}
-
-	#running {
-		margin-top: 100px;
-	}
-
-	#top-of-timeline {
-		display: grid;
-		grid-template-columns: 200px auto 200px;
-		grid-template-rows: 50px;
-		margin-top: 100px;
-		margin-bottom: 10px;
-	}
-	#top-of-timeline #range-selector {
-		grid-column-start: 3;
-	}
-
-	#timeline-container {
-		padding-bottom: 50vh;
-		width: 100%;
-		position: absolute;
-		top: 0px;
-		left: 0px;
-		text-align: center;
-	}
-</style>

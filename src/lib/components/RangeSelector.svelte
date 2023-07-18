@@ -73,8 +73,14 @@
 </script>
 
 <div id="range-selector" style="--primary: {primary}; --secondary: {secondary}">
-	<div id="top">
 		<button
+            class="
+                border-l border-y rounded-l-full
+                p-1 text-sm min-w-fit h-10 
+                font-mono 
+                text-[var(--secondary)] hover:text-[var(--primary)] 
+                bg-[var(--primary)] hover:bg-[var(--secondary)]
+            "
 			on:click={() => {
 				[rangeStartM, rangeEndM] = getRange(options[selected]);
 				live = options[selected].moveBack == 0;
@@ -82,18 +88,38 @@
 			style={match ? 'color:' + primary + '; background-color:' + secondary + ';' : null}
 		>
 			{options[selected].title}
-		</button>
-		<button
+		</button><button
+            class="
+                border-r border-y rounded-r-full
+                p-1 text-sm min-w-fit h-10 
+                font-mono 
+                text-[var(--secondary)] hover:text-[var(--primary)] 
+                bg-[var(--primary)] hover:bg-[var(--secondary)]
+            "
 			on:click={() => {
 				dropdown = dropdown ? false : true;
 			}}
 			style={match ? 'color:' + primary + '; background-color:' + secondary + ';' : null}>▼</button
 		>
-	</div>
 	{#if dropdown}
-		<div id="selector">
+		<div class="
+                border rounded
+                p-1 text-sm min-w-fit min-h-fit
+                font-mono 
+                bg-[var(--primary)]
+                fixed
+                -translate-x-3/4
+                text-center
+        ">
 			{#each options as option, i}
 				<button
+                    class="
+                        border rounded-r
+                        p-1 text-sm w-96 h-10 
+                        font-mono 
+                        text-[var(--secondary)] hover:text-[var(--primary)] 
+                        bg-[var(--primary)] hover:bg-[var(--secondary)]
+                    "
 					on:click={() => {
 						[rangeStartM, rangeEndM] = getRange(option);
 						dropdown = false;
@@ -105,14 +131,28 @@
 				</button>
 			{/each}
 			<div>
-				custom
+				custom<br />
 				<input
+                    class="
+                        border rounded-r
+                        p-1 text-sm w-40 h-10 
+                        font-mono 
+                        text-[var(--secondary)] hover:text-[var(--primary)] 
+                        bg-[var(--primary)] hover:bg-[var(--secondary)]
+                    "
 					type="datetime-local"
 					bind:value={rangeStart}
 					on:input={updateRange}
 					on:change={() => (dropdown = false)}
 				/>
 				<input
+                    class="
+                        border rounded-r
+                        p-1 text-sm w-40 h-10 
+                        font-mono 
+                        text-[var(--secondary)] hover:text-[var(--primary)] 
+                        bg-[var(--primary)] hover:bg-[var(--secondary)]
+                    "
 					type="datetime-local"
 					bind:value={rangeEnd}
 					on:input={updateRange}
@@ -122,69 +162,3 @@
 		</div>
 	{/if}
 </div>
-
-<style>
-	button {
-		padding: 10px;
-		border-style: solid;
-		border-width: 1px;
-		height: 50px;
-		border-color: var(--secondary);
-		color: var(--secondary);
-		background-color: var(--primary);
-	}
-	button:hover {
-		cursor: pointer;
-		color: var(--primary);
-		background-color: var(--secondary);
-	}
-
-	#top {
-		display: inline-flex;
-	}
-	#top:hover button {
-		cursor: pointer;
-		color: var(--primary);
-		background-color: var(--secondary);
-	}
-	#top button:nth-of-type(1) {
-		border-radius: 100px 0 0 100px;
-		border-right: none;
-		width: 75px;
-	}
-	#top button:nth-of-type(2) {
-		border-radius: 0 100px 100px 0;
-		border-left: none;
-		width: 25px;
-	}
-
-	#range-selector {
-		width: 100px;
-	}
-
-	#selector {
-		position: absolute;
-	}
-	#selector > * {
-		display: block;
-		width: 100px;
-	}
-	#selector div > * {
-		display: block;
-		width: 100px;
-	}
-	#selector div {
-		border-color: var(--secondary);
-	}
-	#selector div input {
-		color: var(--secondary);
-		background-color: var(--primary);
-		border-color: var(--secondary);
-		color: var(--secondary);
-		background-color: var(--primary);
-		border-width: 0 0 1px 0;
-	}
-	::-webkit-calendar-picker-indicator {
-		background-color: var(--secondary) !important;
-	}
-</style>

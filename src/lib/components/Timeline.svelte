@@ -257,46 +257,44 @@
 	$: rangeStartM, rangeEndM, drawTimeline();
 </script>
 
-<canvas
-	id="timeline"
-	on:mousemove={mouseMove}
-	on:mouseout={mouseOut}
-	on:blur={() => null}
-	on:wheel={rangeScroll}
-	on:mouseup={() => {
-		drag = false;
-	}}
-	on:mousedown={() => {
-		drag = true;
-	}}
-	on:click={() => {
-		editInterval(hoveredInterval);
-	}}
-/>
-<p>
-	{#if curM}
-		{new Date(curM)}
-	{/if}
-	&nbsp;
-	<br />
-	{#if hoveredInterval}
-		{hoveredInterval.title}
-		{toDateTimeString(hoveredInterval.start)} - {toDateTimeString(hoveredInterval.end)}
-		{durationToString(
-			hoveredInterval.end - hoveredInterval.start,
-			apiClient.getSetting('timeline-duration-format') || '%H hours %M minutes %S seconds'
-		)}
-	{:else}
+<div class="w-full text-center">
+	<canvas
+		id="timeline"
+		class="
+        h-[175px]
+        w-[95%]
+        m-auto
+        cursor-none
+    "
+		on:mousemove={mouseMove}
+		on:mouseout={mouseOut}
+		on:blur={() => null}
+		on:wheel={rangeScroll}
+		on:mouseup={() => {
+			drag = false;
+		}}
+		on:mousedown={() => {
+			drag = true;
+		}}
+		on:click={() => {
+			editInterval(hoveredInterval);
+		}}
+	/>
+	<p>
+		{#if curM}
+			{new Date(curM)}
+		{/if}
 		&nbsp;
-	{/if}
-</p>
-
-<style>
-	#timeline {
-		width: 95%;
-		height: 175px;
-	}
-	#timeline:hover {
-		cursor: none;
-	}
-</style>
+		<br />
+		{#if hoveredInterval}
+			{hoveredInterval.title}
+			{toDateTimeString(hoveredInterval.start)} - {toDateTimeString(hoveredInterval.end)}
+			{durationToString(
+				hoveredInterval.end - hoveredInterval.start,
+				apiClient.getSetting('timeline-duration-format') || '%H hours %M minutes %S seconds'
+			)}
+		{:else}
+			&nbsp;
+		{/if}
+	</p>
+</div>

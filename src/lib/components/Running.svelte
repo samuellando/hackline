@@ -22,51 +22,35 @@
 	let running: running | null;
 </script>
 
-{#if running != null}
-	<div id="title-container">
-		<h2>{running.title}</h2>
-		{#if typeof running.end != 'undefined'}
-			<h2>with</h2>
-			<h2>
+<div
+	class="
+        text-2xl
+        text-center
+    "
+>
+	{#if running != null}
+		<div>
+			{running.title}
+			{#if typeof running.end != 'undefined'}
+				with
+
 				{durationToString(
 					running.end - new Date().getTime(),
 					apiClient.getSetting('running-duration-format') || '%H:%M:%S'
 				)}
-			</h2>
-			<h2>remaining</h2>
-		{:else}
-			<h2>for</h2>
-			<h2>
+				remaining
+			{:else}
+				for
 				{durationToString(
 					new Date().getTime() - running.start,
 					apiClient.getSetting('running-duration-format') || '%H:%M:%S'
 				)}
-			</h2>
-		{/if}
-	</div>
-	<div id="then-container">
+			{/if}
+		</div>
 		{#if typeof running.fallback != 'undefined'}
-			<h4>Then {running.fallback}</h4>
+			<h4
+                class="text-sm"
+            >Then {running.fallback}</h4>
 		{/if}
-	</div>
-{/if}
-
-<style>
-	#title-container {
-		display: flex;
-		justify-content: center;
-		column-gap: 20px;
-	}
-	h2 {
-		width: auto;
-		margin: 0;
-	}
-	#then-container {
-		display: flex;
-		justify-content: center;
-	}
-	h4 {
-		width: auto;
-		margin: 0;
-	}
-</style>
+	{/if}
+</div>
