@@ -20,13 +20,31 @@
 		title: string;
 		color: string;
 		totalTime: number;
-		intervals: interval[];
 	};
 
 	var summary: summary[];
+	var adding: boolean = false;
+	var editing: boolean = false;
+
+	var addingInterval: interval;
+	var addingColor: string;
+	var editingInterval: interval;
+	var editingColor: string;
 
 	onMount(async () => {
-		apiClient.subscribe(() => (summary = getSummary()));
+		apiClient.subscribe(() => {
+			summary = getSummary();
+			editing = apiClient.isPreviewEditing();
+			adding = apiClient.isPreviewAdding();
+			if (adding) {
+				addingInterval = apiClient.getPreviewAddingInterval();
+				addingColor = apiClient.getSetting('colormap')[addingInterval.title];
+			}
+			if (editing) {
+				editingInterval = apiClient.getPreviewEditingInterval();
+				editingColor = apiClient.getSetting('colormap')[addingInterval.title];
+			}
+		});
 	});
 
 	onDestroy(() => {
@@ -45,39 +63,17 @@
 
 		let s: { [title: string]: summary } = {};
 		adding = false;
-		if (apiClient.isPreviewEditing()) {
-			summary.forEach((e) => {
-				for (let i = 0; i < e.intervals.length; i++) {
-					if (e.intervals[i].id == apiClient.getPreviewEditingInterval().id) {
-						e.intervals[i] = apiClient.getPreviewEditingInterval();
-						dropdown[e.title] = true;
-					}
-				}
-				s[e.title] = e;
-			});
-		} else if (apiClient.isPreviewAdding()) {
-			summary.forEach((e) => {
-				s[e.title] = e;
-			});
-			adding = true;
-			addingInterval = apiClient.getPreviewAddingInterval();
-			addingColor = colormap[addingInterval.title];
-		} else {
-			logs.forEach((i) => {
-				if (i.title in s) {
-					s[i.title].intervals.push(i);
-					s[i.title].totalTime += i.end - i.start;
-				} else {
-					s[i.title] = {
-						title: i.title,
-						color: colormap[i.title],
-						intervals: [i],
-						totalTime: i.end - i.start
-					};
-				}
-			});
-		}
-
+		logs.forEach((i) => {
+			if (i.title in s) {
+				s[i.title].totalTime += i.end - i.start;
+			} else {
+				s[i.title] = {
+					title: i.title,
+					color: colormap[i.title],
+					totalTime: i.end - i.start
+				};
+			}
+		});
 		return Object.values(s);
 	}
 
@@ -85,12 +81,7 @@
 		let t = e.target as HTMLInputElement;
 		let colormap = apiClient.getSetting('colormap') || {};
 		colormap[title] = t.value;
-		console.log(colormap, title, t.value);
 		apiClient.setSetting('colormap', colormap);
-	}
-
-	function edit(i: interval) {
-		apiClient.timelinePreviewEdit(i);
 	}
 
 	function commitEditingInterval() {
@@ -125,11 +116,12 @@
 		}
 	}
 
-	let adding = false;
-	let addingColor: string;
-	let addingInterval: interval;
 	function add(i: interval) {
 		apiClient.timelinePreviewAdd(i);
+	}
+
+	function edit(i: interval) {
+		apiClient.timelinePreviewEdit(i);
 	}
 
 	function addByTitle(title: string = '') {
@@ -154,27 +146,32 @@
 	}
 
 	$: summary = getSummary(rangeStartM, rangeEndM);
-	var dropdown: { [title: string]: boolean } = {};
 </script>
 
 <div style="--secondary: {secondary}">
 	{#if adding}
-		<div id="adding">
+		<div class="w-full justify-center flex gap-4 pb-4">
+			<input 
+                class="
+                    w-10 h-10
+                    border-0
+                "
+            type="color" value={addingColor} on:input={(e) => update(addingInterval.title, e)} />
 			<input
-				class="color"
-				type="color"
-				value={addingColor}
-				on:input={(e) => update(addingInterval.title, e)}
-			/>
-			<input
-				class="title"
+                class="
+                    w-56
+                    bg-transparent
+                    border
+                    border-[var(--secondary)]
+                    p-2
+                "
 				type="text"
 				bind:value={addingInterval.title}
 				on:input={() => {
 					add(addingInterval);
 				}}
 			/>
-			<span>
+			<span class="w-96">
 				{durationToString(
 					addingInterval.end - addingInterval.start,
 					apiClient.getSetting('summary-duration-format') ||
@@ -182,13 +179,25 @@
 				)}
 			</span>
 			<input
-				class="datetime start"
+                class="
+                    w-56
+                    bg-transparent
+                    border
+                    border-[var(--secondary)]
+                    p-2
+                "
 				type="datetime-local"
 				value={toDateTimeString(addingInterval.start)}
 				on:input={updateStart}
 			/>
 			<input
-				class="datetime"
+                class="
+                    w-56
+                    bg-transparent
+                    border
+                    border-[var(--secondary)]
+                    p-2
+                "
 				type="datetime-local"
 				value={toDateTimeString(addingInterval.end)}
 				on:input={updateEnd}
@@ -197,90 +206,53 @@
 			<Button onClick={() => apiClient.stopPreview()} text="Cancel" {primary} {secondary} />
 		</div>
 	{/if}
-	<div id="summary">
-		{#each summary as s}
-			<div class="dropdown">
-				<Button
-					onClick={() => (dropdown[s.title] = !(s.title in dropdown && dropdown[s.title]))}
-					text="V"
-					{primary}
-					{secondary}
-				/>
-			</div>
-			<input class="color" type="color" value={s.color} on:input={(e) => update(s.title, e)} />
-			<span class="title">
+	{#if editing}
+		<div class="w-full justify-center flex gap-4 pb-4">
+			<input type="color" value={editingColor} on:input={(e) => update(editingInterval.title, e)} />
+			<input
+				type="text"
+				bind:value={editingInterval.title}
+				on:input={() => {
+					edit(editingInterval);
+				}}
+			/>
+			<span class="w-96">
+				{durationToString(
+					addingInterval.end - addingInterval.start,
+					apiClient.getSetting('summary-duration-format') ||
+						'%y years %m months %d days %H hours %M minutes %S seconds'
+				)}
+			</span>
+			{toDateTimeString(addingInterval.start)}
+			-
+			{toDateTimeString(addingInterval.end)}
+			<Button onClick={commitEditingInterval} text="Save" {primary} {secondary} />
+			<Button onClick={() => apiClient.stopPreview()} text="Cancel" {primary} {secondary} />
+		</div>
+	{/if}
+	<h1 class="text-2xl">Summary</h1>
+	{#each summary as s}
+		<div class="w-full justify-center flex gap-4 pb-4">
+			<input 
+                class="
+                    w-10 h-10
+                    border-0
+                "
+                type="color" value={s.color} on:input={(e) => update(s.title, e)} />
+			<span class="w-56">
 				{s.title}
 			</span>
-			<span class="time">
+			<span class="w-96">
 				{durationToString(
 					s.totalTime,
 					apiClient.getSetting('summary-duration-format') ||
 						'%y years %m months %d days %H hours %M minutes %S seconds'
 				)}
 			</span>
-			<div class="run">
-				<Button onClick={() => apiClient.setRunning(s.title)} text="Run" {primary} {secondary} />
-			</div>
-			<div class="add">
-				<Button onClick={() => addByTitle(s.title)} text="Add" {primary} {secondary} />
-			</div>
-			{#if s.title in dropdown && dropdown[s.title]}
-				{#each s.intervals as i}
-					{#if i.id != 'running'}
-						{#if apiClient.isPreviewEditing() && apiClient.getPreviewEditingInterval().id == i.id}
-							<input
-								class="title"
-								type="text"
-								bind:value={i.title}
-								on:input={() => {
-									edit(i);
-								}}
-								autofocus
-							/>
-						{:else}
-							<input
-								class="title"
-								type="text"
-								bind:value={i.title}
-								on:input={() => {
-									edit(i);
-								}}
-								on:focus={() => {
-									edit(i);
-								}}
-							/>
-						{/if}
-					{:else}
-						<span class="title">
-							{i.title}
-						</span>
-					{/if}
-					<span>
-						{durationToString(
-							i.end - i.start,
-							apiClient.getSetting('summary-duration-format') ||
-								'%y years %m months %d days %H hours %M minutes %S seconds'
-						)}
-					</span>
-					<span class="date-range">
-						{toDateTimeString(i.start)} <br />
-						{toDateTimeString(i.end)}
-					</span>
-					{#if apiClient.isPreviewEditing() && apiClient.getPreviewEditingInterval().id == i.id}
-						<Button onClick={commitEditingInterval} text="save" {primary} {secondary} />
-						<Button
-							onClick={() => {
-								apiClient.stopPreview();
-							}}
-							text="cancel"
-							{primary}
-							{secondary}
-						/>
-					{/if}
-				{/each}
-			{/if}
-		{/each}
-	</div>
+			<Button onClick={() => apiClient.setRunning(s.title)} text="Run" {primary} {secondary} />
+			<Button onClick={() => addByTitle(s.title)} text="Add" {primary} {secondary} />
+		</div>
+	{/each}
 	<Button
 		text="add"
 		onClick={() => addByTitle(apiClient.getSetting('default-title') || 'productive')}
@@ -288,60 +260,3 @@
 		{secondary}
 	/>
 </div>
-
-<style>
-	#adding {
-		display: grid;
-		grid-template-columns: 50px 50px 300px 300px 50px 50px 100px 50px 50px;
-		justify-content: center;
-	}
-	#summary {
-		display: grid;
-		grid-template-columns: 50px 50px 300px 300px 50px 50px 100px 50px 50px;
-		justify-content: center;
-	}
-	.run {
-		grid-column-start: 8;
-	}
-	.dropdown {
-		grid-column-start: 1;
-	}
-	.title {
-		grid-column-start: 3;
-	}
-	input.title {
-		background: transparent;
-		border-width: 0 0 1px 0;
-		border-style: solid;
-		border-color: var(--secondary);
-		font: inherit;
-		color: inherit;
-		height: 50px;
-	}
-	.date-range {
-		grid-column-start: 5;
-		grid-column-end: 8;
-	}
-	.color {
-		width: 50px;
-		height: 50px;
-		border: none;
-		padding: 0px;
-		background: transparent;
-		grid-column-start: 2;
-	}
-	.datetime.start {
-		grid-column-start: 5;
-		grid-column-end: 7;
-	}
-	.datetime {
-		color: var(--secondary);
-		border-color: var(--secondary);
-		color: var(--secondary);
-		background-color: transparent;
-		border-width: 0 0 1px 0;
-	}
-	::-webkit-calendar-picker-indicator {
-		background-color: var(--secondary, red) !important;
-	}
-</style>

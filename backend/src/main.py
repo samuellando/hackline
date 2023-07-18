@@ -341,7 +341,7 @@ if __name__ == '__main__':
     client = MongoClient(uri,
                          tls=True,
                          server_api=ServerApi('1'))
-    db = client['production']
+    db = client['test']
     ar = anyrest.addAnyrestHandlersMongoDB(app, db, "dev-pnkvmziz4ai48pb8.us.auth0.com", "https://timelogger/api", True)
     #ar = anyrest.addAnyrestHandlersTesting(app)
     app.run(host='127.0.0.1', port=8080, debug=True)

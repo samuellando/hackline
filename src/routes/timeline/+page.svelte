@@ -73,6 +73,9 @@ background-color: {primary};
 color: {secondary};
 font-family: {apiClient.getSetting('text-font') || 'courier, monospace'};
 "
+        class="
+            text-center
+        "
 	>
 		<div id="title-container">
 			<h1>HackLine.io</h1>
@@ -100,51 +103,6 @@ font-family: {apiClient.getSetting('text-font') || 'courier, monospace'};
 
 		<Timeline bind:apiClient bind:rangeStartM bind:rangeEndM bind:live />
 
-		<h2>Summary</h2>
 		<Summary bind:apiClient bind:rangeStartM bind:rangeEndM {primary} {secondary} />
 	</div>
 {/if}
-
-<style>
-	#title-container {
-		display: grid;
-		grid-template-columns: 200px auto 200px;
-		grid-template-rows: 50px;
-		padding: 10px;
-	}
-	#title-container h1 {
-		font-size: 50px;
-		margin: 0;
-		width: auto;
-		grid-column-start: 2;
-		grid-row-start: 2;
-	}
-
-	#navigation-container {
-		grid-column-start: 3;
-	}
-
-	#running {
-		margin-top: 100px;
-	}
-
-	#top-of-timeline {
-		display: grid;
-		grid-template-columns: 200px auto 200px;
-		grid-template-rows: 50px;
-		margin-top: 100px;
-		margin-bottom: 10px;
-	}
-	#top-of-timeline #range-selector {
-		grid-column-start: 3;
-	}
-
-	#timeline-container {
-		padding-bottom: 50vh;
-		width: 100%;
-		position: absolute;
-		top: 0px;
-		left: 0px;
-		text-align: center;
-	}
-</style>
