@@ -24,7 +24,8 @@
 
 <div
 	class="
-        text-xl
+        text-2xl
+        text-center
     "
 >
 	{#if running != null}
@@ -47,7 +48,9 @@
 			{/if}
 		</div>
 		{#if typeof running.fallback != 'undefined'}
-			<h4>Then {running.fallback}</h4>
+			<h4
+                class="text-sm"
+            >Then {running.fallback}</h4>
 		{/if}
 	{/if}
 </div>
