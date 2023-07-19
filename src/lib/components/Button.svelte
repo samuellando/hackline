@@ -1,29 +1,16 @@
 <script lang="ts">
 	export let onClick: Function;
 	export let text: string;
-	export let primary: string = 'white';
-	export let secondary: string = 'black';
+	export let primary: string = 'black';
+	export let secondary: string = 'white';
 </script>
 
-<div style="--primary: {primary}; --secondary: {secondary};">
-	<button on:click={() => onClick()}>{text} </button>
+<div style="--primary: {primary}; --secondary: {secondary}">
+    <button class="
+    border rounded-full
+    p-1 text-sm w-14 min-w-fit h-10 
+    font-mono 
+    text-[var(--secondary)] hover:text-[var(--primary)] 
+    bg-[var(--primary)] hover:bg-[var(--secondary)]
+    " on:click={() => onClick()}>{text} </button>
 </div>
-
-<style>
-	button {
-		padding: 10px;
-		border-radius: 100px;
-		border-style: solid;
-		border-width: 1px;
-		height: 50px;
-		background-color: var(--primary);
-		color: var(--secondary);
-		border-color: var(--secondary);
-	}
-
-	button:hover {
-		cursor: pointer;
-		background-color: var(--secondary);
-		color: var(--primary);
-	}
-</style>
