@@ -35,7 +35,7 @@ export class State {
 
     static fromSerializable(serializable: serializableState): State {
         return new State(
-            new Timeline(serializable.timeline),
+            Timeline.fromSerializable(serializable.timeline),
             serializable.running,
             serializable.settings
         );
@@ -54,8 +54,8 @@ export class State {
     }
 
     private toObject(): serializableState {
-        let d = {
-            timeline: this.timeline.intervals,
+        let d: serializableState = {
+            timeline: {intervals: this.timeline.getIntervals()},
             running: this.running,
             settings: this.settings
         };
@@ -64,20 +64,11 @@ export class State {
 }
 
 export type serializableState = {
-    timeline: interval[];
+    timeline: {intervals: interval[]};
     running: running;
     settings: settings;
 }
 
 export interface apiKey {
   apiKey: string;
-}
-
-import type { Auth0Client, User } from '@auth0/auth0-spa-js';
-
-export interface authDef {
-  authClient: Auth0Client | undefined,
-  isAuthenticated: boolean,
-  userProfile: User | undefined,
-  accessToken: string | undefined
 }

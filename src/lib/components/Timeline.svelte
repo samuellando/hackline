@@ -2,15 +2,21 @@
 	import type { interval } from '$lib/types';
 	import { onMount, onDestroy } from 'svelte';
 	import type { Unsubscriber } from 'svelte/store';
-	import type { ApiClient } from '$lib/Api';
 	import { makeColorIterator } from '$lib/colors';
 	import { durationToString, toDateTimeString, getTimeDivisions } from '$lib/timePrint';
 	import moment from 'moment';
+	import type ApiClient from '$lib/ApiClient';
+    import { browser } from '$app/environment';
+    import { getContext } from 'svelte';
+
+    let apiClient: ApiClient;
+    if (browser) {
+        apiClient = getContext('apiClient') as ApiClient;
+    }
 
 	export let rangeStartM: number = moment().startOf('day').valueOf();
 	export let rangeEndM: number = moment().valueOf();
 	export let live: boolean = true;
-	export var apiClient: ApiClient;
 
 	var interval: ReturnType<typeof setInterval>;
 
@@ -21,13 +27,11 @@
 	}
 
 	let unsubscribe: Unsubscriber;
-	let loading = true;
 	let colorIterator = makeColorIterator();
 	onMount(() => {
 		unsubscribe = apiClient.subscribe(() => {
 			drawTimeline();
 		});
-		loading = false;
 	});
 
 	onDestroy(() => {
@@ -66,7 +70,7 @@
 	function drawTimeline() {
 		// Get the timeline, and edit it depending on the state.
 		let timeline: interval[];
-		timeline = apiClient.getTimeline(rangeStartM, rangeEndM);
+		timeline = apiClient.getTimeline(rangeStartM, rangeEndM).getIntervals();
 
 		const drawHeight = 150;
 		const canvas = <HTMLCanvasElement>document.getElementById('timeline');
@@ -100,8 +104,8 @@
 				hovering = true;
 			}
 			if (
-				(apiClient.isPreviewEditing() && e.id == apiClient.getPreviewEditingInterval().id) ||
-				(hoveredInterval && e.id == hoveredInterval.id && !apiClient.isPreviewEditing())
+				(apiClient.isPreviewEdit() && e.id == apiClient.getPreviewInterval().id) ||
+				(hoveredInterval && e.id == hoveredInterval.id && !apiClient.isPreviewEdit())
 			) {
 				ctx.strokeStyle = apiClient.getSetting('timeline-highlight') || 'black';
 				ctx.lineWidth = 2;
@@ -130,9 +134,9 @@
 			ctx.stroke();
 		}
 		// Fade out the other sections on add.
-		if (apiClient.isPreviewAdding()) {
+		if (apiClient.isPreviewAdd()) {
 			ctx.fillStyle = apiClient.getSetting('timeline-blur') || '#00000040';
-			var n = toDrawInterval(apiClient.getPreviewAddingInterval(), rangeEndM - rangeStartM, width);
+			var n = toDrawInterval(apiClient.getPreviewInterval(), rangeEndM - rangeStartM, width);
 			ctx.fillRect(0, 0, n.drawStart, drawHeight);
 			ctx.fillRect(n.drawEnd, 0, width - n.drawEnd, drawHeight);
 		}
@@ -172,17 +176,17 @@
 			if (event.shiftKey) {
 				let curMin = Math.round(curM / 60000) * 60000;
 				let newInterval: interval;
-				if (apiClient.isPreviewAdding()) {
-					newInterval = apiClient.getPreviewAddingInterval();
+				if (apiClient.isPreviewAdd()) {
+					newInterval = apiClient.getPreviewInterval();
 				} else {
 					newInterval = { id: 'NO', title: 'Theres a problem here', start: 0, end: 0 };
 				}
-				if (!apiClient.isPreviewAdding() || curM < newInterval.start || !shiftHeld) {
+				if (!apiClient.isPreviewAdd() || curM < newInterval.start || !shiftHeld) {
 					addInterval(curMin, curMin);
 					shiftHeld = true;
 				} else {
 					newInterval.end = curMin;
-					apiClient.timelinePreviewAdd(newInterval);
+					apiClient.previewAdd(newInterval);
 				}
 			} else {
 				let oldS = rangeStartM;
@@ -242,7 +246,7 @@
 
 	function editInterval(i: interval | null) {
 		if (i != null && i.id != 'running') {
-			apiClient.timelinePreviewEdit(i);
+			apiClient.previewEdit(i);
 		}
 	}
 
@@ -251,7 +255,7 @@
 		start = start >= 0 ? start : (rangeStartM + rangeEndM) / 2;
 		end = end >= start ? end : start + 15 * 60 * 1000;
 		let interval: interval = { id: 'new', title: defaultTitle, start: start, end: end };
-		apiClient.timelinePreviewAdd(interval);
+		apiClient.previewAdd(interval);
 	}
 
 	$: rangeStartM, rangeEndM, drawTimeline();

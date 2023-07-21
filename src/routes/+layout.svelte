@@ -1,22 +1,73 @@
 <script>
 	import '../app.css';
-	import { signIn, signOut } from '@auth/sveltekit/client';
 	import { page } from '$app/stores';
+	import Auth from '$lib/components/Auth.svelte';
+	import Button from '$lib/components/Button.svelte';
+	import { goto } from '$app/navigation';
+	import { getContext, setContext } from 'svelte';
+	import { State } from '$lib/types';
+	import ApiClient from '$lib/ApiClient';
+	import { trpc } from '$lib/trpc/client';
+	import { browser } from '$app/environment';
+
+	export let data;
+
+	let state = State.fromSerializable(JSON.parse(data.state));
+
+	let primary = state.settings['background-color'] || '#413C58';
+	let secondary = state.settings['text-color'] || '#FFF1D0';
+
+	setContext('palette', { primary, secondary });
+
+	if (browser) {
+		let apiClient = getContext('apiClient');
+		let trpcClient = trpc($page);
+		if (!apiClient) {
+			if (data.session?.user) {
+				apiClient = new ApiClient(trpcClient, state);
+			} else {
+				// For unauthenticated, dont provide a trpc client.
+				apiClient = new ApiClient(null, state);
+			}
+			setContext('apiClient', apiClient);
+		}
+	}
+
+	// Set up the API cleint
+	// - If the user is not authenticated, don't provide a trpc cleint, and dia
+	// Get the color pallete for the user.
+	// Update $page.data
 </script>
 
-<p>
-	{#if $page.data.session}
-		{#if $page.data.session.user?.image}
-			<span style="background-image: url('{$page.data.session.user.image}')" class="avatar" />
+<div
+	style="
+            background-color: {primary};
+            color: {secondary};
+        "
+	class="
+            font-mono
+            h-fit
+            w-full
+        "
+>
+	<div class="pt-5 pr-10 flex gap-10 justify-end">
+		{#if data.session?.user}
+			{#if $page.url.pathname == '/timeline'}
+				<Button text="Settings" onClick={() => goto('/settings')} />
+			{:else}
+				<Button text="Back" onClick={() => goto('/timeline')} />
+			{/if}
 		{/if}
-		<span class="signedInText">
-			<small>Signed in as</small><br />
-			<strong>{$page.data.session.user?.name ?? 'User'}</strong>
-		</span>
-		<button on:click={() => signOut()} class="button">Sign out</button>
-	{:else}
-		<span class="notSignedInText">You are not signed in</span>
-		<button on:click={() => signIn('auth0')}>Sign In with Auth0</button>
-	{/if}
-</p>
-<slot />
+		<Auth />
+	</div>
+	<h1
+		class="
+        mt-10
+        text-6xl
+        text-center
+   "
+	>
+		HackLine.io
+	</h1>
+	<slot />
+</div>

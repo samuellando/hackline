@@ -2,16 +2,21 @@
 	import { durationToString } from '$lib/timePrint';
 
 	import type { interval } from '$lib/types';
-	import type { ApiClient } from '$lib/Api';
 	import { onMount, onDestroy } from 'svelte';
 	import Button from '$lib/components/Button.svelte';
+	import type ApiClient from '$lib/ApiClient';
+    import { browser } from '$app/environment';
+    import { getContext } from 'svelte';
+
+    let apiClient: ApiClient;
+    let secondary: string;
+    if (browser) {
+        apiClient = getContext('apiClient') as ApiClient;
+        secondary = getContext('palette').secondary;
+    }
 
 	export let rangeStartM: number;
 	export let rangeEndM: number;
-	export let apiClient: ApiClient;
-
-	export let primary: string;
-	export let secondary: string;
 
 	var interval: ReturnType<typeof setInterval>;
 
@@ -37,7 +42,7 @@
 		let logs: interval[];
 		let colormap: { [title: string]: string };
 		if (typeof apiClient !== 'undefined') {
-			logs = apiClient.getTimeline(rangeStart, rangeEnd).reverse();
+			logs = apiClient.getTimeline(rangeStart, rangeEnd).getIntervals().reverse();
 			colormap = apiClient.getSetting('colormap');
 		} else {
 			return [];
@@ -69,7 +74,7 @@
 		let start = (rangeStartM + rangeEndM) / 2;
 		let end = start + 15 * 60 * 1000;
 		let interval: interval = { id: 'new', title: title, start: start, end: end };
-		apiClient.timelinePreviewAdd(interval);
+		apiClient.previewAdd(interval);
 	}
 
 	$: summary = getSummary(rangeStartM, rangeEndM);
@@ -97,14 +102,12 @@
 						'%y years %m months %d days %H hours %M minutes %S seconds'
 				)}
 			</span>
-			<Button onClick={() => apiClient.setRunning(s.title)} text="Run" {primary} {secondary} />
-			<Button onClick={() => addByTitle(s.title)} text="Add" {primary} {secondary} />
+			<Button onClick={() => apiClient.setRunning(s.title)} text="Run" />
+			<Button onClick={() => addByTitle(s.title)} text="Add" />
 		</div>
 	{/each}
 		<Button
 			text="Add"
 			onClick={() => addByTitle(apiClient.getSetting('default-title') || 'productive')}
-			{primary}
-			{secondary}
 		/>
 </div>

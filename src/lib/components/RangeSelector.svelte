@@ -1,9 +1,15 @@
 <script lang="ts">
 	import moment from 'moment';
 	import { toDateTimeString } from '$lib/timePrint';
+    import { browser } from '$app/environment';
+    import { getContext } from 'svelte';
 
-	export let primary: string = 'white';
-	export let secondary: string = 'black';
+    let primary: string;
+    let secondary: string;
+    if (browser) {
+        primary = getContext('palette').primary;
+        secondary = getContext('palette').secondary;
+    }
 
 	type option = {
 		title: string;

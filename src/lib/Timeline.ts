@@ -8,6 +8,10 @@ export class Timeline {
         this.cutOverlaps();
     }
 
+    getIntervals(): interval[] {
+        return this.intervals;
+    }
+
     add(interval: interval) {
     }
 

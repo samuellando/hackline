@@ -5,7 +5,7 @@ import { derived, writable, get } from 'svelte/store';
 import type { Writable, Subscriber } from 'svelte/store';
 
 import type { Router } from '$lib/trpc/router';
-import { createTRPCClient, type TRPCClientInit } from 'trpc-sveltekit';
+import type { createTRPCClient } from 'trpc-sveltekit';
 
 function deepClone<T>(obj: T): T {
     return JSON.parse(JSON.stringify(obj));
@@ -22,8 +22,8 @@ type trpcClient = ReturnType<typeof createTRPCClient<Router>>;
 
 export default class ApiClient {
     private state: State;
-    private pullInterval: ReturnType<typeof setInterval>;
-    private updateInterval: ReturnType<typeof setInterval>;
+    private pullInterval: ReturnType<typeof setInterval> | null = null;
+    private updateInterval: ReturnType<typeof setInterval> | null = null;
 
     private previewMode: previewModes = previewModes.none;
     private previewSettings: settings | undefined;
@@ -39,9 +39,9 @@ export default class ApiClient {
     private syncQueue: Promise<State>;
     private readyQueue: Promise<State>;
 
-    private trpc: trpcClient
+    private trpc: trpcClient | null
 
-    constructor(trpc: trpcClient, state: State | undefined = undefined, pullInterval: number = 60000, updateInterval: number = 10000) {
+    constructor(trpc: trpcClient | null, state: State | undefined = undefined, pullInterval: number = 60000, updateInterval: number = 10000) {
         this.trpc = trpc;
 
         this.state = State.empty();
@@ -75,15 +75,17 @@ export default class ApiClient {
             this.commit(Date.now(), state.clone());
             this.readyQueue = this.syncQueue;
         }
-        // Start the pull intervals.
-        this.pullInterval = setInterval(() => this.pullState(), pullInterval);
-        // Start the update interval.
-        this.updateInterval = setInterval(() => this.updateState(), updateInterval);
+        if (this.trpc != null) {
+            // Start the pull intervals.
+            this.pullInterval = setInterval(() => this.pullState(), pullInterval);
+            // Start the update interval.
+            this.updateInterval = setInterval(() => this.updateState(), updateInterval);
+        }
     }
 
     close() {
-        clearInterval(this.pullInterval);
-        clearInterval(this.updateInterval);
+        if (this.pullInterval != null) clearInterval(this.pullInterval);
+        if (this.updateInterval != null) clearInterval(this.updateInterval);
     }
 
     getSyncQueue(): Promise<State> {
@@ -119,8 +121,12 @@ export default class ApiClient {
         this.syncQueue = this.syncQueue.then(async () => {
             console.log("Pulling full state from server.");
             let start = Date.now();
-            let state = await this.trpc.getState.query({ start: this.lastStart, end: this.lastEnd });
-            return this.commit(start, state);
+            if (this.trpc != null) {
+                let state = await this.trpc.getState.query({ start: this.lastStart, end: this.lastEnd });
+                return this.commit(start, state);
+            } else {
+                return this.state.clone();
+            }
         });
         return this.syncQueue;
     }
@@ -134,8 +140,12 @@ export default class ApiClient {
             let start = Date.now();
             console.log("Updateing state from server.");
             let state = this.state.clone();
-            state.running = await this.trpc.getRunning.query();
-            return this.commit(start, state);
+            if (this.trpc != null) {
+                state.running = await this.trpc.getRunning.query();
+                return this.commit(start, state);
+            } else {
+                return state;
+            }
         });
         return this.syncQueue;
     }
@@ -266,7 +276,7 @@ export default class ApiClient {
         return this.syncQueue;
     }
 
-    timelineUpdate(interval: interval | undefined = undefined): Promise<State> {
+    timelineEdit(interval: interval | undefined = undefined): Promise<State> {
         if (typeof interval == "undefined") {
             interval = this.getPreviewInterval();
         }

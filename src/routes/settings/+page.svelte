@@ -1,13 +1,9 @@
 <script lang="ts">
-	import { onMount, afterUpdate, onDestroy } from 'svelte';
-	import { auth } from '$lib/Auth';
+	import { onMount, afterUpdate } from 'svelte';
 	import { ApiClient } from '$lib/Api';
-	import type { authDef } from '$lib/types';
-	import Auth from '$lib/components/Auth.svelte';
 
 	let apiUrl: string;
 	let apiClient: ApiClient;
-	let authDef: authDef;
 
 	let loading = true;
 
@@ -19,26 +15,10 @@
 		if (import.meta.env.DEV) {
 			apiUrl = 'http://localhost:8080';
 		}
-		authDef = await auth();
-		apiClient = new ApiClient(apiUrl, authDef.accessToken);
+		apiClient = new ApiClient(apiUrl);
 		await apiClient.ready();
 		content = { json: apiClient.getSettings() } as JSONContent;
 		loading = false;
-	});
-
-	onDestroy(() => {
-		if (apiClient === undefined) return;
-		apiClient.close();
-	});
-
-	afterUpdate(() => {
-		if (
-			typeof authDef !== 'undefined' &&
-			typeof authDef.authClient !== 'undefined' &&
-			authDef.isAuthenticated === false
-		) {
-			window.location.pathname = '/';
-		}
 	});
 
 	let content: Content;
@@ -64,9 +44,6 @@
 </script>
 
 {#if !loading}
-	<a href="/timeline">back</a>
-	<Auth {authDef} />
-
 	<div>
 		<JSONEditor
 			bind:content
