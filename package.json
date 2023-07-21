@@ -36,6 +36,8 @@
 	},
 	"type": "module",
 	"dependencies": {
+		"@auth/core": "^0.10.0",
+		"@auth/sveltekit": "^0.3.6",
 		"@auth0/auth0-spa-js": "^2.0.4",
 		"@sveltejs/adapter-static": "^2.0.2",
 		"@trpc/client": "^10.34.0",
