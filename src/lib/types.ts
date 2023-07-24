@@ -1,16 +1,16 @@
-import { Timeline } from './Timeline';
+import Timeline from './Timeline';
 
 export interface interval {
   title: string;
-  start: number;
-  end: number;
-  id: string;
+  start: Date;
+  end: Date;
+  id: number;
 }
 
 export interface running {
   title: string;
-  start: number;
-  end?: number;
+  start: Date;
+  end?: Date;
   fallback?: string;
 }
 
@@ -44,7 +44,7 @@ export class State {
     static empty(): State {
         return new State(
             new Timeline([]),
-            { title: "", start: 0 },
+            { title: "", start: new Date(0)},
             {}
         );
     }

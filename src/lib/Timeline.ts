@@ -1,6 +1,6 @@
 import type { interval, running } from './types';
 
-export class Timeline {
+export default class Timeline {
     intervals: interval[];
 
     constructor(intervals: interval[]) {
@@ -18,7 +18,9 @@ export class Timeline {
     update(interval: interval) {
     }
 
-    trim(start: number, end: number) {
+    trim(startMillis: number, endMillis: number) {
+        let start = new Date(startMillis);
+        let end = new Date(endMillis);
         for (let i = 0; i < this.intervals.length; i++) {
             if (this.intervals[i].end < start) {
                 // Remove it.
@@ -44,26 +46,23 @@ export class Timeline {
         }
     }
 
-    fill(running: running, end: number) {
+    fill(running: running, endMillis: number) {
+        let end = new Date(endMillis);
         // Fill the space at the end with the running interval.
         if (this.intervals.length > 0) {
             let last = this.intervals[this.intervals.length - 1];
             if (last.end < end) {
                 // If it's already defined as running, just extend it.
-                if (last.id == "running") {
+                if (last.title == running.title) {
                     last.end = end;
                 } else {
-                    if (running.title == last.title) {
-                        last.end = end;
-                    } else {
-                        let interval: interval = {
-                            id: "running",
-                            title: running.title,
-                            start: last.start,
-                            end: end
-                        }
-                        this.add(interval);
+                    let interval: interval = {
+                        id: -1,
+                        title: running.title,
+                        start: last.start,
+                        end: end
                     }
+                    this.add(interval);
                 }
             }
         }
@@ -73,11 +72,11 @@ export class Timeline {
     }
 
     private toObject() {
-        return {intervals: this.intervals};
+        return { intervals: this.intervals };
     }
 
 
-    static fromSerializable(serializable: {intervals: interval[]}): Timeline {
+    static fromSerializable(serializable: { intervals: interval[] }): Timeline {
         return new Timeline(serializable.intervals);
     }
 }

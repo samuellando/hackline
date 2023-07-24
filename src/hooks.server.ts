@@ -10,14 +10,31 @@ import Auth0Provider from "@auth/core/providers/auth0";
 import { AUTH0_ID, AUTH0_SECRET, AUTH0_ISSUER, AUTH_SECRET } from "$env/static/private";
 
 export const authHandle = SvelteKitAuth({
-  providers: [
-    Auth0Provider({
-      clientId: AUTH0_ID,
-      clientSecret: AUTH0_SECRET,
-      issuer: AUTH0_ISSUER,
-    }),
-  ],
-  secret: AUTH_SECRET,
+    callbacks: {
+        session: async ({ session, token }) => {
+            if (session?.user) {
+                session.user.id = token.uid;
+            }
+            return session;
+        },
+        jwt: async ({ user, token }) => {
+            if (user) {
+                token.uid = user.id;
+            }
+            return token;
+        },
+    },
+    providers: [
+        Auth0Provider({
+            clientId: AUTH0_ID,
+            clientSecret: AUTH0_SECRET,
+            issuer: AUTH0_ISSUER,
+        }),
+    ],
+    secret: AUTH_SECRET,
+    session: {
+        strategy: 'jwt',
+    },
 });
 
 export const trpcHandle: Handle = createTRPCHandle({ router, createContext });

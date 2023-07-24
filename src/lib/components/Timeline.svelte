@@ -53,8 +53,8 @@
 			apiClient.setSetting('colormap', colormap);
 		}
 
-		var startPx = ((i.start - rangeStartM) / duration) * width;
-		var endPx = ((i.end - rangeStartM) / duration) * width;
+		var startPx = ((i.start.getTime() - rangeStartM) / duration) * width;
+		var endPx = ((i.end.getTime() - rangeStartM) / duration) * width;
 		return {
 			title: i.title,
 			start: i.start,
@@ -179,13 +179,13 @@
 				if (apiClient.isPreviewAdd()) {
 					newInterval = apiClient.getPreviewInterval();
 				} else {
-					newInterval = { id: 'NO', title: 'Theres a problem here', start: 0, end: 0 };
+					newInterval = { id: -1, title: 'Theres a problem here', start: new Date(0), end: new Date(0) };
 				}
-				if (!apiClient.isPreviewAdd() || curM < newInterval.start || !shiftHeld) {
+				if (!apiClient.isPreviewAdd() || curM < newInterval.start.getTime() || !shiftHeld) {
 					addInterval(curMin, curMin);
 					shiftHeld = true;
 				} else {
-					newInterval.end = curMin;
+					newInterval.end = new Date(curMin);
 					apiClient.previewAdd(newInterval);
 				}
 			} else {
@@ -245,7 +245,7 @@
 	}
 
 	function editInterval(i: interval | null) {
-		if (i != null && i.id != 'running') {
+		if (i != null && i.id != -1) {
 			apiClient.previewEdit(i);
 		}
 	}
@@ -254,7 +254,9 @@
 		let defaultTitle = apiClient.getSetting('default-title') || 'productive';
 		start = start >= 0 ? start : (rangeStartM + rangeEndM) / 2;
 		end = end >= start ? end : start + 15 * 60 * 1000;
-		let interval: interval = { id: 'new', title: defaultTitle, start: start, end: end };
+        let startD = new Date(start);
+        let endD = new Date(end);
+		let interval: interval = { id: -1, title: defaultTitle, start: startD, end: endD };
 		apiClient.previewAdd(interval);
 	}
 
@@ -292,9 +294,9 @@
 		<br />
 		{#if hoveredInterval}
 			{hoveredInterval.title}
-			{toDateTimeString(hoveredInterval.start)} - {toDateTimeString(hoveredInterval.end)}
+			{toDateTimeString(hoveredInterval.start.getTime())} - {toDateTimeString(hoveredInterval.end.getTime())}
 			{durationToString(
-				hoveredInterval.end - hoveredInterval.start,
+				hoveredInterval.end.getTime() - hoveredInterval.start.getTime(),
 				apiClient.getSetting('timeline-duration-format') || '%H hours %M minutes %S seconds'
 			)}
 		{:else}
