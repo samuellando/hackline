@@ -1,4 +1,5 @@
 import Timeline from './Timeline';
+import type { serializableTimeline } from '$lib/Timeline';
 
 export interface interval {
   title: string;
@@ -53,18 +54,18 @@ export class State {
         return State.fromSerializable(this.toObject());
     }
 
-    private toObject(): serializableState {
+    toObject(): serializableState {
         let d: serializableState = {
             timeline: {intervals: this.timeline.getIntervals()},
             running: this.running,
             settings: this.settings
         };
-        return JSON.parse(JSON.stringify(d));
+        return d;
     }
 }
 
 export type serializableState = {
-    timeline: {intervals: interval[]};
+    timeline: serializableTimeline;
     running: running;
     settings: settings;
 }

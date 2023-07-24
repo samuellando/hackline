@@ -39,14 +39,14 @@
 				with
 
 				{durationToString(
-					running.end - new Date().getTime(),
+					running.end.getTime() - new Date().getTime(),
 					apiClient.getSetting('running-duration-format') || '%H:%M:%S'
 				)}
 				remaining
 			{:else}
 				for
 				{durationToString(
-					new Date().getTime() - running.start,
+					new Date().getTime() - running.start.getTime(),
 					apiClient.getSetting('running-duration-format') || '%H:%M:%S'
 				)}
 			{/if}

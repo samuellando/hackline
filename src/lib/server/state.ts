@@ -1,14 +1,12 @@
 import { State } from '$lib/types';
-import type { interval, running, settings } from '$lib/types';
+import type { settings, running, interval } from '$lib/types';
 import Timeline  from '$lib/Timeline';
-import { getTimeline } from '$lib/server/timeline';
-import { getRunning } from '$lib/server/running';
-import { getSettings } from '$lib/server/settings';
-import demoTimeline from '$lib/server/demoTimeline.json';
+import demoTimeline from '$lib/server/demoTimelineMig.json';
 import demoRunning from '$lib/server/demoRunning.json';
 import demoSettings from '$lib/server/demoSettings.json';
 import prisma from '$lib/server/prisma';
 import { newUser } from '$lib/server/user';
+import transformer from '$lib/trpc/transformer';
 
 
 export async function getState(id: string, start: number, end: number): Promise<State> {
@@ -43,7 +41,7 @@ export async function getState(id: string, start: number, end: number): Promise<
     }
 
     if (data.running == null) {
-        data.running = {title: 'Nothing', start: 0};
+        data.running = {title: 'Nothing', start: new Date(0)};
         prisma.running.create({
             data: {userId: id, ...data.running},
         });
@@ -63,20 +61,27 @@ export async function getState(id: string, start: number, end: number): Promise<
 }
 
 export function getDemoState(): State {
-    let timeline = demoTimeline
-    let running = demoRunning;
+    let timelineRaw = demoTimeline;
+    let running: running = {
+        title: demoRunning.title,
+        start: new Date(Date.parse(demoRunning.start)),
+    };
     let settings = demoSettings;
 
     // 10 minutes ago.
     let end = Date.now() - 10 * 60 * 1000;
-    let last = timeline[timeline.length - 1].end;
+    let last = Date.parse(timelineRaw[timelineRaw.length - 1].end);
     let shift = end - last;
-    timeline.reverse().forEach((interval) => {
-        interval.start += shift;
-        interval.end += shift;
+    let timeline: interval[] = timelineRaw.map((interval) => {
+        return ({
+            id: interval.id,
+            title: interval.title,
+            start: new Date(Date.parse(interval.start) + shift),
+            end: new Date(Date.parse(interval.end) + shift),
+        });
     });
 
-    running.start = end;
+    running.start = new Date(end);
 
     return new State(new Timeline(timeline), running, settings);
 }

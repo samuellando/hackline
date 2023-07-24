@@ -15,7 +15,6 @@ const isAuthed = t.middleware((opts) => {
     if (!ctx.session?.user) {
         throw new TRPCError({ code: 'UNAUTHORIZED' });
     }
-    console.log("isAuthed", ctx.session.user);
     return opts.next({
         ctx: {
             user: ctx.session.user.id,
@@ -32,22 +31,24 @@ const timeline = t.router({
             end: z.number()
         }))
         .query(async (opts) => {
-            const { input } = opts;
-            return getTimeline(ctx.user, input.start, input.end);
+            const { input, ctx } = opts;
+            return getTimeline(ctx.user.id, input.start, input.end);
         })
 });
 
 const running = t.router({
     getRunning: protectedProcedure
-        .query(async () => {
-            return getRunning(ctx.user);
+        .query(async (opts) => {
+            const { ctx } = opts;
+            return getRunning(ctx.user.id);
         })
 });
 
 const settings = t.router({
     getSettings: protectedProcedure
-        .query(async () => {
-            return getSettings(ctx.user);
+        .query(async (opts) => {
+            const { ctx } = opts;
+            return getSettings(ctx.user.id);
         })
 });
 

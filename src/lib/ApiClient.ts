@@ -1,14 +1,15 @@
 import type { interval, settings, running } from '$lib/types';
 import { State } from '$lib/types';
-import type { Timeline } from '$lib/Timeline';
+import type Timeline from '$lib/Timeline';
 import { derived, writable, get } from 'svelte/store';
 import type { Writable, Subscriber } from 'svelte/store';
 
 import type { Router } from '$lib/trpc/router';
 import type { createTRPCClient } from 'trpc-sveltekit';
+import transformer from '$lib/trpc/transformer';
 
 function deepClone<T>(obj: T): T {
-    return JSON.parse(JSON.stringify(obj));
+    return transformer.parse(transformer.stringify(obj));
 }
 
 
@@ -225,7 +226,7 @@ export default class ApiClient {
         let now = Date.now();
         let running = deepClone(this.state.running);
         // Proactively move to the fallback if we can/should.
-        if (typeof running.end == "undefined" || running.end > now || typeof running.fallback == "undefined") {
+        if (typeof running.end == "undefined" || running.end.getTime() > now || typeof running.fallback == "undefined") {
             return running;
         } else {
             return { title: running.fallback, start: running.end }

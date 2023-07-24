@@ -71,12 +71,15 @@ export default class Timeline {
     private cutOverlaps() {
     }
 
-    private toObject() {
+    toObject(): serializableTimeline {
         return { intervals: this.intervals };
     }
 
-
-    static fromSerializable(serializable: { intervals: interval[] }): Timeline {
+    static fromSerializable(serializable: serializableTimeline): Timeline {
         return new Timeline(serializable.intervals);
     }
 }
+
+export type serializableTimeline = {
+    intervals: interval[];
+};

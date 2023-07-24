@@ -1,18 +1,19 @@
-<script>
+<script lang="ts">
 	import '../app.css';
 	import { page } from '$app/stores';
 	import Auth from '$lib/components/Auth.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import { goto } from '$app/navigation';
 	import { getContext, setContext } from 'svelte';
-	import { State } from '$lib/types';
+	import type { State } from '$lib/types';
 	import ApiClient from '$lib/ApiClient';
 	import { trpc } from '$lib/trpc/client';
 	import { browser } from '$app/environment';
+    import transformer from '$lib/trpc/transformer';
 
 	export let data;
 
-	let state = State.fromSerializable(JSON.parse(data.state));
+	let state: State = transformer.parse(data.state);
 
 	let primary = state.settings['background-color'] || '#413C58';
 	let secondary = state.settings['text-color'] || '#FFF1D0';
