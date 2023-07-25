@@ -77,14 +77,14 @@
 	function updateStart(e: Event) {
 		let t = e.target as HTMLInputElement;
 		let newInterval = apiClient.getPreviewInterval();
-		newInterval.start = Date.parse(t.value);
+		newInterval.start = new Date(Date.parse(t.value));
 		apiClient.previewAdd(newInterval);
 	}
 
 	function updateEnd(e: Event) {
 		let t = e.target as HTMLInputElement;
 		let newInterval = apiClient.getPreviewInterval();
-		newInterval.end = Date.parse(t.value);
+		newInterval.end = new Date(Date.parse(t.value));
 		apiClient.previewAdd(newInterval);
 	}
 </script>
@@ -117,15 +117,15 @@
 			/>
 			<span class="w-96">
 				{durationToString(
-					interval.end - interval.start,
+					interval.end.getTime() - interval.start.getTime(),
 					apiClient.getSetting('summary-duration-format') ||
 						'%y years %m months %d days %H hours %M minutes %S seconds'
 				)}
 			</span>
 			{#if editing}
-				{toDateTimeString(interval.start)}
+				{toDateTimeString(interval.start.getTime())}
 				-
-				{toDateTimeString(interval.end)}
+				{toDateTimeString(interval.end.getTime())}
 			{/if}
 			{#if adding}
 				<input
@@ -137,7 +137,7 @@
                     p-2
                 "
 					type="datetime-local"
-					value={toDateTimeString(interval.start)}
+					value={toDateTimeString(interval.start.getTime())}
 					on:input={updateStart}
 				/>
 				<input
@@ -149,7 +149,7 @@
                     p-2
                 "
 					type="datetime-local"
-					value={toDateTimeString(interval.end)}
+					value={toDateTimeString(interval.end.getTime())}
 					on:input={updateEnd}
 				/>
 			{/if}

@@ -1,9 +1,13 @@
 <script lang="ts">
 	import { onMount, afterUpdate } from 'svelte';
-	import { ApiClient } from '$lib/Api';
+    import { browser } from '$app/environment';
+    import { getContext } from 'svelte';
+    import ApiClient from '$lib/ApiClient';
 
-	let apiUrl: string;
-	let apiClient: ApiClient;
+    let apiClient: ApiClient;
+    if (browser) {
+        apiClient = getContext('apiClient') as ApiClient;
+    }
 
 	let loading = true;
 
@@ -11,12 +15,7 @@
 	import type { Content, TextContent, JSONContent } from 'svelte-jsoneditor';
 
 	onMount(async () => {
-		apiUrl = window.location.origin;
-		if (import.meta.env.DEV) {
-			apiUrl = 'http://localhost:8080';
-		}
-		apiClient = new ApiClient(apiUrl);
-		await apiClient.ready();
+		await apiClient.getReadyQueue();
 		content = { json: apiClient.getSettings() } as JSONContent;
 		loading = false;
 	});

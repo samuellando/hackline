@@ -1,10 +1,9 @@
 import type { Context } from '$lib/trpc/context';
 import { initTRPC, TRPCError } from '@trpc/server';
 import { z } from 'zod';
-import delay from 'delay';
-import { getTimeline } from '$lib/server/timeline';
-import { getRunning } from '$lib/server/running';
-import { getSettings } from '$lib/server/settings';
+import { getTimeline, addInterval, updateInterval } from '$lib/server/timeline';
+import { getRunning, setRunning } from '$lib/server/running';
+import { getSettings, setSettings } from '$lib/server/settings';
 import { getState, getDemoState } from '$lib/server/state';
 import transformer from '$lib/trpc/transformer';
 
@@ -27,12 +26,38 @@ export const protectedProcedure = t.procedure.use(isAuthed);
 const timeline = t.router({
     getTimeline: protectedProcedure
         .input(z.object({
-            start: z.number(),
-            end: z.number()
+            start: z.date(),
+            end: z.date()
         }))
         .query(async (opts) => {
             const { input, ctx } = opts;
-            return getTimeline(ctx.user.id, input.start, input.end);
+            return getTimeline(ctx.user, input.start, input.end);
+        }),
+    addInterval: protectedProcedure
+        .input(
+            z.object({
+                id: z.number(),
+                title: z.string(),
+                start: z.date(),
+                end: z.date(),
+            })
+        )
+        .mutation(async (opts) => {
+            const { ctx, input } = opts;
+            return addInterval(ctx.user, input);
+        }),
+    updateInterval: protectedProcedure
+        .input(
+            z.object({
+                id: z.number(),
+                title: z.string(),
+                start: z.date(),
+                end: z.date(),
+            })
+        )
+        .mutation(async (opts) => {
+            const { ctx, input } = opts;
+            return updateInterval(ctx.user, input);
         })
 });
 
@@ -40,7 +65,15 @@ const running = t.router({
     getRunning: protectedProcedure
         .query(async (opts) => {
             const { ctx } = opts;
-            return getRunning(ctx.user.id);
+            return getRunning(ctx.user);
+        }),
+    setRunning: protectedProcedure
+        .input(z.object({
+            title: z.string()
+        }))
+        .mutation(async (opts) => {
+            const { ctx, input } = opts;
+            return setRunning(ctx.user, input.title);
         })
 });
 
@@ -48,15 +81,23 @@ const settings = t.router({
     getSettings: protectedProcedure
         .query(async (opts) => {
             const { ctx } = opts;
-            return getSettings(ctx.user.id);
+            return getSettings(ctx.user);
+        }),
+    setSettings: protectedProcedure
+        .input(
+            z.record(z.string(), z.any())
+        )
+        .mutation(async (opts) => {
+            const { ctx, input } = opts;
+            return setSettings(ctx.user, input);
         })
 });
 
 const state = t.router({
     getState: t.procedure
         .input(z.object({
-            start: z.number(),
-            end: z.number()
+            start: z.date(),
+            end: z.date()
         }))
         .query(async (opts) => {
             const { input, ctx } = opts;

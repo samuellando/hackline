@@ -4,7 +4,7 @@
 	import type { PageData } from './$types';
 	import ApiClient from '$lib/ApiClient';
 	import { onMount } from 'svelte';
-	import { State } from '$lib/types';
+	import State from '$lib/State';
 
 	export let data: PageData;
 
@@ -25,7 +25,6 @@
 
 	const loadData = async () => {
 		loading = true;
-		greeting = await trpcClient.greeting.query('Load');
 
 		loading = false;
 	};

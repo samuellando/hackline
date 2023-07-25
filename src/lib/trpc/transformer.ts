@@ -1,5 +1,5 @@
 import Timeline from '$lib/Timeline';
-import { State } from '$lib/types';
+import State from '$lib/State';
 import SuperJSON, { deserialize, parse, serialize, stringify } from 'superjson';
 
 SuperJSON.registerCustom<Timeline, string>(

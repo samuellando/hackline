@@ -1,15 +1,14 @@
-import { State } from '$lib/types';
+import State from '$lib/State';
 import type { settings, running, interval } from '$lib/types';
-import Timeline  from '$lib/Timeline';
+import Timeline from '$lib/Timeline';
 import demoTimeline from '$lib/server/demoTimelineMig.json';
 import demoRunning from '$lib/server/demoRunning.json';
 import demoSettings from '$lib/server/demoSettings.json';
 import prisma from '$lib/server/prisma';
 import { newUser } from '$lib/server/user';
-import transformer from '$lib/trpc/transformer';
 
 
-export async function getState(id: string, start: number, end: number): Promise<State> {
+export async function getState(id: string, start: Date, end: Date): Promise<State> {
     let data
     try {
         data = await prisma.user.findUniqueOrThrow({
@@ -20,6 +19,22 @@ export async function getState(id: string, start: number, end: number): Promise<
                         end: true,
                         title: true,
                         id: true,
+                    },
+                    where: {
+                        OR: [
+                            {
+                                start: {
+                                    gte: start,
+                                    lte: end,
+                                }
+                            },
+                            {
+                                end: {
+                                    gte: start,
+                                    lte: end,
+                                }
+                            },
+                        ]
                     }
                 },
                 running: {
@@ -34,16 +49,16 @@ export async function getState(id: string, start: number, end: number): Promise<
                     }
                 }
             },
-            where: {id}
+            where: { id }
         });
     } catch (e) {
         data = await newUser(id);
     }
 
     if (data.running == null) {
-        data.running = {title: 'Nothing', start: new Date(0)};
+        data.running = { title: 'Nothing', start: new Date(0) };
         prisma.running.create({
-            data: {userId: id, ...data.running},
+            data: { userId: id, ...data.running },
         });
     }
 
@@ -53,7 +68,7 @@ export async function getState(id: string, start: number, end: number): Promise<
     } else {
         settings = {};
         prisma.settings.create({
-            data: {userId: id, value: JSON.stringify(settings)},
+            data: { userId: id, value: JSON.stringify(settings) },
         });
     }
 

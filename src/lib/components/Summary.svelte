@@ -51,12 +51,12 @@
 		let s: { [title: string]: summary } = {};
 		logs.forEach((i) => {
 			if (i.title in s) {
-				s[i.title].totalTime += i.end - i.start;
+				s[i.title].totalTime += i.end.getTime() - i.start.getTime();
 			} else {
 				s[i.title] = {
 					title: i.title,
 					color: colormap[i.title],
-					totalTime: i.end - i.start
+					totalTime: i.end.getTime() - i.start.getTime()
 				};
 			}
 		});
@@ -71,9 +71,9 @@
 	}
 
 	function addByTitle(title: string = '') {
-		let start = (rangeStartM + rangeEndM) / 2;
-		let end = start + 15 * 60 * 1000;
-		let interval: interval = { id: 'new', title: title, start: start, end: end };
+		let start = new Date((rangeStartM + rangeEndM) / 2);
+		let end = new Date(start.getTime() + 15 * 60 * 1000);
+		let interval: interval = { id: -1, title: title, start: start, end: end };
 		apiClient.previewAdd(interval);
 	}
 

@@ -5,7 +5,7 @@
 	import Button from '$lib/components/Button.svelte';
 	import { goto } from '$app/navigation';
 	import { getContext, setContext } from 'svelte';
-	import type { State } from '$lib/types';
+	import type State from '$lib/State';
 	import ApiClient from '$lib/ApiClient';
 	import { trpc } from '$lib/trpc/client';
 	import { browser } from '$app/environment';

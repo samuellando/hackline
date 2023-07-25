@@ -7,15 +7,10 @@
 	import Summary from '$lib/components/Summary.svelte';
 	import Editor from '$lib/components/Editor.svelte';
 	import Running from '$lib/components/Running.svelte';
-	import { DemoApiClient } from '$lib/DemoApi';
 	let rangeStartM = moment().startOf('day').valueOf();
 	let rangeEndM = moment().valueOf();
 
-	let apiClient = new DemoApiClient(new Date().getTime());
 	let live = true;
-
-	let primary = '#413C58';
-	let secondary = '#FFF1D0';
 
     let loading = true;
 	onMount(() => {
@@ -45,25 +40,25 @@
 	</p>
     {#if !loading}
 	<div class="mt-10 flex justify-center">
-		<Running bind:apiClient />
+		<Running />
 	</div>
 
 	<div class="mt-10 flex justify-between px-20">
 		<Live bind:live />
-		<RangeSelector bind:rangeStartM bind:rangeEndM bind:live {primary} {secondary} />
+		<RangeSelector bind:rangeStartM bind:rangeEndM bind:live />
 	</div>
 
 	<div class="flex justify-center mt-5">
-		<Timeline bind:apiClient bind:rangeStartM bind:rangeEndM bind:live />
+		<Timeline bind:rangeStartM bind:rangeEndM bind:live />
 	</div>
 
 	<div class="flex justify-center">
-		<Editor bind:apiClient {primary} {secondary} />
+		<Editor />
 	</div>
 
 	<h1 class="text-2xl text-center">Summary</h1>
 	<div class="flex justify-center">
-		<Summary bind:apiClient bind:rangeStartM bind:rangeEndM {primary} {secondary} />
+		<Summary bind:rangeStartM bind:rangeEndM />
 	</div>
     {:else}
     Loading...
