@@ -21,9 +21,9 @@ export default class Timeline {
             /*
              * I find it nice to do this with bits instead of 20 ifs.
              *
-             * 0: start < existing.start 
+             * 0: start < existing.start
              * 1: start < existing.end
-             * 2: end < existing.start 
+             * 2: end < existing.start
              * 3: end < existing.end
              *
              * 0 0 0 0 => nothing
@@ -130,7 +130,7 @@ export default class Timeline {
             this.add({
                 id: -2,
                 title: running.title,
-                start: e.start,
+                start: new Date(Math.max(e.start.getTime(), running.start.getTime())),
                 end: e.end
             });
         });
@@ -165,23 +165,13 @@ export default class Timeline {
         return result;
     }
 
-    getMissingRange(start: Date, end: Date): { start: Date, end: Date } | null {
-        let ranges = this.getMissingRanges(start, end);
-        if (ranges.length > 0) {
-            return { start: ranges[0].start, end: ranges[ranges.length - 1].end };
-        } else {
-            return null;
-        }
-    }
-
-
     getMissingRanges(start: Date, end: Date): { start: Date, end: Date }[] {
         let result: { start: Date, end: Date }[] = [];
         // Get the gaps between the intervals.
         for (let i = 0; i < this.intervals.length - 1; i++) {
             let e1 = this.intervals[i];
             let e2 = this.intervals[i + 1];
-            if (e1.end < e2.start) {
+            if (e1.end < e2.start && e1.end > start && e2.start < end) {
                 result.push({ start: e1.end, end: e2.start });
             }
         }
@@ -230,7 +220,6 @@ export default class Timeline {
     }
 
     private cutOverlaps() {
-        console.log("LEN", this.intervals.length);
         this.intervals.sort((a, b) => a.start.getTime() - b.start.getTime());
 
         let s: interval[] = [];
@@ -243,7 +232,7 @@ export default class Timeline {
             while (s.length > 0 && t < e.start) {
                 let i = s.pop() as interval;
                 // If passed.
-                if (i.end < t) {
+                if (i.end <= t) {
                     continue;
                 }
                 // This is the next start.
@@ -284,14 +273,14 @@ export default class Timeline {
             } else {
                 next = ref.end;
             }
-            this.intervals.push({
-                id: start.getTime() == ref.start.getTime() ? ref.id : -1,
-                title: ref.title,
-                start: new Date(start),
-                end: new Date(next)
-            });
-            if (this.intervals[this.intervals.length - 1].id == -1) {
-                console.log(this.intervals[this.intervals.length - 1]);
+            // If there is a gap, it will create starts at the end of the intervals, we should ignore them.
+            if (start.getTime() != next.getTime()) {
+                this.intervals.push({
+                    id: start.getTime() == ref.start.getTime() ? ref.id : -1,
+                    title: ref.title,
+                    start: new Date(start),
+                    end: new Date(next)
+                });
             }
         }
     }
