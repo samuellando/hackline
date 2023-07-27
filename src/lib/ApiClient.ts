@@ -106,7 +106,7 @@ export default class ApiClient {
 
     private commit(maxTimestamp: number, state: State): State {
         if (maxTimestamp <= get(this.updateTimestamp)) {
-            console.log("Pull failed, state was updated locally.");
+            console.log("Commit failed, state was updated locally.");
         } else {
             this.updateTimestamp.set(maxTimestamp);
             this.state = state;
@@ -138,12 +138,27 @@ export default class ApiClient {
      */
     private updateState(): Promise<State> {
         this.syncQueue = this.syncQueue.then(async () => {
-            let start = Date.now();
             console.log("Updateing state from server.");
             let state = this.state.clone();
             if (this.trpc != null) {
+                let start = Date.now();
                 state.running = await this.trpc.getRunning.query();
-                return this.commit(start, state);
+                this.commit(start, state);
+                let range = state.timeline.getOutOfSyncRange();
+                if (range != null) {
+                    start = Date.now();
+                    let tl2 = await this.trpc.getTimeline.query(range);
+                    state.timeline.merge(tl2);
+                    this.commit(start, state);
+                }
+                let ranges = state.timeline.getMissingRanges(new Date(this.lastStart), new Date(this.lastEnd));
+                for (let range of ranges) {
+                    start = Date.now();
+                    let tl2 = await this.trpc.getTimeline.query(range);
+                    state.timeline.merge(tl2);
+                    this.commit(start, state);
+                }
+                return state;
             } else {
                 return state;
             }
@@ -217,7 +232,6 @@ export default class ApiClient {
             this.commit(Date.now(), state);
             this.syncQueue = this.syncQueue.then(async () => {
                 if (this.trpc != null) {
-                    console.log(settings);
                     await this.trpc.setSettings.mutate(settings);
                 }
                 this.commit(Date.now(), state);
@@ -256,7 +270,6 @@ export default class ApiClient {
     getTimeline(start: number | undefined = undefined, end: number | undefined = undefined): Timeline {
         let state = this.state.clone()
 
-
         if (typeof start == "undefined" || typeof end == "undefined") {
             start = this.lastStart;
             end = this.lastEnd;
@@ -280,17 +293,26 @@ export default class ApiClient {
     }
 
     timelineAdd(interval: interval | undefined = undefined): Promise<State> {
-        if (typeof interval == "undefined") {
+        if (typeof interval === "undefined") {
             interval = this.getPreviewInterval();
             this.stopPreview();
         }
         let state = this.state.clone();
         state.timeline.add(interval);
         this.syncQueue = this.syncQueue.then(async () => {
-            if (this.trpc != null) {
-                await this.trpc.addInterval.mutate(interval as interval);
-            }
             this.commit(Date.now(), state);
+            if (this.trpc != null) {
+                let n = await this.trpc.addInterval.mutate(interval as interval);
+                state.timeline.add(n);
+                // So that we have the most up to date ID.
+                this.commit(Date.now(), state);
+                let range = state.timeline.getOutOfSyncRange();
+                if (range != null) {
+                    let tl2 = await this.trpc.getTimeline.query(range);
+                    state.timeline.merge(tl2);
+                    this.commit(Date.now(), state);
+                }
+            }
             return state;
         });
         return this.syncQueue;

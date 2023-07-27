@@ -6,6 +6,7 @@ import demoRunning from '$lib/server/demoRunning.json';
 import demoSettings from '$lib/server/demoSettings.json';
 import prisma from '$lib/server/prisma';
 import { newUser } from '$lib/server/user';
+import { fixSplices } from '$lib/server/timeline';
 
 
 export async function getState(id: string, start: Date, end: Date): Promise<State> {
@@ -62,17 +63,21 @@ export async function getState(id: string, start: Date, end: Date): Promise<Stat
         });
     }
 
-    let settings: settings;
+    let settings;
     if (data.settings != null) {
-        settings = JSON.parse(data.settings.value);
+        settings = data.settings.value as settings;
     } else {
         settings = {};
         prisma.settings.create({
-            data: { userId: id, value: JSON.stringify(settings) },
+            data: { userId: id, value: {} },
         });
     }
 
-    return new State(new Timeline(data.intervals), data.running, settings);
+    console.log(data.intervals);
+    let timeline = new Timeline(data.intervals);
+    timeline.trim(start, end);
+    await fixSplices(id, timeline);
+    return new State(timeline, data.running, settings);
 }
 
 export function getDemoState(): State {

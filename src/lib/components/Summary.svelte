@@ -44,6 +44,9 @@
 		if (typeof apiClient !== 'undefined') {
 			logs = apiClient.getTimeline(rangeStart, rangeEnd).getIntervals().reverse();
 			colormap = apiClient.getSetting('colormap');
+            if (colormap == null) {
+                colormap = {};
+            }
 		} else {
 			return [];
 		}
@@ -82,6 +85,7 @@
 
 <div class="text-center flex flex-col w-fit p-5">
 	{#each summary as s}
+
 		<div class="flex gap-4 pb-4 w-fit">
 			<input
 				class="

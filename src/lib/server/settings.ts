@@ -19,11 +19,11 @@ export async function getSettings(id: string): Promise<settings> {
 
 export async function setSettings(id: string, value: settings): Promise<settings> {
     let settings = await prisma.settings.update({
-        data: {value: JSON.stringify(value)},
+        data: {value: value},
         select: {
             value: true,
         },
         where: {userId: id},
     });
-    return JSON.parse(settings.value);
+    return settings.value;
 }

@@ -10,7 +10,8 @@ export default class Timeline {
     }
 
     getIntervals(): interval[] {
-        return transfromer.parse(transfromer.stringify(this.intervals));
+        let tl = transfromer.parse(transfromer.stringify(this.intervals));
+        return tl as interval[];
     }
 
     add(interval: interval) {
@@ -45,7 +46,7 @@ export default class Timeline {
              *     | log    |
              */
             var c = 0;
-            c = c | (e.start > interval.start ? 0b1000 : 0);
+            c = c | (e.start >= interval.start ? 0b1000 : 0);
             c = c | (e.end > interval.start ? 0b0100 : 0);
             c = c | (e.start > interval.end ? 0b0010 : 0);
             c = c | (e.end > interval.end ? 0b0001 : 0);
@@ -124,60 +125,138 @@ export default class Timeline {
 
     fill(running: running, end: Date) {
         // Fill the space at the end with the running interval.
-        if (this.intervals.length > 0) {
-            let last = this.intervals[this.intervals.length - 1];
-            if (last.end < end) {
-                // If it's already defined as running, just extend it.
-                if (last.title == running.title) {
-                    last.end = end;
-                } else {
-                    let interval: interval = {
-                        id: -1,
-                        title: running.title,
-                        start: last.end,
-                        end: end
-                    }
-                    this.intervals.push(interval);
+        let ranges = this.getMissingRanges(running.start, end);
+        ranges.forEach((e) => {
+            this.add({
+                id: -2,
+                title: running.title,
+                start: e.start,
+                end: e.end
+            });
+        });
+    }
+
+    getOutOfSyncRange(): { start: Date, end: Date } | null {
+        let start = new Date();
+        let end = new Date(0);
+        this.intervals.forEach((e) => {
+            if (e.id === -1) {
+                if (e.start < start) {
+                    start = e.start;
+                }
+                if (e.end > end) {
+                    end = e.end;
                 }
             }
-        } else {
-            let interval: interval = {
-                id: -1,
-                title: running.title,
-                start: new Date(0),
-                end: end
+        });
+        if (start.getTime() >= new Date().getTime()) {
+            return null;
+        }
+        return { start: start, end: end };
+    }
+
+    getOutOfSyncIntervals(): interval[] {
+        let result: interval[] = [];
+        this.intervals.forEach((e) => {
+            if (e.id === -1) {
+                result.push(e);
             }
-            this.intervals.push(interval);
+        });
+        return result;
+    }
+
+    getMissingRange(start: Date, end: Date): { start: Date, end: Date } | null {
+        let ranges = this.getMissingRanges(start, end);
+        if (ranges.length > 0) {
+            return { start: ranges[0].start, end: ranges[ranges.length - 1].end };
+        } else {
+            return null;
         }
     }
 
+
+    getMissingRanges(start: Date, end: Date): { start: Date, end: Date }[] {
+        let result: { start: Date, end: Date }[] = [];
+        // Get the gaps between the intervals.
+        for (let i = 0; i < this.intervals.length - 1; i++) {
+            let e1 = this.intervals[i];
+            let e2 = this.intervals[i + 1];
+            if (e1.end < e2.start) {
+                result.push({ start: e1.end, end: e2.start });
+            }
+        }
+        // Get the gaps at the start and end.
+        if (this.intervals.length > 0) {
+            let first = this.intervals[0];
+            if (first.start > start) {
+                result.unshift({ start: start, end: first.start });
+            }
+            let last = this.intervals[this.intervals.length - 1];
+            if (last.end < end) {
+                result.push({ start: last.end, end: end });
+            }
+        } else {
+            result.push({ start: start, end: end });
+        }
+        return result;
+    }
+
+    merge(timeline: Timeline) {
+        let intervals = this.intervals.concat(timeline.intervals);
+        intervals.sort((a, b) => a.start.getTime() - b.start.getTime());
+
+        const mergedTimeline: interval[] = [];
+        // Iterate over the combined timeline and merge overlapping or adjacent ranges
+        intervals.forEach(range => {
+            const lastMergedRange = mergedTimeline[mergedTimeline.length - 1];
+
+            if (!lastMergedRange || range.start > lastMergedRange.end) {
+                // If the current range does not overlap with the last merged range,
+                // add it to the merged timeline
+                mergedTimeline.push(range);
+            } else {
+                if (range.end > lastMergedRange.end) {
+                    if (range.id == lastMergedRange.id) {
+                        lastMergedRange.end = range.end;
+                    } else {
+                        lastMergedRange.end = range.start;
+                        mergedTimeline.push(range);
+                    }
+                }
+            }
+        });
+
+        this.intervals = intervals;
+    }
+
     private cutOverlaps() {
+        console.log("LEN", this.intervals.length);
         this.intervals.sort((a, b) => a.start.getTime() - b.start.getTime());
 
         let s: interval[] = [];
-        let starts = [];
+        let starts: { start: Date, ref: interval }[] = [];
 
-        let t = 0;
+        let t = new Date(0);
 
         this.intervals.forEach((e) => {
             // Bring t to the start of this interval.
-            while (s.length > 0 && t < e.start.getTime()) {
+            while (s.length > 0 && t < e.start) {
                 let i = s.pop() as interval;
                 // If passed.
-                if (i.end.getTime() < t) {
+                if (i.end < t) {
                     continue;
                 }
                 // This is the next start.
-                starts.push({"start": t, "ref": i}); 
-                t = i.end.getTime();
+                starts.push({ start: t, ref: i });
+                t = i.end;
                 // If the interval is not passed, keep it in the stack.
-                if (t > e.start.getTime()) {
-                    t = e.start.getTime();
+                if (t > e.start) {
+                    t = e.start;
                     s.push(i);
                 }
             }
             // Add the interval to the stack.
-            t = e.start.getTime();
+            t = e.start;
             s.push(e);
         });
 
@@ -185,12 +264,12 @@ export default class Timeline {
         while (s.length > 0) {
             let i = s.pop() as interval;
             // If passed.
-            if (i.end.getTime() < t) {
+            if (i.end <= t) {
                 continue;
             }
             // This is the next start.
-            starts.push({"start": t, "ref": i}); 
-            t = i.end.getTime();
+            starts.push({ start: t, ref: i });
+            t = i.end;
         }
 
         // Finally convert tointervals.
@@ -201,16 +280,19 @@ export default class Timeline {
             let next;
             if (i < starts.length - 1) {
                 // Leave a gap if there is a gap.
-                next = Math.min(starts[i + 1].start, ref.end.getTime());
+                next = new Date(Math.min(starts[i + 1].start.getTime(), ref.end.getTime()));
             } else {
                 next = ref.end;
             }
             this.intervals.push({
-                id: ref.id,
+                id: start.getTime() == ref.start.getTime() ? ref.id : -1,
                 title: ref.title,
                 start: new Date(start),
                 end: new Date(next)
             });
+            if (this.intervals[this.intervals.length - 1].id == -1) {
+                console.log(this.intervals[this.intervals.length - 1]);
+            }
         }
     }
 
@@ -219,7 +301,7 @@ export default class Timeline {
     }
 
     static fromSerializable(serializable: serializableTimeline): Timeline {
-        return new Timeline(serializable.intervals);
+       return new Timeline(serializable.intervals);
     }
 }
 

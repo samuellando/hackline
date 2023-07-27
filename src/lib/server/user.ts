@@ -20,7 +20,7 @@ export async function newUser(id: string) {
     await prisma.settings.create({
         data: {
             userId: id,
-            value: JSON.stringify( {
+            value: {
               "background-color": "#413C58",
               "colormap": {
                 "Before HackLine.io": "#806443",
@@ -38,8 +38,7 @@ export async function newUser(id: string) {
               "timeline-x-axis-font": "15px serif",
               "timeline-x-axis-hashes": "#FFF1D0",
               "timeline-x-axis-text": "#FFF1D0"
-            })
-            ,
+            }
         }
     });
     return await prisma.user.findUniqueOrThrow({

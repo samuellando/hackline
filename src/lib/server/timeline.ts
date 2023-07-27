@@ -2,6 +2,19 @@ import Timeline from '$lib/Timeline';
 import prisma from '$lib/server/prisma';
 import type { interval } from '$lib/types';
 
+export async function fixSplices(id: string, timeline: Timeline) {
+    await prisma.interval.createMany({
+        data: timeline.getOutOfSyncIntervals().map((e) => {
+            return {
+                title: e.title,
+                start: e.start,
+                end: e.end,
+                userId: id,
+            }
+        })
+    });
+}
+
 export async function getTimeline(id: string, start: Date, end: Date): Promise<Timeline> {
     let intervals = await prisma.interval.findMany({
         select: {
@@ -25,12 +38,25 @@ export async function getTimeline(id: string, start: Date, end: Date): Promise<T
                         lte: end,
                     }
                 },
+                {
+                    start: {
+                        lt: start,
+                    },
+                    end: {
+                        gt: end,
+                    }
+                }
             ]
         },
     });
     let timeline = new Timeline(intervals);
     timeline.trim(start, end);
-    return timeline;
+    if (timeline.getOutOfSyncRange() != null) {
+        await fixSplices(id, timeline);
+        return getTimeline(id, start, end);
+    } else {
+        return timeline;
+    }
 }
 
 export async function addInterval(id: string, interval: interval): Promise<interval> {

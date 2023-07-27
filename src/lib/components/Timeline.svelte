@@ -245,7 +245,7 @@
 	}
 
 	function editInterval(i: interval | null) {
-		if (i != null && i.id != -1) {
+		if (i != null && i.id >= 0) {
 			apiClient.previewEdit(i);
 		}
 	}

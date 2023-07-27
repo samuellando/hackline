@@ -37,15 +37,15 @@
 		});
 	});
 
-	function commitInterval() {
+	async function commitInterval() {
 		if (apiClient.isPreviewAdd()) {
 			let previewColormap = apiClient.getSetting('colormap') || {};
 			let i = apiClient.getPreviewInterval();
 			if (adding) {
-				apiClient.timelineAdd();
+				await apiClient.timelineAdd();
 			}
 			if (editing) {
-				apiClient.timelineEdit();
+				await apiClient.timelineEdit();
 			}
 			let colormap = apiClient.getSetting('colormap') || {};
 			for (let key in colormap) {
