@@ -13,7 +13,7 @@
     let secondary: string;
     if (browser) {
         apiClient = getContext('apiClient') as ApiClient;
-        secondary = getContext('palette').secondary;
+        secondary = getContext('palette').secondary as string;
     }
 
 	var adding: boolean = false;
@@ -38,13 +38,14 @@
 	});
 
 	async function commitInterval() {
-		if (apiClient.isPreviewAdd()) {
+		if (apiClient.isPreview()) {
 			let previewColormap = apiClient.getSetting('colormap') || {};
 			let i = apiClient.getPreviewInterval();
 			if (adding) {
 				await apiClient.timelineAdd();
 			}
 			if (editing) {
+                console.log('editing');
 				await apiClient.timelineEdit();
 			}
 			let colormap = apiClient.getSetting('colormap') || {};
