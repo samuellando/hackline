@@ -3,11 +3,11 @@ import { initTRPC, TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import { getTimeline, addInterval, updateInterval } from '$lib/server/timeline';
 import { getRunning, setRunning } from '$lib/server/running';
-import { getSettings, setSettings } from '$lib/server/settings';
+import { getSettings, setSettings, setSetting } from '$lib/server/settings';
 import { getState, getDemoState } from '$lib/server/state';
 import { getApiKey, deleteApiKey } from '$lib/server/apiKey';
 import transformer from '$lib/trpc/transformer';
-import type { interval } from '$lib/types';
+import type { interval, running } from '$lib/types';
 
 export const t = initTRPC.context<Context>().create({ transformer });
 
@@ -80,11 +80,15 @@ const running = t.router({
         }),
     setRunning: protectedProcedure
         .input(z.object({
-            title: z.string()
+            title: z.string(),
+            start: z.date().optional(),
         }))
         .mutation(async (opts) => {
             const { ctx, input } = opts;
-            return setRunning(ctx.user, input.title);
+            if (typeof input.start === 'undefined') {
+                input.start = new Date();
+            }
+            return setRunning(ctx.user, input as running);
         })
 });
 
@@ -101,6 +105,14 @@ const settings = t.router({
         .mutation(async (opts) => {
             const { ctx, input } = opts;
             return setSettings(ctx.user, input);
+        }),
+    setSetting: protectedProcedure
+        .input(
+            z.record(z.string(), z.any())
+        )
+        .mutation(async (opts) => {
+            const { ctx, input } = opts;
+            return setSetting(ctx.user, input);
         })
 });
 

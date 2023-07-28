@@ -18,7 +18,7 @@ export async function getRunning(id: string): Promise<running> {
     return running;
 }
 
-export async function setRunning(id: string, title: string): Promise<running> {
+export async function setRunning(id: string, r: running): Promise<running> {
     // Get the current running timer and save it as an interval.
     let running = await prisma.running.findUnique({
         select: {
@@ -43,7 +43,7 @@ export async function setRunning(id: string, title: string): Promise<running> {
     });
     // Set the new running timer.
     running = await prisma.running.update({
-        data: {title, start: new Date()},
+        data: {title: r.title, start: r.start},
         select: {
             title: true,
             start: true,

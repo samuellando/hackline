@@ -9,12 +9,12 @@ export async function getSettings(id: string): Promise<settings> {
         where: {userId: id},
     });
     if (settings == null) {
-        settings = {value: "{}"};
+        settings = {value: {}};
         prisma.settings.create({
-            data: {userId: id, value: settings.value},
+            data: {userId: id, value: {}},
         });
     }
-    return JSON.parse(settings.value);
+    return settings.value as settings;
 }
 
 export async function setSettings(id: string, value: settings): Promise<settings> {
@@ -25,5 +25,18 @@ export async function setSettings(id: string, value: settings): Promise<settings
         },
         where: {userId: id},
     });
-    return settings.value;
+    return settings.value as settings;
+}
+
+export async function setSetting(id: string, value: settings): Promise<settings> {
+    let settings = await getSettings(id);
+    settings = {...settings, ...value};
+    let newSettings = await prisma.settings.update({
+        data: {value: settings},
+        select: {
+            value: true,
+        },
+        where: {userId: id},
+    });
+    return newSettings.value as settings;
 }
