@@ -98,6 +98,12 @@ export async function addInterval(id: string, interval: interval): Promise<inter
             end: interval.end,
             userId: id,
         },
+        select: {
+            start: true,
+            end: true,
+            title: true,
+            id: true
+        }
     });
 
     return n;
@@ -112,6 +118,12 @@ export async function updateInterval(id: string, interval: interval): Promise<in
             id: interval.id,
             userId: id,
         },
+        select: {
+            start: true,
+            end: true,
+            title: true,
+            id: true
+        }
     });
     return n;
 }

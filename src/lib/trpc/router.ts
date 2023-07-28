@@ -5,18 +5,20 @@ import { getTimeline, addInterval, updateInterval } from '$lib/server/timeline';
 import { getRunning, setRunning } from '$lib/server/running';
 import { getSettings, setSettings } from '$lib/server/settings';
 import { getState, getDemoState } from '$lib/server/state';
+import { getApiKey, deleteApiKey } from '$lib/server/apiKey';
 import transformer from '$lib/trpc/transformer';
+import type { interval } from '$lib/types';
 
 export const t = initTRPC.context<Context>().create({ transformer });
 
 const isAuthed = t.middleware((opts) => {
     const { ctx } = opts;
-    if (!ctx.session?.user) {
+    if (!ctx.user) {
         throw new TRPCError({ code: 'UNAUTHORIZED' });
     }
     return opts.next({
         ctx: {
-            user: ctx.session.user.id,
+            user: ctx.user,
         },
     });
 });
@@ -36,7 +38,7 @@ const timeline = t.router({
     addInterval: protectedProcedure
         .input(
             z.object({
-                id: z.number(),
+                id: z.number().optional(),
                 title: z.string(),
                 start: z.date(),
                 end: z.date(),
@@ -44,20 +46,29 @@ const timeline = t.router({
         )
         .mutation(async (opts) => {
             const { ctx, input } = opts;
-            return addInterval(ctx.user, input);
+            if (typeof input.id === 'undefined') {
+                input.id = -1;
+            }
+            return addInterval(ctx.user, input as interval);
         }),
     updateInterval: protectedProcedure
         .input(
             z.object({
                 id: z.number(),
                 title: z.string(),
-                start: z.date(),
-                end: z.date(),
+                start: z.date().optional(),
+                end: z.date().optional(),
             })
         )
         .mutation(async (opts) => {
             const { ctx, input } = opts;
-            return updateInterval(ctx.user, input);
+            if (typeof input.start === 'undefined') {
+                input.start = new Date(0);
+            }
+            if (typeof input.end === 'undefined') {
+                input.end = new Date(0);
+            }
+            return updateInterval(ctx.user, input as interval);
         })
 });
 
@@ -101,14 +112,27 @@ const state = t.router({
         }))
         .query(async (opts) => {
             const { input, ctx } = opts;
-            if (!ctx.session?.user) {
+            if (!ctx.user) {
                 return getDemoState();
             } else {
-                return getState(ctx.session.user.id, input.start, input.end);
+                return getState(ctx.user, input.start, input.end);
             }
         })
 });
 
-export const router = t.mergeRouters(timeline, running, settings, state)
+const apiKey = t.router({
+    getApiKey: protectedProcedure
+        .query(async (opts) => {
+            const { ctx } = opts;
+            return getApiKey(ctx.user);
+        }),
+    deleteApiKey: protectedProcedure
+        .mutation(async (opts) => {
+            const { ctx } = opts;
+            return deleteApiKey(ctx.user);
+        })
+});
+
+export const router = t.mergeRouters(timeline, running, settings, state, apiKey)
 
 export type Router = typeof router;

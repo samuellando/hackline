@@ -18,6 +18,15 @@ model User {
   intervals  Interval[]
   running    Running?
   settings   Settings?
+  ApiKey     ApiKey?
+}
+
+model ApiKey {
+  id        Int     @id @default(autoincrement())
+  prefix    String  @unique
+  key       String  @unique
+  user      User    @relation(fields: [userId], references: [id])
+  userId    String  @unique
 }
 
 model Interval {

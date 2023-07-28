@@ -2,7 +2,9 @@
 	import { onMount, afterUpdate } from 'svelte';
     import { browser } from '$app/environment';
     import { getContext } from 'svelte';
-    import ApiClient from '$lib/ApiClient';
+    import type  ApiClient from '$lib/ApiClient';
+    import {trpc} from '$lib/trpc/client';
+    import {page} from '$app/stores';
 
     let apiClient: ApiClient;
     if (browser) {
@@ -14,8 +16,11 @@
 	import { JSONEditor, Mode } from 'svelte-jsoneditor';
 	import type { Content, TextContent, JSONContent } from 'svelte-jsoneditor';
 
+    let apiKey: string;
 	onMount(async () => {
 		await apiClient.getReadyQueue();
+		let trpcClient = trpc($page);
+        apiKey = await trpcClient.getApiKey.query();
 		content = { json: apiClient.getSettings() } as JSONContent;
 		loading = false;
 	});
@@ -43,6 +48,7 @@
 </script>
 
 {#if !loading}
+    <p>Api Key: {apiKey}</p>
 	<div>
 		<JSONEditor
 			bind:content
