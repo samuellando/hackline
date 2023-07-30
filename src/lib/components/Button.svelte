@@ -1,8 +1,10 @@
 <script lang="ts">
+    import { getContext } from 'svelte';
+
 	export let onClick: Function;
 	export let text: string;
-	export let primary: string = 'black';
-	export let secondary: string = 'white';
+	let primary: string = getContext('palette').primary;
+	let secondary: string = getContext('palette').secondary;
 </script>
 
 <div style="--primary: {primary}; --secondary: {secondary}">

@@ -1,0 +1,21 @@
+import type { RequestEvent } from '@sveltejs/kit';
+import type { inferAsyncReturnType } from '@trpc/server';
+import { getUser } from '$lib/server/apiKey';
+
+export async function createContext(event: RequestEvent) {
+    let session = await event.locals.getSession();
+    let user;
+    if (!session?.user) {
+        const apiKey = event.request.headers.get('api-key');
+        user = (await getUser(apiKey));
+    } else {
+        user = session.user.id;
+    }
+
+    return {
+        user,
+    };
+}
+
+    export type Context = inferAsyncReturnType<typeof createContext>;
+

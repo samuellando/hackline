@@ -2,16 +2,21 @@
 	import { durationToString } from '$lib/timePrint';
 
 	import type { interval } from '$lib/types';
-	import type { ApiClient } from '$lib/Api';
 	import { onMount, onDestroy } from 'svelte';
 	import Button from '$lib/components/Button.svelte';
+	import type ApiClient from '$lib/ApiClient';
+    import { browser } from '$app/environment';
+    import { getContext } from 'svelte';
+
+    let apiClient: ApiClient;
+    let secondary: string;
+    if (browser) {
+        apiClient = getContext('apiClient') as ApiClient;
+        secondary = getContext('palette').secondary;
+    }
 
 	export let rangeStartM: number;
 	export let rangeEndM: number;
-	export let apiClient: ApiClient;
-
-	export let primary: string;
-	export let secondary: string;
 
 	var interval: ReturnType<typeof setInterval>;
 
@@ -37,8 +42,11 @@
 		let logs: interval[];
 		let colormap: { [title: string]: string };
 		if (typeof apiClient !== 'undefined') {
-			logs = apiClient.getTimeline(rangeStart, rangeEnd).reverse();
+			logs = apiClient.getTimeline(rangeStart, rangeEnd).getIntervals().reverse();
 			colormap = apiClient.getSetting('colormap');
+            if (colormap == null) {
+                colormap = {};
+            }
 		} else {
 			return [];
 		}
@@ -46,12 +54,12 @@
 		let s: { [title: string]: summary } = {};
 		logs.forEach((i) => {
 			if (i.title in s) {
-				s[i.title].totalTime += i.end - i.start;
+				s[i.title].totalTime += i.end.getTime() - i.start.getTime();
 			} else {
 				s[i.title] = {
 					title: i.title,
 					color: colormap[i.title],
-					totalTime: i.end - i.start
+					totalTime: i.end.getTime() - i.start.getTime()
 				};
 			}
 		});
@@ -66,10 +74,10 @@
 	}
 
 	function addByTitle(title: string = '') {
-		let start = (rangeStartM + rangeEndM) / 2;
-		let end = start + 15 * 60 * 1000;
-		let interval: interval = { id: 'new', title: title, start: start, end: end };
-		apiClient.timelinePreviewAdd(interval);
+		let start = new Date((rangeStartM + rangeEndM) / 2);
+		let end = new Date(start.getTime() + 15 * 60 * 1000);
+		let interval: interval = { id: -1, title: title, start: start, end: end };
+		apiClient.previewAdd(interval);
 	}
 
 	$: summary = getSummary(rangeStartM, rangeEndM);
@@ -77,6 +85,7 @@
 
 <div class="text-center flex flex-col w-fit p-5">
 	{#each summary as s}
+
 		<div class="flex gap-4 pb-4 w-fit">
 			<input
 				class="
@@ -97,14 +106,12 @@
 						'%y years %m months %d days %H hours %M minutes %S seconds'
 				)}
 			</span>
-			<Button onClick={() => apiClient.setRunning(s.title)} text="Run" {primary} {secondary} />
-			<Button onClick={() => addByTitle(s.title)} text="Add" {primary} {secondary} />
+			<Button onClick={() => apiClient.setRunning(s.title)} text="Run" />
+			<Button onClick={() => addByTitle(s.title)} text="Add" />
 		</div>
 	{/each}
 		<Button
 			text="Add"
 			onClick={() => addByTitle(apiClient.getSetting('default-title') || 'productive')}
-			{primary}
-			{secondary}
 		/>
 </div>
