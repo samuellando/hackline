@@ -46,8 +46,9 @@
             color: {secondary};
         "
 	class="
-            font-mono
-            h-screen
+            font-mmono
+            min-h-screen
+            h-fit
             w-full
         "
 >
