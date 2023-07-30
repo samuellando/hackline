@@ -9,7 +9,7 @@
 	import ApiClient from '$lib/ApiClient';
 	import { trpc } from '$lib/trpc/client';
 	import { browser } from '$app/environment';
-    import transformer from '$lib/trpc/transformer';
+	import transformer from '$lib/trpc/transformer';
 
 	export let data;
 

@@ -6,14 +6,14 @@
 	import Running from '$lib/components/Running.svelte';
 	import RangeSelector from '$lib/components/RangeSelector.svelte';
 	import Live from '$lib/components/Live.svelte';
-    import { browser } from '$app/environment';
-    import type ApiClient from '$lib/ApiClient';
-    import { getContext } from 'svelte';
+	import { browser } from '$app/environment';
+	import type ApiClient from '$lib/ApiClient';
+	import { getContext } from 'svelte';
 
-    let apiClient: ApiClient;
-    if (browser) {
-        apiClient = getContext('apiClient') as ApiClient;
-    }
+	let apiClient: ApiClient;
+	if (browser) {
+		apiClient = getContext('apiClient') as ApiClient;
+	}
 
 	var interval: ReturnType<typeof setInterval>;
 	let loading = true;
@@ -40,9 +40,7 @@
 {#if loading}
 	<h2>loading</h2>
 {:else}
-	<div
-		id="timeline-container"
-	>
+	<div id="timeline-container">
 		<div class="mt-10 flex justify-center">
 			<Running />
 		</div>

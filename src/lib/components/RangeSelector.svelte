@@ -1,15 +1,15 @@
 <script lang="ts">
 	import moment from 'moment';
 	import { toDateTimeString } from '$lib/timePrint';
-    import { browser } from '$app/environment';
-    import { getContext } from 'svelte';
+	import { browser } from '$app/environment';
+	import { getContext } from 'svelte';
 
-    let primary: string;
-    let secondary: string;
-    if (browser) {
-        primary = getContext('palette').primary;
-        secondary = getContext('palette').secondary;
-    }
+	let primary: string;
+	let secondary: string;
+	if (browser) {
+		primary = getContext('palette').primary;
+		secondary = getContext('palette').secondary;
+	}
 
 	type option = {
 		title: string;
@@ -79,51 +79,53 @@
 </script>
 
 <div id="range-selector" style="--primary: {primary}; --secondary: {secondary}">
-		<button
-            class="
+	<button
+		class="
                 border-l border-y rounded-l-full
-                p-1 text-sm min-w-fit h-10 
-                font-mono 
-                text-[var(--secondary)] hover:text-[var(--primary)] 
+                p-1 text-sm min-w-fit h-10
+                font-mono
+                text-[var(--secondary)] hover:text-[var(--primary)]
                 bg-[var(--primary)] hover:bg-[var(--secondary)]
             "
-			on:click={() => {
-				[rangeStartM, rangeEndM] = getRange(options[selected]);
-				live = options[selected].moveBack == 0;
-			}}
-			style={match ? 'color:' + primary + '; background-color:' + secondary + ';' : null}
-		>
-			{options[selected].title}
-		</button><button
-            class="
+		on:click={() => {
+			[rangeStartM, rangeEndM] = getRange(options[selected]);
+			live = options[selected].moveBack == 0;
+		}}
+		style={match ? 'color:' + primary + '; background-color:' + secondary + ';' : null}
+	>
+		{options[selected].title}
+	</button><button
+		class="
                 border-r border-y rounded-r-full
-                p-1 text-sm min-w-fit h-10 
-                font-mono 
-                text-[var(--secondary)] hover:text-[var(--primary)] 
+                p-1 text-sm min-w-fit h-10
+                font-mono
+                text-[var(--secondary)] hover:text-[var(--primary)]
                 bg-[var(--primary)] hover:bg-[var(--secondary)]
             "
-			on:click={() => {
-				dropdown = dropdown ? false : true;
-			}}
-			style={match ? 'color:' + primary + '; background-color:' + secondary + ';' : null}>▼</button
-		>
+		on:click={() => {
+			dropdown = dropdown ? false : true;
+		}}
+		style={match ? 'color:' + primary + '; background-color:' + secondary + ';' : null}>▼</button
+	>
 	{#if dropdown}
-		<div class="
+		<div
+			class="
                 border rounded
                 p-1 text-sm min-w-fit min-h-fit
-                font-mono 
+                font-mono
                 bg-[var(--primary)]
                 fixed
                 -translate-x-3/4
                 text-center
-        ">
+        "
+		>
 			{#each options as option, i}
 				<button
-                    class="
+					class="
                         border rounded-r
-                        p-1 text-sm w-96 h-10 
-                        font-mono 
-                        text-[var(--secondary)] hover:text-[var(--primary)] 
+                        p-1 text-sm w-96 h-10
+                        font-mono
+                        text-[var(--secondary)] hover:text-[var(--primary)]
                         bg-[var(--primary)] hover:bg-[var(--secondary)]
                     "
 					on:click={() => {
@@ -139,11 +141,11 @@
 			<div>
 				custom<br />
 				<input
-                    class="
+					class="
                         border rounded-r
-                        p-1 text-sm w-40 h-10 
-                        font-mono 
-                        text-[var(--secondary)] hover:text-[var(--primary)] 
+                        p-1 text-sm w-40 h-10
+                        font-mono
+                        text-[var(--secondary)] hover:text-[var(--primary)]
                         bg-[var(--primary)] hover:bg-[var(--secondary)]
                     "
 					type="datetime-local"
@@ -152,11 +154,11 @@
 					on:change={() => (dropdown = false)}
 				/>
 				<input
-                    class="
+					class="
                         border rounded-r
-                        p-1 text-sm w-40 h-10 
-                        font-mono 
-                        text-[var(--secondary)] hover:text-[var(--primary)] 
+                        p-1 text-sm w-40 h-10
+                        font-mono
+                        text-[var(--secondary)] hover:text-[var(--primary)]
                         bg-[var(--primary)] hover:bg-[var(--secondary)]
                     "
 					type="datetime-local"

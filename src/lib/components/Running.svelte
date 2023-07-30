@@ -3,13 +3,13 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { durationToString } from '$lib/timePrint';
 	import type ApiClient from '$lib/ApiClient';
-    import { browser } from '$app/environment';
-    import { getContext } from 'svelte';
+	import { browser } from '$app/environment';
+	import { getContext } from 'svelte';
 
-    let apiClient: ApiClient;
-    if (browser) {
-        apiClient = getContext('apiClient') as ApiClient;
-    }
+	let apiClient: ApiClient;
+	if (browser) {
+		apiClient = getContext('apiClient') as ApiClient;
+	}
 
 	var interval: ReturnType<typeof setInterval>;
 	onMount(() => {
@@ -52,9 +52,7 @@
 			{/if}
 		</div>
 		{#if typeof running.fallback != 'undefined'}
-			<h4
-                class="text-sm"
-            >Then {running.fallback}</h4>
+			<h4 class="text-sm">Then {running.fallback}</h4>
 		{/if}
 	{/if}
 </div>

@@ -6,15 +6,15 @@
 	import { toDateTimeString } from '$lib/timePrint';
 	import Button from '$lib/components/Button.svelte';
 	import type ApiClient from '$lib/ApiClient';
-    import { browser } from '$app/environment';
-    import { getContext } from 'svelte';
+	import { browser } from '$app/environment';
+	import { getContext } from 'svelte';
 
-    let apiClient: ApiClient;
-    let secondary: string;
-    if (browser) {
-        apiClient = getContext('apiClient') as ApiClient;
-        secondary = getContext('palette').secondary as string;
-    }
+	let apiClient: ApiClient;
+	let secondary: string;
+	if (browser) {
+		apiClient = getContext('apiClient') as ApiClient;
+		secondary = getContext('palette').secondary as string;
+	}
 
 	var adding: boolean = false;
 	var editing: boolean = false;
@@ -31,9 +31,9 @@
 			if (editing) {
 				interval = apiClient.getPreviewInterval();
 			}
-            if (editing || adding) {
-                color = apiClient.getSetting('colormap')[interval.title];
-            }
+			if (editing || adding) {
+				color = apiClient.getSetting('colormap')[interval.title];
+			}
 		});
 	});
 
@@ -45,7 +45,7 @@
 				await apiClient.timelineAdd();
 			}
 			if (editing) {
-                console.log('editing');
+				console.log('editing');
 				await apiClient.timelineEdit();
 			}
 			let colormap = apiClient.getSetting('colormap') || {};

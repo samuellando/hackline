@@ -5,15 +5,15 @@
 	import { onMount, onDestroy } from 'svelte';
 	import Button from '$lib/components/Button.svelte';
 	import type ApiClient from '$lib/ApiClient';
-    import { browser } from '$app/environment';
-    import { getContext } from 'svelte';
+	import { browser } from '$app/environment';
+	import { getContext } from 'svelte';
 
-    let apiClient: ApiClient;
-    let secondary: string;
-    if (browser) {
-        apiClient = getContext('apiClient') as ApiClient;
-        secondary = getContext('palette').secondary;
-    }
+	let apiClient: ApiClient;
+	let secondary: string;
+	if (browser) {
+		apiClient = getContext('apiClient') as ApiClient;
+		secondary = getContext('palette').secondary;
+	}
 
 	export let rangeStartM: number;
 	export let rangeEndM: number;
@@ -44,9 +44,9 @@
 		if (typeof apiClient !== 'undefined') {
 			logs = apiClient.getTimeline(rangeStart, rangeEnd).getIntervals().reverse();
 			colormap = apiClient.getSetting('colormap');
-            if (colormap == null) {
-                colormap = {};
-            }
+			if (colormap == null) {
+				colormap = {};
+			}
 		} else {
 			return [];
 		}
@@ -85,7 +85,6 @@
 
 <div class="text-center flex flex-col w-fit p-5">
 	{#each summary as s}
-
 		<div class="flex gap-4 pb-4 w-fit">
 			<input
 				class="
@@ -110,8 +109,8 @@
 			<Button onClick={() => addByTitle(s.title)} text="Add" />
 		</div>
 	{/each}
-		<Button
-			text="Add"
-			onClick={() => addByTitle(apiClient.getSetting('default-title') || 'productive')}
-		/>
+	<Button
+		text="Add"
+		onClick={() => addByTitle(apiClient.getSetting('default-title') || 'productive')}
+	/>
 </div>

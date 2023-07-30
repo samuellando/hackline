@@ -6,13 +6,13 @@
 	import { durationToString, toDateTimeString, getTimeDivisions } from '$lib/timePrint';
 	import moment from 'moment';
 	import type ApiClient from '$lib/ApiClient';
-    import { browser } from '$app/environment';
-    import { getContext } from 'svelte';
+	import { browser } from '$app/environment';
+	import { getContext } from 'svelte';
 
-    let apiClient: ApiClient;
-    if (browser) {
-        apiClient = getContext('apiClient') as ApiClient;
-    }
+	let apiClient: ApiClient;
+	if (browser) {
+		apiClient = getContext('apiClient') as ApiClient;
+	}
 
 	export let rangeStartM: number = moment().startOf('day').valueOf();
 	export let rangeEndM: number = moment().valueOf();
@@ -179,7 +179,12 @@
 				if (apiClient.isPreviewAdd()) {
 					newInterval = apiClient.getPreviewInterval();
 				} else {
-					newInterval = { id: -1, title: 'Theres a problem here', start: new Date(0), end: new Date(0) };
+					newInterval = {
+						id: -1,
+						title: 'Theres a problem here',
+						start: new Date(0),
+						end: new Date(0)
+					};
 				}
 				if (!apiClient.isPreviewAdd() || curM < newInterval.start.getTime() || !shiftHeld) {
 					addInterval(curMin, curMin);
@@ -254,8 +259,8 @@
 		let defaultTitle = apiClient.getSetting('default-title') || 'productive';
 		start = start >= 0 ? start : (rangeStartM + rangeEndM) / 2;
 		end = end >= start ? end : start + 15 * 60 * 1000;
-        let startD = new Date(start);
-        let endD = new Date(end);
+		let startD = new Date(start);
+		let endD = new Date(end);
 		let interval: interval = { id: -1, title: defaultTitle, start: startD, end: endD };
 		apiClient.previewAdd(interval);
 	}
@@ -294,7 +299,9 @@
 		<br />
 		{#if hoveredInterval}
 			{hoveredInterval.title}
-			{toDateTimeString(hoveredInterval.start.getTime())} - {toDateTimeString(hoveredInterval.end.getTime())}
+			{toDateTimeString(hoveredInterval.start.getTime())} - {toDateTimeString(
+				hoveredInterval.end.getTime()
+			)}
 			{durationToString(
 				hoveredInterval.end.getTime() - hoveredInterval.start.getTime(),
 				apiClient.getSetting('timeline-duration-format') || '%H hours %M minutes %S seconds'
