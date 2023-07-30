@@ -1,17 +1,15 @@
 export interface interval {
   title: string;
-  start: number;
-  end: number;
-  id: string;
+  start: Date;
+  end: Date;
+  id: number;
 }
-
-export type timeline = interval[];
 
 export interface running {
   title: string;
-  start: number;
-  end?: number;
-  fallback?: string;
+  start: Date;
+  end?: Date;
+  fallback?: running;
 }
 
 export interface settings {
@@ -20,13 +18,4 @@ export interface settings {
 
 export interface apiKey {
   apiKey: string;
-}
-
-import type { Auth0Client, User } from '@auth0/auth0-spa-js';
-
-export interface authDef {
-  authClient: Auth0Client | undefined,
-  isAuthenticated: boolean,
-  userProfile: User | undefined,
-  accessToken: string | undefined
 }

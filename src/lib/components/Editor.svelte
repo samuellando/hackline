@@ -2,15 +2,19 @@
 	import { durationToString } from '$lib/timePrint';
 
 	import type { interval } from '$lib/types';
-	import type { ApiClient } from '$lib/Api';
 	import { onMount } from 'svelte';
 	import { toDateTimeString } from '$lib/timePrint';
 	import Button from '$lib/components/Button.svelte';
+	import type ApiClient from '$lib/ApiClient';
+    import { browser } from '$app/environment';
+    import { getContext } from 'svelte';
 
-	export let apiClient: ApiClient;
-
-	export let primary: string;
-	export let secondary: string;
+    let apiClient: ApiClient;
+    let secondary: string;
+    if (browser) {
+        apiClient = getContext('apiClient') as ApiClient;
+        secondary = getContext('palette').secondary as string;
+    }
 
 	var adding: boolean = false;
 	var editing: boolean = false;
@@ -19,13 +23,13 @@
 
 	onMount(async () => {
 		apiClient.subscribe(() => {
-			editing = apiClient.isPreviewEditing();
-			adding = apiClient.isPreviewAdding();
+			editing = apiClient.isPreviewEdit();
+			adding = apiClient.isPreviewAdd();
 			if (adding) {
-				interval = apiClient.getPreviewAddingInterval();
+				interval = apiClient.getPreviewInterval();
 			}
 			if (editing) {
-				interval = apiClient.getPreviewEditingInterval();
+				interval = apiClient.getPreviewInterval();
 			}
             if (editing || adding) {
                 color = apiClient.getSetting('colormap')[interval.title];
@@ -33,15 +37,16 @@
 		});
 	});
 
-	function commitInterval() {
-		if (apiClient.isPreviewAdding()) {
+	async function commitInterval() {
+		if (apiClient.isPreview()) {
 			let previewColormap = apiClient.getSetting('colormap') || {};
-			let i = apiClient.getPreviewAddingInterval();
+			let i = apiClient.getPreviewInterval();
 			if (adding) {
-				apiClient.timelineAdd();
+				await apiClient.timelineAdd();
 			}
 			if (editing) {
-				apiClient.timelineEdit();
+                console.log('editing');
+				await apiClient.timelineEdit();
 			}
 			let colormap = apiClient.getSetting('colormap') || {};
 			for (let key in colormap) {
@@ -56,10 +61,10 @@
 
 	function updateTitle(i: interval) {
 		if (adding) {
-			apiClient.timelinePreviewAdd(i);
+			apiClient.previewAdd(i);
 		}
 		if (editing) {
-			apiClient.timelinePreviewEdit(i);
+			apiClient.previewEdit(i);
 		}
 	}
 
@@ -72,16 +77,16 @@
 
 	function updateStart(e: Event) {
 		let t = e.target as HTMLInputElement;
-		let newInterval = apiClient.getPreviewAddingInterval();
-		newInterval.start = Date.parse(t.value);
-		apiClient.timelinePreviewAdd(newInterval);
+		let newInterval = apiClient.getPreviewInterval();
+		newInterval.start = new Date(Date.parse(t.value));
+		apiClient.previewAdd(newInterval);
 	}
 
 	function updateEnd(e: Event) {
 		let t = e.target as HTMLInputElement;
-		let newInterval = apiClient.getPreviewAddingInterval();
-		newInterval.end = Date.parse(t.value);
-		apiClient.timelinePreviewAdd(newInterval);
+		let newInterval = apiClient.getPreviewInterval();
+		newInterval.end = new Date(Date.parse(t.value));
+		apiClient.previewAdd(newInterval);
 	}
 </script>
 
@@ -113,15 +118,15 @@
 			/>
 			<span class="w-96">
 				{durationToString(
-					interval.end - interval.start,
+					interval.end.getTime() - interval.start.getTime(),
 					apiClient.getSetting('summary-duration-format') ||
 						'%y years %m months %d days %H hours %M minutes %S seconds'
 				)}
 			</span>
 			{#if editing}
-				{toDateTimeString(interval.start)}
+				{toDateTimeString(interval.start.getTime())}
 				-
-				{toDateTimeString(interval.end)}
+				{toDateTimeString(interval.end.getTime())}
 			{/if}
 			{#if adding}
 				<input
@@ -133,7 +138,7 @@
                     p-2
                 "
 					type="datetime-local"
-					value={toDateTimeString(interval.start)}
+					value={toDateTimeString(interval.start.getTime())}
 					on:input={updateStart}
 				/>
 				<input
@@ -145,12 +150,12 @@
                     p-2
                 "
 					type="datetime-local"
-					value={toDateTimeString(interval.end)}
+					value={toDateTimeString(interval.end.getTime())}
 					on:input={updateEnd}
 				/>
 			{/if}
-			<Button onClick={commitInterval} text="Add" {primary} {secondary} />
-			<Button onClick={() => apiClient.stopPreview()} text="Cancel" {primary} {secondary} />
+			<Button onClick={commitInterval} text="Add" />
+			<Button onClick={() => apiClient.stopPreview()} text="Cancel" />
 		</div>
 	{/if}
 </div>

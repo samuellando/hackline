@@ -1,13 +1,17 @@
 <script lang="ts">
 	import type { running } from '$lib/types';
 	import { onMount, onDestroy } from 'svelte';
-	import type { ApiClient } from '$lib/Api';
 	import { durationToString } from '$lib/timePrint';
+	import type ApiClient from '$lib/ApiClient';
+    import { browser } from '$app/environment';
+    import { getContext } from 'svelte';
 
-	export var apiClient: ApiClient;
+    let apiClient: ApiClient;
+    if (browser) {
+        apiClient = getContext('apiClient') as ApiClient;
+    }
 
 	var interval: ReturnType<typeof setInterval>;
-
 	onMount(() => {
 		running = apiClient.getRunning();
 		interval = setInterval(() => {
@@ -35,14 +39,14 @@
 				with
 
 				{durationToString(
-					running.end - new Date().getTime(),
+					running.end.getTime() - new Date().getTime(),
 					apiClient.getSetting('running-duration-format') || '%H:%M:%S'
 				)}
 				remaining
 			{:else}
 				for
 				{durationToString(
-					new Date().getTime() - running.start,
+					new Date().getTime() - running.start.getTime(),
 					apiClient.getSetting('running-duration-format') || '%H:%M:%S'
 				)}
 			{/if}

@@ -1,45 +1,36 @@
 <script lang="ts">
-	import { onMount, afterUpdate, onDestroy } from 'svelte';
-	import { auth } from '$lib/Auth';
-	import { ApiClient } from '$lib/Api';
-	import type { authDef } from '$lib/types';
-	import Auth from '$lib/components/Auth.svelte';
+	import { onMount, afterUpdate } from 'svelte';
+    import { browser } from '$app/environment';
+    import { getContext } from 'svelte';
+    import type  ApiClient from '$lib/ApiClient';
+    import {trpc} from '$lib/trpc/client';
+    import {page} from '$app/stores';
+    import Button from '$lib/components/Button.svelte';
 
-	let apiUrl: string;
-	let apiClient: ApiClient;
-	let authDef: authDef;
+    let apiClient: ApiClient;
+    if (browser) {
+        apiClient = getContext('apiClient') as ApiClient;
+    }
 
 	let loading = true;
 
 	import { JSONEditor, Mode } from 'svelte-jsoneditor';
 	import type { Content, TextContent, JSONContent } from 'svelte-jsoneditor';
 
+    let apiKey: string;
 	onMount(async () => {
-		apiUrl = window.location.origin;
-		if (import.meta.env.DEV) {
-			apiUrl = 'http://localhost:8080';
-		}
-		authDef = await auth();
-		apiClient = new ApiClient(apiUrl, authDef.accessToken);
-		await apiClient.ready();
+		await apiClient.getReadyQueue();
+		let trpcClient = trpc($page);
+        apiKey = await trpcClient.getApiKey.query();
 		content = { json: apiClient.getSettings() } as JSONContent;
 		loading = false;
 	});
 
-	onDestroy(() => {
-		if (apiClient === undefined) return;
-		apiClient.close();
-	});
-
-	afterUpdate(() => {
-		if (
-			typeof authDef !== 'undefined' &&
-			typeof authDef.authClient !== 'undefined' &&
-			authDef.isAuthenticated === false
-		) {
-			window.location.pathname = '/';
-		}
-	});
+    async function reset() {
+		let trpcClient = trpc($page);
+        await trpcClient.deleteApiKey.mutate();
+        apiKey = await trpcClient.getApiKey.query();
+    }
 
 	let content: Content;
 
@@ -64,9 +55,7 @@
 </script>
 
 {#if !loading}
-	<a href="/timeline">back</a>
-	<Auth {authDef} />
-
+    <p>Api Key: {apiKey}</p> <Button onClick={reset} text="Reset" />
 	<div>
 		<JSONEditor
 			bind:content
@@ -78,6 +67,8 @@
 	</div>
 
 	{#if errors == null}
-		<button on:click={save}>save</button>
+        <div class="pt-5">
+            <Button onClick={save} text="Save" />
+        </div>
 	{/if}
 {/if}
