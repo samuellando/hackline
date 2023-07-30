@@ -7,7 +7,7 @@ import { sequence } from '@sveltejs/kit/hooks';
 
 import { SvelteKitAuth } from "@auth/sveltekit";
 import Auth0Provider from "@auth/core/providers/auth0";
-import { AUTH0_ID, AUTH0_SECRET, AUTH0_ISSUER, AUTH_SECRET } from "$env/static/private";
+import { env } from "$env/dynamic/private";
 
 export const authHandle = SvelteKitAuth({
     trustHost: true,
@@ -27,12 +27,12 @@ export const authHandle = SvelteKitAuth({
     },
     providers: [
         Auth0Provider({
-            clientId: AUTH0_ID,
-            clientSecret: AUTH0_SECRET,
-            issuer: AUTH0_ISSUER,
+            clientId: env.AUTH0_ID,
+            clientSecret: env.AUTH0_SECRET,
+            issuer: env.AUTH0_ISSUER,
         }),
     ],
-    secret: AUTH_SECRET,
+    secret: env.AUTH_SECRET,
     session: {
         strategy: 'jwt',
     },
