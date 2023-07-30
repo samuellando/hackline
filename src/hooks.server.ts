@@ -10,6 +10,7 @@ import Auth0Provider from "@auth/core/providers/auth0";
 import { AUTH0_ID, AUTH0_SECRET, AUTH0_ISSUER, AUTH_SECRET } from "$env/static/private";
 
 export const authHandle = SvelteKitAuth({
+    trustHost: true,
     callbacks: {
         session: async ({ session, token }) => {
             if (session?.user) {
