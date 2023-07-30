@@ -24,6 +24,12 @@ export async function GET(event: RequestEvent) {
 export async function POST(event: RequestEvent) {
     let caller = router.createCaller(await createContext(event));
     let interval = await event.request.json();
+
+    if ("duration" in interval) {
+        interval.start = Date.now();
+        interval.end = interval.start + interval.duration;
+    }
+
     interval.start = new Date(interval.start);
     interval.end = new Date(interval.end);
 
