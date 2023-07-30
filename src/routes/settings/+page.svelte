@@ -5,6 +5,7 @@
     import type  ApiClient from '$lib/ApiClient';
     import {trpc} from '$lib/trpc/client';
     import {page} from '$app/stores';
+    import Button from '$lib/components/Button.svelte';
 
     let apiClient: ApiClient;
     if (browser) {
@@ -24,6 +25,12 @@
 		content = { json: apiClient.getSettings() } as JSONContent;
 		loading = false;
 	});
+
+    async function reset() {
+		let trpcClient = trpc($page);
+        await trpcClient.deleteApiKey.mutate();
+        apiKey = await trpcClient.getApiKey.query();
+    }
 
 	let content: Content;
 
@@ -48,7 +55,7 @@
 </script>
 
 {#if !loading}
-    <p>Api Key: {apiKey}</p>
+    <p>Api Key: {apiKey}</p> <Button onClick={reset} text="Reset" />
 	<div>
 		<JSONEditor
 			bind:content
@@ -60,6 +67,8 @@
 	</div>
 
 	{#if errors == null}
-		<button on:click={save}>save</button>
+        <div class="pt-5">
+            <Button onClick={save} text="Save" />
+        </div>
 	{/if}
 {/if}

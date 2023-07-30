@@ -9,7 +9,7 @@ export interface running {
   title: string;
   start: Date;
   end?: Date;
-  fallback?: string;
+  fallback?: running;
 }
 
 export interface settings {

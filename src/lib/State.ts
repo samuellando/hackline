@@ -15,11 +15,17 @@ export default class State {
 
     speculate(end: Date): void {
         let running = this.running;
-        let now = new Date();
-        if (typeof running.fallback !== "undefined" && typeof running.end !== "undefined" && running.end < now) {
-            running = { title: running.fallback, start: running.end };
-        }
         this.timeline.fill(running, end);
+        let now = new Date();
+        if (typeof running.fallback !== "undefined" && typeof running.end !== "undefined") {
+            running = running.fallback;
+        }
+        this.timeline.intervals.forEach((i) => {
+            if (i.start.getTime() < now.getTime() && i.end.getTime() > now.getTime()) {
+                running = { title: i.title, start: i.start, end: i.end, fallback: running };
+            }
+        });
+        this.running = running;
     }
 
     static fromSerializable(serializable: serializableState): State {

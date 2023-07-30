@@ -47,7 +47,7 @@
         "
 	class="
             font-mono
-            h-fit
+            h-screen
             w-full
         "
 >
