@@ -1,21 +1,34 @@
 export interface interval {
-  title: string;
-  start: Date;
-  end: Date;
-  id: number;
+	readonly title: string;
+	readonly start: Date;
+	readonly end: Date;
+	readonly id: number;
 }
 
 export interface running {
-  title: string;
-  start: Date;
-  end?: Date;
-  fallback?: running;
+	readonly title: string;
+	readonly start: Date;
+	readonly end?: Date;
+	readonly fallback?: running;
 }
 
+export type settingsValue =
+	| {
+			readonly [key: string]: settingsValue | string;
+	  }
+	| string
+	| number
+	| boolean;
+
 export interface settings {
-  [key: string]: any;
+	readonly [key: string]: settingsValue;
 }
 
 export interface apiKey {
-  apiKey: string;
+	apiKey: string;
 }
+
+export type palette = {
+	primary: string;
+	secondary: string;
+};

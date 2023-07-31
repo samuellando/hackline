@@ -1,21 +1,21 @@
 {
-  "background-color": "#413C58",
-  "colormap": {
-    "exercise": "#bf9540",
-    "non-productive": "#806443",
-    "productive": "#129143",
-    "sleep": "#32253c"
-  },
-  "default-title": "productive",
-  "running-duration-format": "%H:%M:%S",
-  "summary-duration-format": "%H hours %M minutes %S seconds",
-  "text-color": "#FFF1D0",
-  "timeline-background": "#b3b0ad",
-  "timeline-blur": "#00000040",
-  "timeline-cursor": "#FFF1D0",
-  "timeline-duration-format": "%H hours %M minutes %S seconds",
-  "timeline-highlight": "#FFF1D0",
-  "timeline-x-axis-font": "15px serif",
-  "timeline-x-axis-hashes": "#FFF1D0",
-  "timeline-x-axis-text": "#FFF1D0"
+	"background-color": "#413C58",
+	"colormap": {
+		"exercise": "#bf9540",
+		"non-productive": "#806443",
+		"productive": "#129143",
+		"sleep": "#32253c"
+	},
+	"default-title": "productive",
+	"running-duration-format": "%H:%M:%S",
+	"summary-duration-format": "%H hours %M minutes %S seconds",
+	"text-color": "#FFF1D0",
+	"timeline-background": "#b3b0ad",
+	"timeline-blur": "#00000040",
+	"timeline-cursor": "#FFF1D0",
+	"timeline-duration-format": "%H hours %M minutes %S seconds",
+	"timeline-highlight": "#FFF1D0",
+	"timeline-x-axis-font": "15px serif",
+	"timeline-x-axis-hashes": "#FFF1D0",
+	"timeline-x-axis-text": "#FFF1D0"
 }

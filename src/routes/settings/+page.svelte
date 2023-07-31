@@ -1,40 +1,40 @@
 <script lang="ts">
-	import { onMount, afterUpdate } from 'svelte';
-    import { browser } from '$app/environment';
-    import { getContext } from 'svelte';
-    import type  ApiClient from '$lib/ApiClient';
-    import {trpc} from '$lib/trpc/client';
-    import {page} from '$app/stores';
-    import Button from '$lib/components/Button.svelte';
+	import { onMount } from 'svelte';
+	import { browser } from '$app/environment';
+	import { getContext } from 'svelte';
+	import type ApiClient from '$lib/ApiClient';
+	import { trpc } from '$lib/trpc/client';
+	import { page } from '$app/stores';
+	import Button from '$lib/components/Button.svelte';
 
-    let apiClient: ApiClient;
-    if (browser) {
-        apiClient = getContext('apiClient') as ApiClient;
-    }
+	let apiClient: ApiClient;
+	if (browser) {
+		apiClient = getContext('apiClient') as ApiClient;
+	}
 
 	let loading = true;
 
 	import { JSONEditor, Mode } from 'svelte-jsoneditor';
-	import type { Content, TextContent, JSONContent } from 'svelte-jsoneditor';
+	import type { Content, TextContent, JSONContent, ContentErrors } from 'svelte-jsoneditor';
 
-    let apiKey: string;
+	let apiKey: string;
 	onMount(async () => {
 		await apiClient.getReadyQueue();
 		let trpcClient = trpc($page);
-        apiKey = await trpcClient.getApiKey.query();
+		apiKey = await trpcClient.getApiKey.query();
 		content = { json: apiClient.getSettings() } as JSONContent;
 		loading = false;
 	});
 
-    async function reset() {
+	async function reset() {
 		let trpcClient = trpc($page);
-        await trpcClient.deleteApiKey.mutate();
-        apiKey = await trpcClient.getApiKey.query();
-    }
+		await trpcClient.deleteApiKey.mutate();
+		apiKey = await trpcClient.getApiKey.query();
+	}
 
 	let content: Content;
 
-	let errors: any | null = null;
+	let errors: ContentErrors | null = null;
 
 	function save() {
 		let newSettings;
@@ -48,27 +48,24 @@
 			apiClient.setSettings(newSettings);
 		}
 	}
-
-	onMount(async () => {});
-
-	afterUpdate(() => {});
 </script>
 
 {#if !loading}
-    <p>Api Key: {apiKey}</p> <Button onClick={reset} text="Reset" />
+	<p>Api Key: {apiKey}</p>
+	<Button onClick={reset} text="Reset" />
 	<div>
 		<JSONEditor
 			bind:content
 			mode={Mode.text}
-			onChange={(updatedContent, previousContent, { contentErrors, patchResult }) => {
+			onChange={(_b, _a, { contentErrors }) => {
 				errors = contentErrors;
 			}}
 		/>
 	</div>
 
 	{#if errors == null}
-        <div class="pt-5">
-            <Button onClick={save} text="Save" />
-        </div>
+		<div class="pt-5">
+			<Button onClick={save} text="Save" />
+		</div>
 	{/if}
 {/if}

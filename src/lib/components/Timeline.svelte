@@ -6,19 +6,17 @@
 	import { durationToString, toDateTimeString, getTimeDivisions } from '$lib/timePrint';
 	import moment from 'moment';
 	import type ApiClient from '$lib/ApiClient';
-    import { browser } from '$app/environment';
-    import { getContext } from 'svelte';
+	import { browser } from '$app/environment';
+	import { getContext } from 'svelte';
 
-    let apiClient: ApiClient;
-    if (browser) {
-        apiClient = getContext('apiClient') as ApiClient;
-    }
+	let apiClient: ApiClient;
+	if (browser) {
+		apiClient = getContext('apiClient') as ApiClient;
+	}
 
 	export let rangeStartM: number = moment().startOf('day').valueOf();
 	export let rangeEndM: number = moment().valueOf();
-	export let live: boolean = true;
-
-	var interval: ReturnType<typeof setInterval>;
+	export let live = true;
 
 	interface drawInterval extends interval {
 		color: string;
@@ -35,13 +33,12 @@
 	});
 
 	onDestroy(() => {
-		clearInterval(interval);
 		unsubscribe();
 	});
 
 	function toDrawInterval(i: interval, duration: number, width: number): drawInterval {
 		let color: string;
-		let colormap = apiClient.getSetting('colormap');
+		let colormap = apiClient.getSetting('colormap') as { [key: string]: string };
 		if (colormap == null) {
 			colormap = {};
 		}
@@ -70,7 +67,7 @@
 	function drawTimeline() {
 		// Get the timeline, and edit it depending on the state.
 		let timeline: interval[];
-		timeline = apiClient.getTimeline(rangeStartM, rangeEndM).getIntervals();
+		timeline = apiClient.getTimeline(new Date(rangeStartM), new Date(rangeEndM)).intervals;
 
 		const drawHeight = 150;
 		const canvas = <HTMLCanvasElement>document.getElementById('timeline');
@@ -88,7 +85,7 @@
 		canvas.height = height;
 
 		// Draw the default background.
-		ctx.fillStyle = apiClient.getSetting('timeline-background') || '#b3b0ad';
+		ctx.fillStyle = apiClient.getSettingString('timeline-background') || '#b3b0ad';
 		ctx.fillRect(0, 0, width, drawHeight);
 
 		// Convert the timeline.
@@ -107,7 +104,7 @@
 				(apiClient.isPreviewEdit() && e.id == apiClient.getPreviewInterval().id) ||
 				(hoveredInterval && e.id == hoveredInterval.id && !apiClient.isPreviewEdit())
 			) {
-				ctx.strokeStyle = apiClient.getSetting('timeline-highlight') || 'black';
+				ctx.strokeStyle = apiClient.getSettingString('timeline-highlight') || 'black';
 				ctx.lineWidth = 2;
 				ctx.strokeRect(
 					e.drawStart + ctx.lineWidth / 2,
@@ -124,7 +121,7 @@
 		// draw the cursor.
 		if (x >= 0 && x <= width && y > 0 && y <= drawHeight) {
 			// draw the cursor
-			ctx.strokeStyle = apiClient.getSetting('timeline-cursor') || 'black';
+			ctx.strokeStyle = apiClient.getSettingString('timeline-cursor') || 'black';
 			ctx.lineWidth = 0.25;
 			ctx.beginPath();
 			ctx.moveTo(x, 0);
@@ -135,7 +132,7 @@
 		}
 		// Fade out the other sections on add.
 		if (apiClient.isPreviewAdd()) {
-			ctx.fillStyle = apiClient.getSetting('timeline-blur') || '#00000040';
+			ctx.fillStyle = apiClient.getSettingString('timeline-blur') || '#00000040';
 			var n = toDrawInterval(apiClient.getPreviewInterval(), rangeEndM - rangeStartM, width);
 			ctx.fillRect(0, 0, n.drawStart, drawHeight);
 			ctx.fillRect(n.drawEnd, 0, width - n.drawEnd, drawHeight);
@@ -143,10 +140,10 @@
 		// x-axis
 		ctx.beginPath();
 		let divs = getTimeDivisions(rangeStartM, rangeEndM);
-		ctx.strokeStyle = apiClient.getSetting('timeline-x-axis-hashes') || 'black';
-		ctx.fillStyle = apiClient.getSetting('timeline-x-axis-text') || 'black';
+		ctx.strokeStyle = apiClient.getSettingString('timeline-x-axis-hashes') || 'black';
+		ctx.fillStyle = apiClient.getSettingString('timeline-x-axis-text') || 'black';
 		ctx.lineWidth = 1;
-		ctx.font = apiClient.getSetting('timeline-x-axis-font') || '15px serif';
+		ctx.font = apiClient.getSettingString('timeline-x-axis-font') || '15px serif';
 		divs.forEach((e: [number, string]) => {
 			let x = ((e[0] - rangeStartM) / (rangeEndM - rangeStartM)) * width;
 			ctx.moveTo(x, drawHeight);
@@ -159,8 +156,8 @@
 	let curM: number | null = null;
 	let drag = false;
 	let shiftHeld = false;
-	let x: number = -1;
-	let y: number = -1;
+	let x = -1;
+	let y = -1;
 	function mouseMove(event: MouseEvent) {
 		const canvas = <HTMLCanvasElement>document.getElementById('timeline');
 		const rect = canvas.getBoundingClientRect();
@@ -179,13 +176,23 @@
 				if (apiClient.isPreviewAdd()) {
 					newInterval = apiClient.getPreviewInterval();
 				} else {
-					newInterval = { id: -1, title: 'Theres a problem here', start: new Date(0), end: new Date(0) };
+					newInterval = {
+						id: -1,
+						title: 'Theres a problem here',
+						start: new Date(0),
+						end: new Date(0)
+					};
 				}
 				if (!apiClient.isPreviewAdd() || curM < newInterval.start.getTime() || !shiftHeld) {
 					addInterval(curMin, curMin);
 					shiftHeld = true;
 				} else {
-					newInterval.end = new Date(curMin);
+					newInterval = {
+						id: newInterval.id,
+						title: newInterval.title,
+						start: new Date(newInterval.start.getTime()),
+						end: new Date(curMin)
+					};
 					apiClient.previewAdd(newInterval);
 				}
 			} else {
@@ -250,12 +257,12 @@
 		}
 	}
 
-	function addInterval(start: number = -1, end: number = -1) {
-		let defaultTitle = apiClient.getSetting('default-title') || 'productive';
+	function addInterval(start = -1, end = -1) {
+		let defaultTitle = apiClient.getSettingString('default-title') || 'productive';
 		start = start >= 0 ? start : (rangeStartM + rangeEndM) / 2;
 		end = end >= start ? end : start + 15 * 60 * 1000;
-        let startD = new Date(start);
-        let endD = new Date(end);
+		let startD = new Date(start);
+		let endD = new Date(end);
 		let interval: interval = { id: -1, title: defaultTitle, start: startD, end: endD };
 		apiClient.previewAdd(interval);
 	}
@@ -294,10 +301,12 @@
 		<br />
 		{#if hoveredInterval}
 			{hoveredInterval.title}
-			{toDateTimeString(hoveredInterval.start.getTime())} - {toDateTimeString(hoveredInterval.end.getTime())}
+			{toDateTimeString(hoveredInterval.start.getTime())} - {toDateTimeString(
+				hoveredInterval.end.getTime()
+			)}
 			{durationToString(
 				hoveredInterval.end.getTime() - hoveredInterval.start.getTime(),
-				apiClient.getSetting('timeline-duration-format') || '%H hours %M minutes %S seconds'
+				apiClient.getSettingString('timeline-duration-format') || '%H hours %M minutes %S seconds'
 			)}
 		{:else}
 			&nbsp;

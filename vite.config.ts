@@ -3,14 +3,14 @@ import { defineConfig } from 'vitest/config';
 import path from 'path';
 
 export default defineConfig({
-  plugins: [sveltekit()],
-  test: {
-    include: ['src/**/*.{test,spec}.{js,ts}']
-  },
-  resolve: {
-    alias: {
-      // these are the aliases and paths to them
-      '$src': path.resolve('./src')
-    }
-  }
+	plugins: [sveltekit()],
+	test: {
+		include: ['src/**/*.{test,spec}.{js,ts}']
+	},
+	resolve: {
+		alias: {
+			// these are the aliases and paths to them
+			$src: path.resolve('./src')
+		}
+	}
 });

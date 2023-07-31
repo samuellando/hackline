@@ -6,19 +6,20 @@
 	import { toDateTimeString } from '$lib/timePrint';
 	import Button from '$lib/components/Button.svelte';
 	import type ApiClient from '$lib/ApiClient';
-    import { browser } from '$app/environment';
-    import { getContext } from 'svelte';
+	import { browser } from '$app/environment';
+	import { getContext } from 'svelte';
+	import type { palette } from '$lib/types';
 
-    let apiClient: ApiClient;
-    let secondary: string;
-    if (browser) {
-        apiClient = getContext('apiClient') as ApiClient;
-        secondary = getContext('palette').secondary as string;
-    }
+	let apiClient: ApiClient;
+	let secondary: string;
+	if (browser) {
+		apiClient = getContext('apiClient') as ApiClient;
+		secondary = (getContext('palette') as palette).secondary as string;
+	}
 
-	var adding: boolean = false;
-	var editing: boolean = false;
-	var interval: interval;
+	var adding = false;
+	var editing = false;
+	var editingInterval: interval;
 	var color: string;
 
 	onMount(async () => {
@@ -26,29 +27,31 @@
 			editing = apiClient.isPreviewEdit();
 			adding = apiClient.isPreviewAdd();
 			if (adding) {
-				interval = apiClient.getPreviewInterval();
+				editingInterval = apiClient.getPreviewInterval();
 			}
 			if (editing) {
-				interval = apiClient.getPreviewInterval();
+				editingInterval = apiClient.getPreviewInterval();
 			}
-            if (editing || adding) {
-                color = apiClient.getSetting('colormap')[interval.title];
-            }
+			if (editing || adding) {
+				color = (apiClient.getSetting('colormap') as { [key: string]: string })[
+					editingInterval.title
+				];
+			}
 		});
 	});
 
 	async function commitInterval() {
 		if (apiClient.isPreview()) {
-			let previewColormap = apiClient.getSetting('colormap') || {};
+			let previewColormap = (apiClient.getSetting('colormap') || {}) as { [key: string]: string };
 			let i = apiClient.getPreviewInterval();
 			if (adding) {
 				await apiClient.timelineAdd();
 			}
 			if (editing) {
-                console.log('editing');
+				console.log('editing');
 				await apiClient.timelineEdit();
 			}
-			let colormap = apiClient.getSetting('colormap') || {};
+			let colormap = (apiClient.getSetting('colormap') || {}) as { [key: string]: string };
 			for (let key in colormap) {
 				if (key in previewColormap) {
 					colormap[key] = previewColormap[key];
@@ -70,7 +73,7 @@
 
 	function updateColor(title: string, e: Event) {
 		let t = e.target as HTMLInputElement;
-		let colormap = apiClient.getSetting('colormap') || {};
+		let colormap = (apiClient.getSetting('colormap') || {}) as { [key: string]: string };
 		colormap[title] = t.value;
 		apiClient.setSetting('colormap', colormap);
 	}
@@ -78,14 +81,24 @@
 	function updateStart(e: Event) {
 		let t = e.target as HTMLInputElement;
 		let newInterval = apiClient.getPreviewInterval();
-		newInterval.start = new Date(Date.parse(t.value));
+		newInterval = {
+			title: newInterval.title,
+			end: newInterval.end,
+			id: newInterval.id,
+			start: new Date(Date.parse(t.value))
+		};
 		apiClient.previewAdd(newInterval);
 	}
 
 	function updateEnd(e: Event) {
 		let t = e.target as HTMLInputElement;
 		let newInterval = apiClient.getPreviewInterval();
-		newInterval.end = new Date(Date.parse(t.value));
+		newInterval = {
+			title: newInterval.title,
+			start: newInterval.start,
+			id: newInterval.id,
+			end: new Date(Date.parse(t.value))
+		};
 		apiClient.previewAdd(newInterval);
 	}
 </script>
@@ -100,7 +113,7 @@
                 "
 				type="color"
 				value={color}
-				on:input={(e) => updateColor(interval.title, e)}
+				on:input={(e) => updateColor(editingInterval.title, e)}
 			/>
 			<input
 				class="
@@ -111,22 +124,22 @@
                     p-2
                 "
 				type="text"
-				bind:value={interval.title}
+				bind:value={editingInterval.title}
 				on:input={() => {
-					updateTitle(interval);
+					updateTitle(editingInterval);
 				}}
 			/>
 			<span class="w-96">
 				{durationToString(
-					interval.end.getTime() - interval.start.getTime(),
-					apiClient.getSetting('summary-duration-format') ||
+					editingInterval.end.getTime() - editingInterval.start.getTime(),
+					apiClient.getSettingString('summary-duration-format') ||
 						'%y years %m months %d days %H hours %M minutes %S seconds'
 				)}
 			</span>
 			{#if editing}
-				{toDateTimeString(interval.start.getTime())}
+				{toDateTimeString(editingInterval.start.getTime())}
 				-
-				{toDateTimeString(interval.end.getTime())}
+				{toDateTimeString(editingInterval.end.getTime())}
 			{/if}
 			{#if adding}
 				<input
@@ -138,7 +151,7 @@
                     p-2
                 "
 					type="datetime-local"
-					value={toDateTimeString(interval.start.getTime())}
+					value={toDateTimeString(editingInterval.start.getTime())}
 					on:input={updateStart}
 				/>
 				<input
@@ -150,7 +163,7 @@
                     p-2
                 "
 					type="datetime-local"
-					value={toDateTimeString(interval.end.getTime())}
+					value={toDateTimeString(editingInterval.end.getTime())}
 					on:input={updateEnd}
 				/>
 			{/if}

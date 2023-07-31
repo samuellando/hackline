@@ -12,33 +12,33 @@
 
 	let live = true;
 
-    let loading = true;
+	let loading = true;
 	onMount(() => {
-        loading = false;
+		loading = false;
 	});
 </script>
 
-	<p class="text-center mt-20">
-		Hackline is a extensible time tracking tool designed for power users.
-		<br />
-		<br />
-		Use the simple and customizable web UI and automate with the API,
-		<br />
-		<br />
-		This is currently a rough minimal viable product, check out the live demo below.
-	</p>
+<p class="text-center mt-20">
+	Hackline is a extensible time tracking tool designed for power users.
+	<br />
+	<br />
+	Use the simple and customizable web UI and automate with the API,
+	<br />
+	<br />
+	This is currently a rough minimal viable product, check out the live demo below.
+</p>
 
-	<h1 class="text-center text-4xl mt-20">Live Demo</h1>
-	<p class="text-center mt-10 mb-20">
-		scroll on the timeline to zoom in and out.
-		<br />
-		<br />
-		SHIFT + scroll to pan.
-		<br />
-		<br />
-		Shift + click and drag to add a new interval.
-	</p>
-    {#if !loading}
+<h1 class="text-center text-4xl mt-20">Live Demo</h1>
+<p class="text-center mt-10 mb-20">
+	scroll on the timeline to zoom in and out.
+	<br />
+	<br />
+	SHIFT + scroll to pan.
+	<br />
+	<br />
+	Shift + click and drag to add a new interval.
+</p>
+{#if !loading}
 	<div class="mt-10 flex justify-center">
 		<Running />
 	</div>
@@ -60,6 +60,6 @@
 	<div class="flex justify-center">
 		<Summary bind:rangeStartM bind:rangeEndM />
 	</div>
-    {:else}
-    Loading...
-    {/if}
+{:else}
+	Loading...
+{/if}
