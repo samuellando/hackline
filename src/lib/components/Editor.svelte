@@ -81,14 +81,24 @@
 	function updateStart(e: Event) {
 		let t = e.target as HTMLInputElement;
 		let newInterval = apiClient.getPreviewInterval();
-		newInterval.start = new Date(Date.parse(t.value));
+		newInterval = {
+			title: newInterval.title,
+			end: newInterval.end,
+			id: newInterval.id,
+			start: new Date(Date.parse(t.value))
+		};
 		apiClient.previewAdd(newInterval);
 	}
 
 	function updateEnd(e: Event) {
 		let t = e.target as HTMLInputElement;
 		let newInterval = apiClient.getPreviewInterval();
-		newInterval.end = new Date(Date.parse(t.value));
+		newInterval = {
+			title: newInterval.title,
+			start: newInterval.start,
+			id: newInterval.id,
+			end: new Date(Date.parse(t.value))
+		};
 		apiClient.previewAdd(newInterval);
 	}
 </script>

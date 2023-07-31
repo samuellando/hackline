@@ -1,31 +1,57 @@
 import Timeline from './Timeline';
 import type { serializableTimeline } from '$lib/Timeline';
-import type { running, settings } from '$lib/types';
+import type { running, settings, interval } from '$lib/types';
 
 export default class State {
-	timeline: Timeline;
-	running: running;
-	settings: settings;
+	readonly timeline: Timeline;
+	readonly running: running;
+	readonly settings: settings;
 
 	constructor(timeline: Timeline, running: running, settings: settings) {
 		this.timeline = timeline;
 		this.running = running;
-		this.settings = settings;
+		this.settings = JSON.parse(JSON.stringify(settings));
 	}
 
-	speculate(end: Date): void {
+	getTimeline(start?: Date, end?: Date): Timeline {
+		// Fill with running.
+		const interval: interval = {
+			title: this.running.title,
+			start: this.running.start,
+			end: new Date(),
+			id: -2
+		};
+		const copy = this.timeline.intervals.slice();
+		copy.push(interval);
+		return new Timeline(copy, start, end);
+	}
+
+	getRunning(): running {
+		const now = Date.now();
 		let running = this.running;
-		this.timeline.fill(running, end);
-		const now = new Date();
-		if (typeof running.fallback !== 'undefined' && typeof running.end !== 'undefined') {
-			running = running.fallback;
-		}
-		this.timeline.intervals.forEach((i) => {
-			if (i.start.getTime() < now.getTime() && i.end.getTime() > now.getTime()) {
-				running = { title: i.title, start: i.start, end: i.end, fallback: running };
+		let lastEnd = 0;
+		this.timeline.intervals.forEach((interval) => {
+			if (interval.start.getTime() <= now && interval.end.getTime() >= now) {
+				running = {
+					title: interval.title,
+					start: interval.start,
+					end: interval.end,
+					fallback: this.running
+				};
+			} else if (interval.end.getTime() > lastEnd) {
+				lastEnd = interval.end.getTime();
 			}
 		});
-		this.running = running;
+
+		if (!running.end) {
+			if (lastEnd > running.start.getTime()) {
+				running = {
+					title: running.title,
+					start: new Date(lastEnd)
+				};
+			}
+		}
+		return running;
 	}
 
 	static fromSerializable(serializable: serializableState): State {
@@ -40,15 +66,11 @@ export default class State {
 		return new State(new Timeline([]), { title: '', start: new Date(0) }, {});
 	}
 
-	clone(): State {
-		return State.fromSerializable(this.toObject());
-	}
-
 	toObject(): serializableState {
 		const d: serializableState = {
-			timeline: { intervals: this.timeline.getIntervals() },
+			timeline: this.timeline.toObject(),
 			running: this.running,
-			settings: this.settings
+			settings: JSON.parse(JSON.stringify(this.settings))
 		};
 		return d;
 	}

@@ -40,19 +40,19 @@
 
 				{durationToString(
 					runningInterval.end.getTime() - new Date().getTime(),
-					apiClient.getSettingString('runningInterval-duration-format') || '%H:%M:%S'
+					apiClient.getSettingString('running-duration-format') || '%H:%M:%S'
 				)}
 				remaining
 			{:else}
 				for
 				{durationToString(
 					new Date().getTime() - runningInterval.start.getTime(),
-					apiClient.getSettingString('runningInterval-duration-format') || '%H:%M:%S'
+					apiClient.getSettingString('running-duration-format') || '%H:%M:%S'
 				)}
 			{/if}
 		</div>
 		{#if typeof runningInterval.fallback != 'undefined'}
-			<h4 class="text-sm">Then {runningInterval.fallback}</h4>
+			<h4 class="text-sm">Then {runningInterval.fallback.title}</h4>
 		{/if}
 	{/if}
 </div>

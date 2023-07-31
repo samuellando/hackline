@@ -18,7 +18,7 @@
 	let primary = state.settings['background-color'] || '#413C58';
 	let secondary = state.settings['text-color'] || '#FFF1D0';
 
-	setContext('paglette', { primary, secondary });
+	setContext('palette', { primary, secondary });
 
 	if (browser) {
 		let apiClient = getContext('apiClient');

@@ -67,7 +67,7 @@
 	function drawTimeline() {
 		// Get the timeline, and edit it depending on the state.
 		let timeline: interval[];
-		timeline = apiClient.getTimeline(rangeStartM, rangeEndM).getIntervals();
+		timeline = apiClient.getTimeline(new Date(rangeStartM), new Date(rangeEndM)).intervals;
 
 		const drawHeight = 150;
 		const canvas = <HTMLCanvasElement>document.getElementById('timeline');
@@ -187,7 +187,12 @@
 					addInterval(curMin, curMin);
 					shiftHeld = true;
 				} else {
-					newInterval.end = new Date(curMin);
+					newInterval = {
+						id: newInterval.id,
+						title: newInterval.title,
+						start: new Date(newInterval.start.getTime()),
+						end: new Date(curMin)
+					};
 					apiClient.previewAdd(newInterval);
 				}
 			} else {

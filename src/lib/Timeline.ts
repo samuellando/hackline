@@ -1,23 +1,52 @@
-import type { interval, running } from './types';
-import transfromer from '$lib/trpc/transformer';
+import type { interval } from './types';
 
+/*
+ * An immutable timeline.
+ */
 export default class Timeline {
-	intervals: interval[];
+	readonly intervals: interval[];
+	readonly start: Date;
+	readonly end: Date;
 
-	constructor(intervals: interval[]) {
-		this.intervals = intervals;
-		this.cutOverlaps();
+	constructor(intervals: interval[] | Timeline, start?: Date, end?: Date) {
+		let copy: interval[];
+		if (intervals instanceof Timeline) {
+			if (
+				start &&
+				end &&
+				(start.getTime() !== intervals.start.getTime() || end.getTime() !== intervals.end.getTime())
+			) {
+				copy = intervals.intervals.slice();
+				this.trim(copy, start, end);
+				this.start = start;
+				this.end = end;
+			} else {
+				copy = intervals.intervals;
+				this.start = intervals.start;
+				this.end = intervals.end;
+			}
+		} else {
+			// We need to make a copy here because it's not readonly.
+			copy = intervals.slice();
+			if (start && end) {
+				this.trim(copy, start, end);
+				this.start = start;
+				this.end = end;
+			} else {
+				this.start = new Date(Math.min(...copy.map((e) => e.start.getTime())));
+				this.end = new Date(Math.max(...copy.map((e) => e.end.getTime())));
+			}
+			// Because there may be overlaps.
+			copy = this.cutOverlaps(copy);
+		}
+		this.intervals = copy;
 	}
 
-	getIntervals(): interval[] {
-		const tl = transfromer.parse(transfromer.stringify(this.intervals));
-		return tl as interval[];
-	}
-
-	add(interval: interval) {
+	add(interval: interval): Timeline {
+		const copy = this.intervals.slice();
 		// Cut existing intervals around the new one.
-		for (let i = 0; i < this.intervals.length; i++) {
-			const e = this.intervals[i];
+		for (let i = 0; i < copy.length; i++) {
+			const e = copy[i];
 			/*
 			 * I find it nice to do this with bits instead of 20 ifs.
 			 *
@@ -53,87 +82,67 @@ export default class Timeline {
 
 			switch (c) {
 				case 0b0100:
-					e.end = interval.start;
+					copy[i] = {
+						id: e.id,
+						title: e.title,
+						start: e.start,
+						end: interval.start
+					};
 					break;
 				case 0b1100:
-					this.intervals.splice(i, 1);
+					copy.splice(i, 1);
 					i--;
 					break;
 				case 0b1101:
-					e.start = interval.end;
+					copy[i] = {
+						id: e.id,
+						title: e.title,
+						start: interval.end,
+						end: e.end
+					};
 					break;
 				case 0b0101:
-					this.intervals.splice(i + 1, 0, {
-						id: -1,
+					copy.splice(i + 1, 0, {
+						id: e.id > 0 ? -1 : e.id, // If running keep it as -2.
 						title: e.title,
 						start: interval.end,
 						end: e.end
 					});
-					e.end = interval.start;
+					copy[i] = {
+						id: e.id,
+						title: e.title,
+						start: e.start,
+						end: interval.start
+					};
 					i++;
 					break;
 			}
 		}
 
 		let inserted = false;
-		for (let i = 0; i < this.intervals.length; i++) {
-			if (this.intervals[i].start >= interval.end) {
-				this.intervals.splice(i, 0, interval);
+		for (let i = 0; i < copy.length; i++) {
+			if (copy[i].start >= interval.end) {
+				copy.splice(i, 0, interval);
 				inserted = true;
 				break;
 			}
 		}
 		// If it wasnt insereted, add to the end.
 		if (!inserted) {
-			this.intervals.push(interval);
+			copy.push(interval);
 		}
+
+		return new Timeline(copy);
 	}
 
-	update(interval: interval) {
-		for (let i = 0; i < this.intervals.length; i++) {
-			if (this.intervals[i].id == interval.id) {
-				this.intervals[i] = interval;
+	update(interval: interval): Timeline {
+		const copy = this.intervals.slice();
+		for (let i = 0; i < copy.length; i++) {
+			if (copy[i].id == interval.id) {
+				copy[i] = interval;
 			}
 		}
-	}
-
-	trim(start: Date, end: Date) {
-		for (let i = 0; i < this.intervals.length; i++) {
-			if (this.intervals[i].end < start) {
-				// Remove it.
-				this.intervals.splice(i, 1);
-				i--;
-			} else if (this.intervals[i].start < start) {
-				// Move the beginging.
-				this.intervals[i].start = start;
-			} else {
-				break;
-			}
-		}
-		for (let i = this.intervals.length - 1; i >= 0; i--) {
-			if (this.intervals[i].start > end) {
-				// Remove it.
-				this.intervals.splice(i, 1);
-			} else if (this.intervals[i].end > end) {
-				// Move the begining.
-				this.intervals[i].end = end;
-			} else {
-				break;
-			}
-		}
-	}
-
-	fill(running: running, end: Date) {
-		// Fill the space at the end with the running interval.
-		const ranges = this.getMissingRanges(running.start, end);
-		ranges.forEach((e) => {
-			this.add({
-				id: -2,
-				title: running.title,
-				start: new Date(Math.max(e.start.getTime(), running.start.getTime())),
-				end: e.end
-			});
-		});
+		return new Timeline(copy);
 	}
 
 	getOutOfSyncRange(): { start: Date; end: Date } | null {
@@ -191,7 +200,7 @@ export default class Timeline {
 		return result;
 	}
 
-	merge(timeline: Timeline) {
+	merge(timeline: Timeline): Timeline {
 		const intervals = this.intervals.concat(timeline.intervals);
 		intervals.sort((a, b) => a.start.getTime() - b.start.getTime());
 
@@ -207,27 +216,37 @@ export default class Timeline {
 			} else {
 				if (range.end > lastMergedRange.end) {
 					if (range.id == lastMergedRange.id) {
-						lastMergedRange.end = range.end;
+						mergedTimeline[mergedTimeline.length - 1] = {
+							id: lastMergedRange.id,
+							title: lastMergedRange.title,
+							start: lastMergedRange.start,
+							end: range.end
+						};
 					} else {
-						lastMergedRange.end = range.start;
+						mergedTimeline[mergedTimeline.length - 1] = {
+							id: lastMergedRange.id,
+							title: lastMergedRange.title,
+							start: lastMergedRange.start,
+							end: range.start
+						};
 						mergedTimeline.push(range);
 					}
 				}
 			}
 		});
 
-		this.intervals = intervals;
+		return new Timeline(mergedTimeline);
 	}
 
-	private cutOverlaps() {
-		this.intervals.sort((a, b) => a.start.getTime() - b.start.getTime());
+	private cutOverlaps(intervals: interval[]): interval[] {
+		intervals.sort((a, b) => a.start.getTime() - b.start.getTime());
 
 		const s: interval[] = [];
 		const starts: { start: Date; ref: interval }[] = [];
 
 		let t = new Date(0);
 
-		this.intervals.forEach((e) => {
+		intervals.forEach((e) => {
 			// Bring t to the start of this interval.
 			while (s.length > 0 && t < e.start) {
 				const i = s.pop() as interval;
@@ -262,7 +281,7 @@ export default class Timeline {
 		}
 
 		// Finally convert tointervals.
-		this.intervals = [];
+		intervals = [];
 		for (let i = 0; i < starts.length; i++) {
 			const ref = starts[i].ref;
 			const start = starts[i].start;
@@ -275,7 +294,7 @@ export default class Timeline {
 			}
 			// If there is a gap, it will create starts at the end of the intervals, we should ignore them.
 			if (start.getTime() != next.getTime()) {
-				this.intervals.push({
+				intervals.push({
 					id: start.getTime() == ref.start.getTime() ? ref.id : -1,
 					title: ref.title,
 					start: new Date(start),
@@ -283,10 +302,48 @@ export default class Timeline {
 				});
 			}
 		}
+		return intervals;
+	}
+
+	private trim(intervals: interval[], start: Date, end: Date) {
+		for (let i = 0; i < intervals.length; i++) {
+			if (intervals[i].end < start) {
+				// Remove it.
+				intervals.splice(i, 1);
+				i--;
+			} else if (intervals[i].start < start) {
+				// Move the beginging.
+				intervals[i] = {
+					id: intervals[i].id,
+					title: intervals[i].title,
+					start: start,
+					end: intervals[i].end
+				};
+			} else {
+				break;
+			}
+		}
+		for (let i = intervals.length - 1; i >= 0; i--) {
+			if (intervals[i].start > end) {
+				// Remove it.
+				intervals.splice(i, 1);
+			} else if (intervals[i].end > end) {
+				// Move the begining.
+				intervals[i] = {
+					id: intervals[i].id,
+					title: intervals[i].title,
+					start: intervals[i].start,
+					end: end
+				};
+			} else {
+				break;
+			}
+		}
 	}
 
 	toObject(): serializableTimeline {
-		return { intervals: this.intervals };
+		const copy = this.intervals.slice();
+		return { intervals: copy };
 	}
 
 	static fromSerializable(serializable: serializableTimeline): Timeline {

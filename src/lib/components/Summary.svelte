@@ -36,7 +36,7 @@
 		let logs: interval[];
 		let colormap: { [title: string]: string };
 		if (typeof apiClient !== 'undefined') {
-			logs = apiClient.getTimeline(rangeStart, rangeEnd).getIntervals().reverse();
+			logs = apiClient.getTimeline(new Date(rangeStart), new Date(rangeEnd)).intervals.reverse();
 			colormap = apiClient.getSetting('colormap') as { [key: string]: string };
 			if (colormap == null) {
 				colormap = {};

@@ -50,7 +50,6 @@ export async function getTimeline(id: string, start: Date, end: Date): Promise<T
 		}
 	});
 	const timeline = new Timeline(intervals);
-	timeline.trim(start, end);
 	if (timeline.getOutOfSyncRange() != null) {
 		await fixSplices(id, timeline);
 		return getTimeline(id, start, end);

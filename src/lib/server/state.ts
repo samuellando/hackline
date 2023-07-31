@@ -72,19 +72,13 @@ export async function getState(id: string, start: Date, end: Date): Promise<Stat
 		});
 	}
 
-	console.log(data.intervals);
 	const timeline = new Timeline(data.intervals);
-	timeline.trim(start, end);
 	await fixSplices(id, timeline);
 	return new State(timeline, data.running, settings);
 }
 
 export function getDemoState(): State {
 	const timelineRaw = demoTimeline;
-	const running: running = {
-		title: demoRunning.title,
-		start: new Date(Date.parse(demoRunning.start))
-	};
 	const settings = demoSettings;
 
 	// 10 minutes ago.
@@ -100,7 +94,10 @@ export function getDemoState(): State {
 		};
 	});
 
-	running.start = new Date(end);
+	const running: running = {
+		title: demoRunning.title,
+		start: new Date(end)
+	};
 
 	return new State(new Timeline(timeline), running, settings);
 }

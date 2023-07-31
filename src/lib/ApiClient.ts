@@ -1,6 +1,6 @@
 import type { interval, settings, running, settingsValue } from '$lib/types';
 import State from '$lib/State';
-import type Timeline from '$lib/Timeline';
+import Timeline from '$lib/Timeline';
 import { derived, writable, get } from 'svelte/store';
 import type { Writable, Subscriber } from 'svelte/store';
 
@@ -50,7 +50,7 @@ export default class ApiClient {
 		this.trpc = trpc;
 
 		this.state = State.empty();
-		this.syncQueue = Promise.resolve(this.state.clone());
+		this.syncQueue = Promise.resolve(this.state);
 
 		if (typeof state == 'undefined') {
 			// Get the state from local storage, or pull it from the server.
@@ -77,7 +77,7 @@ export default class ApiClient {
 		} else {
 			// Set this state.
 			console.log('using provided state.');
-			this.commit(Date.now(), state.clone());
+			this.commit(Date.now(), state);
 			this.readyQueue = this.syncQueue;
 		}
 		if (this.trpc != null) {
@@ -128,37 +128,39 @@ export default class ApiClient {
 	private pullState(): Promise<State> {
 		this.syncQueue = this.syncQueue.then(async () => {
 			console.log('Pulling full state from server.');
-			const start = Date.now();
 			if (this.trpc != null) {
+				const start = Date.now();
 				const state = await this.trpc.getState.query({
 					start: new Date(this.lastStart),
 					end: new Date(this.lastEnd)
 				});
 				return this.commit(start, state);
 			} else {
-				return this.state.clone();
+				return this.state;
 			}
 		});
 		return this.syncQueue;
 	}
 
 	/*
-	 * Pull most likely update infrom from the server.
+	 * Pull most likely update infromation from the server.
 	 * Should add to the sync queue.
 	 */
 	private updateState(): Promise<State> {
 		this.syncQueue = this.syncQueue.then(async () => {
 			console.log('Updateing state from server.');
-			const state = this.state.clone();
+			let state = this.state;
 			if (this.trpc != null) {
 				let start = Date.now();
-				state.running = await this.trpc.getRunning.query();
+				const running = await this.trpc.getRunning.query();
+				state = new State(state.timeline, running, state.settings);
 				this.commit(start, state);
-				const range = state.timeline.getOutOfSyncRange();
+				const range = state.getTimeline().getOutOfSyncRange();
 				if (range != null) {
 					start = Date.now();
 					const tl2 = await this.trpc.getTimeline.query(range);
-					state.timeline.merge(tl2);
+					const tl3 = state.timeline.merge(tl2);
+					state = new State(tl3, running, state.settings);
 					this.commit(start, state);
 				}
 				const ranges = state.timeline.getMissingRanges(
@@ -168,13 +170,12 @@ export default class ApiClient {
 				for (const range of ranges) {
 					start = Date.now();
 					const tl2 = await this.trpc.getTimeline.query(range);
-					state.timeline.merge(tl2);
+					const tl3 = state.timeline.merge(tl2);
+					state = new State(tl3, running, state.settings);
 					this.commit(start, state);
 				}
-				return state;
-			} else {
-				return state;
 			}
+			return state;
 		});
 		return this.syncQueue;
 	}
@@ -224,9 +225,9 @@ export default class ApiClient {
 
 	getSettings(): settings {
 		if (this.isPreview() && typeof this.previewSettings != 'undefined') {
-			return deepClone(this.previewSettings);
+			return this.previewSettings;
 		}
-		return deepClone(this.state.settings);
+		return this.state.settings;
 	}
 
 	getSetting(key: string): settingsValue {
@@ -237,19 +238,20 @@ export default class ApiClient {
 		if (typeof this.getSettings()[key] == 'string') {
 			return this.getSettings()[key] as string;
 		} else {
-			throw new Error('Setting is not a string.');
+			console.error('Setting is not a string.');
+			return '';
 		}
 	}
 
 	setSettings(settings: settings): Promise<State> {
-		const state = this.state.clone();
+		let state = this.state;
 		if (this.isPreview()) {
 			this.previewSettings = settings;
-			state.settings = settings;
+			state = new State(state.timeline, state.running, settings);
 			this.previewUpdates.update((n) => n + 1);
 			return Promise.resolve(state);
 		} else {
-			state.settings = settings;
+			state = new State(state.timeline, state.running, settings);
 			this.commit(Date.now(), state);
 			this.syncQueue = this.syncQueue.then(async () => {
 				if (this.trpc != null) {
@@ -263,21 +265,34 @@ export default class ApiClient {
 	}
 
 	setSetting(key: string, value: settingsValue): Promise<State> {
-		const settings = this.getSettings();
-		settings[key] = deepClone(value);
+		const settings = {
+			...this.getSettings(),
+			[key]: deepClone(value)
+		};
 		return this.setSettings(settings);
 	}
 
 	getRunning(): running {
-		const state = this.state.clone();
-		state.speculate(new Date());
-		return state.running;
+		return this.state.getRunning();
 	}
 
 	setRunning(title: string): Promise<State> {
-		const state = this.state.clone();
-		state.speculate(new Date());
-		state.running = { title: title, start: new Date() };
+		const runningInterval = {
+			title: this.state.running.title,
+			start: this.state.running.start,
+			end: new Date(),
+			id: -1
+		};
+		const copy = this.state.timeline.intervals.slice();
+		copy.push(runningInterval);
+		const state = new State(
+			new Timeline(copy),
+			{
+				title: title,
+				start: new Date()
+			},
+			this.state.settings
+		);
 		this.syncQueue = this.syncQueue.then(async () => {
 			if (this.trpc != null) {
 				await this.trpc.setRunning.mutate({ title: title });
@@ -288,32 +303,17 @@ export default class ApiClient {
 		return this.syncQueue;
 	}
 
-	getTimeline(
-		start: number | undefined = undefined,
-		end: number | undefined = undefined
-	): Timeline {
-		const state = this.state.clone();
-
-		if (typeof start == 'undefined' || typeof end == 'undefined') {
-			start = this.lastStart;
-			end = this.lastEnd;
-		} else {
-			this.lastStart = start;
-			this.lastEnd = end;
-		}
+	getTimeline(start?: Date, end?: Date): Timeline {
+		let tl = this.state.getTimeline(start, end);
 
 		if (typeof this.previewInterval != 'undefined') {
 			if (this.isPreviewAdd()) {
-				state.timeline.add(this.previewInterval);
+				tl = tl.add(this.previewInterval);
 			} else if (this.isPreviewEdit()) {
-				state.timeline.update(this.previewInterval);
+				tl = tl.update(this.previewInterval);
 			}
 		}
-
-		state.timeline.trim(new Date(start), new Date(end));
-		state.speculate(new Date(end));
-
-		return state.timeline;
+		return tl;
 	}
 
 	timelineAdd(interval: interval | undefined = undefined): Promise<State> {
@@ -321,19 +321,23 @@ export default class ApiClient {
 			interval = this.getPreviewInterval();
 			this.stopPreview();
 		}
-		const state = this.state.clone();
-		state.timeline.add(interval);
+
+		let state = new State(
+			this.state.timeline.add(interval),
+			this.state.running,
+			this.state.settings
+		);
 		this.syncQueue = this.syncQueue.then(async () => {
 			this.commit(Date.now(), state);
 			if (this.trpc != null) {
 				const n = await this.trpc.addInterval.mutate(interval as interval);
-				state.timeline.add(n);
 				// So that we have the most up to date ID.
+				state = new State(state.timeline.add(n), state.running, state.settings);
 				this.commit(Date.now(), state);
 				const range = state.timeline.getOutOfSyncRange();
 				if (range != null) {
 					const tl2 = await this.trpc.getTimeline.query(range);
-					state.timeline.merge(tl2);
+					state = new State(state.timeline.merge(tl2), state.running, state.settings);
 					this.commit(Date.now(), state);
 				}
 			}
@@ -347,13 +351,16 @@ export default class ApiClient {
 			interval = this.getPreviewInterval();
 			this.stopPreview();
 		}
-		const state = this.state.clone();
-		state.timeline.update(interval);
+		const state = new State(
+			this.state.timeline.update(interval),
+			this.state.running,
+			this.state.settings
+		);
 		this.syncQueue = this.syncQueue.then(async () => {
+			this.commit(Date.now(), state);
 			if (this.trpc != null) {
 				await this.trpc.updateInterval.mutate(interval as interval);
 			}
-			this.commit(Date.now(), state);
 			return state;
 		});
 		return this.syncQueue;
