@@ -16,7 +16,7 @@ export async function fixSplices(id: string, timeline: Timeline) {
 }
 
 export async function getTimeline(id: string, start: Date, end: Date): Promise<Timeline> {
-	let intervals = await prisma.interval.findMany({
+	const intervals = await prisma.interval.findMany({
 		select: {
 			start: true,
 			end: true,
@@ -49,7 +49,7 @@ export async function getTimeline(id: string, start: Date, end: Date): Promise<T
 			]
 		}
 	});
-	let timeline = new Timeline(intervals);
+	const timeline = new Timeline(intervals);
 	timeline.trim(start, end);
 	if (timeline.getOutOfSyncRange() != null) {
 		await fixSplices(id, timeline);
@@ -91,7 +91,7 @@ export async function addInterval(id: string, interval: interval): Promise<inter
 		}
 	});
 
-	let n = await prisma.interval.create({
+	const n = await prisma.interval.create({
 		data: {
 			title: interval.title,
 			start: interval.start,
@@ -110,7 +110,7 @@ export async function addInterval(id: string, interval: interval): Promise<inter
 }
 
 export async function updateInterval(id: string, interval: interval): Promise<interval> {
-	let n = await prisma.interval.update({
+	const n = await prisma.interval.update({
 		data: {
 			title: interval.title
 		},

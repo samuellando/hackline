@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
+	import type { palette } from '$lib/types';
 
-	export let onClick: Function;
+	export let onClick: () => void;
 	export let text: string;
-	let primary: string = getContext('palette').primary;
-	let secondary: string = getContext('palette').secondary;
+	let primary: string = (getContext('palette') as palette).primary;
+	let secondary: string = (getContext('palette') as palette).secondary;
 </script>
 
 <div style="--primary: {primary}; --secondary: {secondary}">

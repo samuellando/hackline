@@ -5,9 +5,9 @@ export async function getUser(apiKey: string | null): Promise<string | null> {
 	if (!apiKey) {
 		return null;
 	}
-	let prefix = apiKey.split('.')[0];
-	let key = apiKey.split('.')[1];
-	let res = await prisma.apiKey.findUnique({
+	const prefix = apiKey.split('.')[0];
+	const key = apiKey.split('.')[1];
+	const res = await prisma.apiKey.findUnique({
 		select: {
 			userId: true,
 			key: true
@@ -38,7 +38,9 @@ export async function deleteApiKey(userId: string) {
 		await prisma.apiKey.delete({
 			where: { userId }
 		});
-	} catch (e) {}
+	} catch (e) {
+		//pass;
+	}
 }
 
 export async function generateKey(userId: string): Promise<string> {
@@ -52,7 +54,9 @@ export async function generateKey(userId: string): Promise<string> {
 		await prisma.apiKey.delete({
 			where: { userId }
 		});
-	} catch (e) {}
+	} catch (e) {
+		//pass
+	}
 
 	try {
 		await prisma.apiKey.create({

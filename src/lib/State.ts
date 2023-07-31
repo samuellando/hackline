@@ -16,7 +16,7 @@ export default class State {
 	speculate(end: Date): void {
 		let running = this.running;
 		this.timeline.fill(running, end);
-		let now = new Date();
+		const now = new Date();
 		if (typeof running.fallback !== 'undefined' && typeof running.end !== 'undefined') {
 			running = running.fallback;
 		}
@@ -45,7 +45,7 @@ export default class State {
 	}
 
 	toObject(): serializableState {
-		let d: serializableState = {
+		const d: serializableState = {
 			timeline: { intervals: this.timeline.getIntervals() },
 			running: this.running,
 			settings: this.settings

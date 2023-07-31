@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, afterUpdate } from 'svelte';
+	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
 	import { getContext } from 'svelte';
 	import type ApiClient from '$lib/ApiClient';
@@ -15,7 +15,7 @@
 	let loading = true;
 
 	import { JSONEditor, Mode } from 'svelte-jsoneditor';
-	import type { Content, TextContent, JSONContent } from 'svelte-jsoneditor';
+	import type { Content, TextContent, JSONContent, ContentErrors } from 'svelte-jsoneditor';
 
 	let apiKey: string;
 	onMount(async () => {
@@ -34,7 +34,7 @@
 
 	let content: Content;
 
-	let errors: any | null = null;
+	let errors: ContentErrors | null = null;
 
 	function save() {
 		let newSettings;
@@ -48,10 +48,6 @@
 			apiClient.setSettings(newSettings);
 		}
 	}
-
-	onMount(async () => {});
-
-	afterUpdate(() => {});
 </script>
 
 {#if !loading}
@@ -61,7 +57,7 @@
 		<JSONEditor
 			bind:content
 			mode={Mode.text}
-			onChange={(updatedContent, previousContent, { contentErrors, patchResult }) => {
+			onChange={(_b, _a, { contentErrors }) => {
 				errors = contentErrors;
 			}}
 		/>

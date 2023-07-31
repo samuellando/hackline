@@ -73,25 +73,25 @@ export async function getState(id: string, start: Date, end: Date): Promise<Stat
 	}
 
 	console.log(data.intervals);
-	let timeline = new Timeline(data.intervals);
+	const timeline = new Timeline(data.intervals);
 	timeline.trim(start, end);
 	await fixSplices(id, timeline);
 	return new State(timeline, data.running, settings);
 }
 
 export function getDemoState(): State {
-	let timelineRaw = demoTimeline;
-	let running: running = {
+	const timelineRaw = demoTimeline;
+	const running: running = {
 		title: demoRunning.title,
 		start: new Date(Date.parse(demoRunning.start))
 	};
-	let settings = demoSettings;
+	const settings = demoSettings;
 
 	// 10 minutes ago.
-	let end = Date.now() - 10 * 60 * 1000;
-	let last = Date.parse(timelineRaw[timelineRaw.length - 1].end);
-	let shift = end - last;
-	let timeline: interval[] = timelineRaw.map((interval) => {
+	const end = Date.now() - 10 * 60 * 1000;
+	const last = Date.parse(timelineRaw[timelineRaw.length - 1].end);
+	const shift = end - last;
+	const timeline: interval[] = timelineRaw.map((interval) => {
 		return {
 			id: interval.id,
 			title: interval.title,

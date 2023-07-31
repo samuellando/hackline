@@ -1,4 +1,4 @@
-import type { interval, settings, running } from '$lib/types';
+import type { interval, settings, running, settingsValue } from '$lib/types';
 import State from '$lib/State';
 import type Timeline from '$lib/Timeline';
 import { derived, writable, get } from 'svelte/store';
@@ -44,8 +44,8 @@ export default class ApiClient {
 	constructor(
 		trpc: trpcClient | null,
 		state: State | undefined = undefined,
-		pullInterval: number = 60000,
-		updateInterval: number = 10000
+		pullInterval = 60000,
+		updateInterval = 10000
 	) {
 		this.trpc = trpc;
 
@@ -57,7 +57,7 @@ export default class ApiClient {
 			let loaded = false;
 			if (typeof localStorage != 'undefined') {
 				console.log('Loading state from local storage.');
-				var s = localStorage.getItem('apiclient.state');
+				const s = localStorage.getItem('apiclient.state');
 				try {
 					if (s != null) {
 						this.state = State.fromSerializable(JSON.parse(s));
@@ -104,7 +104,7 @@ export default class ApiClient {
 	/*
 	 * Can subscribe to updates to the state, and to previews.
 	 */
-	subscribe(f: Subscriber<any>) {
+	subscribe(f: Subscriber<number[]>) {
 		return derived([this.updateTimestamp, this.previewUpdates as Writable<number>], ([lc, pu]) => [
 			lc,
 			pu
@@ -128,9 +128,9 @@ export default class ApiClient {
 	private pullState(): Promise<State> {
 		this.syncQueue = this.syncQueue.then(async () => {
 			console.log('Pulling full state from server.');
-			let start = Date.now();
+			const start = Date.now();
 			if (this.trpc != null) {
-				let state = await this.trpc.getState.query({
+				const state = await this.trpc.getState.query({
 					start: new Date(this.lastStart),
 					end: new Date(this.lastEnd)
 				});
@@ -149,25 +149,25 @@ export default class ApiClient {
 	private updateState(): Promise<State> {
 		this.syncQueue = this.syncQueue.then(async () => {
 			console.log('Updateing state from server.');
-			let state = this.state.clone();
+			const state = this.state.clone();
 			if (this.trpc != null) {
 				let start = Date.now();
 				state.running = await this.trpc.getRunning.query();
 				this.commit(start, state);
-				let range = state.timeline.getOutOfSyncRange();
+				const range = state.timeline.getOutOfSyncRange();
 				if (range != null) {
 					start = Date.now();
-					let tl2 = await this.trpc.getTimeline.query(range);
+					const tl2 = await this.trpc.getTimeline.query(range);
 					state.timeline.merge(tl2);
 					this.commit(start, state);
 				}
-				let ranges = state.timeline.getMissingRanges(
+				const ranges = state.timeline.getMissingRanges(
 					new Date(this.lastStart),
 					new Date(this.lastEnd)
 				);
-				for (let range of ranges) {
+				for (const range of ranges) {
 					start = Date.now();
-					let tl2 = await this.trpc.getTimeline.query(range);
+					const tl2 = await this.trpc.getTimeline.query(range);
 					state.timeline.merge(tl2);
 					this.commit(start, state);
 				}
@@ -180,7 +180,7 @@ export default class ApiClient {
 	}
 
 	previewAdd(interval: interval) {
-		let i = deepClone(interval);
+		const i = deepClone(interval);
 		this.previewMode = previewModes.add;
 		this.previewSettings = deepClone(this.state.settings);
 		this.previewInterval = i;
@@ -188,7 +188,7 @@ export default class ApiClient {
 	}
 
 	previewEdit(interval: interval) {
-		let i = deepClone(interval);
+		const i = deepClone(interval);
 		this.previewMode = previewModes.edit;
 		this.previewSettings = deepClone(this.state.settings);
 		this.previewInterval = i;
@@ -229,12 +229,20 @@ export default class ApiClient {
 		return deepClone(this.state.settings);
 	}
 
-	getSetting(key: string): any {
+	getSetting(key: string): settingsValue {
 		return this.getSettings()[key];
 	}
 
+	getSettingString(key: string): string {
+		if (typeof this.getSettings()[key] == 'string') {
+			return this.getSettings()[key] as string;
+		} else {
+			throw new Error('Setting is not a string.');
+		}
+	}
+
 	setSettings(settings: settings): Promise<State> {
-		let state = this.state.clone();
+		const state = this.state.clone();
 		if (this.isPreview()) {
 			this.previewSettings = settings;
 			state.settings = settings;
@@ -254,20 +262,20 @@ export default class ApiClient {
 		}
 	}
 
-	setSetting(key: string, value: any): Promise<State> {
-		let settings = this.getSettings();
+	setSetting(key: string, value: settingsValue): Promise<State> {
+		const settings = this.getSettings();
 		settings[key] = deepClone(value);
 		return this.setSettings(settings);
 	}
 
 	getRunning(): running {
-		let state = this.state.clone();
+		const state = this.state.clone();
 		state.speculate(new Date());
 		return state.running;
 	}
 
 	setRunning(title: string): Promise<State> {
-		let state = this.state.clone();
+		const state = this.state.clone();
 		state.speculate(new Date());
 		state.running = { title: title, start: new Date() };
 		this.syncQueue = this.syncQueue.then(async () => {
@@ -284,7 +292,7 @@ export default class ApiClient {
 		start: number | undefined = undefined,
 		end: number | undefined = undefined
 	): Timeline {
-		let state = this.state.clone();
+		const state = this.state.clone();
 
 		if (typeof start == 'undefined' || typeof end == 'undefined') {
 			start = this.lastStart;
@@ -313,18 +321,18 @@ export default class ApiClient {
 			interval = this.getPreviewInterval();
 			this.stopPreview();
 		}
-		let state = this.state.clone();
+		const state = this.state.clone();
 		state.timeline.add(interval);
 		this.syncQueue = this.syncQueue.then(async () => {
 			this.commit(Date.now(), state);
 			if (this.trpc != null) {
-				let n = await this.trpc.addInterval.mutate(interval as interval);
+				const n = await this.trpc.addInterval.mutate(interval as interval);
 				state.timeline.add(n);
 				// So that we have the most up to date ID.
 				this.commit(Date.now(), state);
-				let range = state.timeline.getOutOfSyncRange();
+				const range = state.timeline.getOutOfSyncRange();
 				if (range != null) {
-					let tl2 = await this.trpc.getTimeline.query(range);
+					const tl2 = await this.trpc.getTimeline.query(range);
 					state.timeline.merge(tl2);
 					this.commit(Date.now(), state);
 				}
@@ -339,7 +347,7 @@ export default class ApiClient {
 			interval = this.getPreviewInterval();
 			this.stopPreview();
 		}
-		let state = this.state.clone();
+		const state = this.state.clone();
 		state.timeline.update(interval);
 		this.syncQueue = this.syncQueue.then(async () => {
 			if (this.trpc != null) {

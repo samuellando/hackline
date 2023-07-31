@@ -3,12 +3,13 @@
 	import { toDateTimeString } from '$lib/timePrint';
 	import { browser } from '$app/environment';
 	import { getContext } from 'svelte';
+	import type { palette } from '$lib/types';
 
 	let primary: string;
 	let secondary: string;
 	if (browser) {
-		primary = getContext('palette').primary;
-		secondary = getContext('palette').secondary;
+		primary = (getContext('palette') as palette).primary;
+		secondary = (getContext('palette') as palette).secondary;
 	}
 
 	type option = {

@@ -12,10 +12,17 @@ export interface running {
 	fallback?: running;
 }
 
+export type settingsValue = { [key: string]: settingsValue | string } | string | number | boolean;
+
 export interface settings {
-	[key: string]: any;
+	[key: string]: settingsValue;
 }
 
 export interface apiKey {
 	apiKey: string;
 }
+
+export type palette = {
+	primary: string;
+	secondary: string;
+};

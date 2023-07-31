@@ -18,7 +18,7 @@ export async function getSettings(id: string): Promise<settings> {
 }
 
 export async function setSettings(id: string, value: settings): Promise<settings> {
-	let settings = await prisma.settings.update({
+	const settings = await prisma.settings.update({
 		data: { value: value },
 		select: {
 			value: true
@@ -31,7 +31,7 @@ export async function setSettings(id: string, value: settings): Promise<settings
 export async function setSetting(id: string, value: settings): Promise<settings> {
 	let settings = await getSettings(id);
 	settings = { ...settings, ...value };
-	let newSettings = await prisma.settings.update({
+	const newSettings = await prisma.settings.update({
 		data: { value: settings },
 		select: {
 			value: true

@@ -13,9 +13,9 @@
 
 	var interval: ReturnType<typeof setInterval>;
 	onMount(() => {
-		running = apiClient.getRunning();
+		runningInterval = apiClient.getRunning();
 		interval = setInterval(() => {
-			running = apiClient.getRunning();
+			runningInterval = apiClient.getRunning();
 		}, 1000);
 	});
 
@@ -23,7 +23,7 @@
 		clearInterval(interval);
 	});
 
-	let running: running | null;
+	let runningInterval: running | null;
 </script>
 
 <div
@@ -32,27 +32,27 @@
         text-center
     "
 >
-	{#if running != null}
+	{#if runningInterval != null}
 		<div>
-			{running.title}
-			{#if typeof running.end != 'undefined'}
+			{runningInterval.title}
+			{#if typeof runningInterval.end != 'undefined'}
 				with
 
 				{durationToString(
-					running.end.getTime() - new Date().getTime(),
-					apiClient.getSetting('running-duration-format') || '%H:%M:%S'
+					runningInterval.end.getTime() - new Date().getTime(),
+					apiClient.getSettingString('runningInterval-duration-format') || '%H:%M:%S'
 				)}
 				remaining
 			{:else}
 				for
 				{durationToString(
-					new Date().getTime() - running.start.getTime(),
-					apiClient.getSetting('running-duration-format') || '%H:%M:%S'
+					new Date().getTime() - runningInterval.start.getTime(),
+					apiClient.getSettingString('runningInterval-duration-format') || '%H:%M:%S'
 				)}
 			{/if}
 		</div>
-		{#if typeof running.fallback != 'undefined'}
-			<h4 class="text-sm">Then {running.fallback}</h4>
+		{#if typeof runningInterval.fallback != 'undefined'}
+			<h4 class="text-sm">Then {runningInterval.fallback}</h4>
 		{/if}
 	{/if}
 </div>

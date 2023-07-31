@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { durationToString } from '$lib/timePrint';
 
-	import type { interval } from '$lib/types';
-	import { onMount, onDestroy } from 'svelte';
+	import type { interval, palette } from '$lib/types';
+	import { onMount } from 'svelte';
 	import Button from '$lib/components/Button.svelte';
 	import type ApiClient from '$lib/ApiClient';
 	import { browser } from '$app/environment';
@@ -12,21 +12,19 @@
 	let secondary: string;
 	if (browser) {
 		apiClient = getContext('apiClient') as ApiClient;
-		secondary = getContext('palette').secondary;
+		secondary = (getContext('palette') as palette).secondary;
 	}
 
 	export let rangeStartM: number;
 	export let rangeEndM: number;
 
-	var interval: ReturnType<typeof setInterval>;
-
-	type summary = {
+	type Summary = {
 		title: string;
 		color: string;
 		totalTime: number;
 	};
 
-	var summary: summary[];
+	var summary: Summary[];
 
 	onMount(async () => {
 		apiClient.subscribe(() => {
@@ -34,16 +32,12 @@
 		});
 	});
 
-	onDestroy(() => {
-		clearInterval(interval);
-	});
-
 	function getSummary(rangeStart = rangeStartM, rangeEnd = rangeEndM) {
 		let logs: interval[];
 		let colormap: { [title: string]: string };
 		if (typeof apiClient !== 'undefined') {
 			logs = apiClient.getTimeline(rangeStart, rangeEnd).getIntervals().reverse();
-			colormap = apiClient.getSetting('colormap');
+			colormap = apiClient.getSetting('colormap') as { [key: string]: string };
 			if (colormap == null) {
 				colormap = {};
 			}
@@ -51,7 +45,7 @@
 			return [];
 		}
 
-		let s: { [title: string]: summary } = {};
+		let s: { [title: string]: Summary } = {};
 		logs.forEach((i) => {
 			if (i.title in s) {
 				s[i.title].totalTime += i.end.getTime() - i.start.getTime();
@@ -68,12 +62,12 @@
 
 	function update(title: string, e: Event) {
 		let t = e.target as HTMLInputElement;
-		let colormap = apiClient.getSetting('colormap') || {};
+		let colormap = (apiClient.getSetting('colormap') || {}) as { [key: string]: string };
 		colormap[title] = t.value;
 		apiClient.setSetting('colormap', colormap);
 	}
 
-	function addByTitle(title: string = '') {
+	function addByTitle(title = '') {
 		let start = new Date((rangeStartM + rangeEndM) / 2);
 		let end = new Date(start.getTime() + 15 * 60 * 1000);
 		let interval: interval = { id: -1, title: title, start: start, end: end };
@@ -101,7 +95,7 @@
 			<span class="w-96">
 				{durationToString(
 					s.totalTime,
-					apiClient.getSetting('summary-duration-format') ||
+					apiClient.getSettingString('summary-duration-format') ||
 						'%y years %m months %d days %H hours %M minutes %S seconds'
 				)}
 			</span>
@@ -111,6 +105,6 @@
 	{/each}
 	<Button
 		text="Add"
-		onClick={() => addByTitle(apiClient.getSetting('default-title') || 'productive')}
+		onClick={() => addByTitle(apiClient.getSettingString('default-title') || 'productive')}
 	/>
 </div>
