@@ -41,13 +41,17 @@ export default class ApiClient {
 
 	private trpc: trpcClient | null;
 
+	private padding: number;
+
 	constructor(
 		trpc: trpcClient | null,
 		state: State | undefined = undefined,
 		pullInterval = 60000,
-		updateInterval = 10000
+		updateInterval = 10000,
+		padding = 2
 	) {
 		this.trpc = trpc;
+		this.padding = padding;
 
 		this.state = State.empty();
 		this.syncQueue = Promise.resolve(this.state);
@@ -130,9 +134,10 @@ export default class ApiClient {
 			console.log('Pulling full state from server.');
 			if (this.trpc != null) {
 				const start = Date.now();
+				const duration = this.lastEnd - this.lastStart;
 				const state = await this.trpc.getState.query({
-					start: new Date(this.lastStart),
-					end: new Date(this.lastEnd)
+					start: new Date(this.lastStart - duration * this.padding),
+					end: new Date(this.lastEnd + duration * this.padding)
 				});
 				return this.commit(start, state);
 			} else {
@@ -154,7 +159,6 @@ export default class ApiClient {
 				let start = Date.now();
 				const running = await this.trpc.getRunning.query();
 				state = new State(state.timeline, running, state.settings);
-				this.commit(start, state);
 				const range = state.getTimeline().getOutOfSyncRange();
 				if (range != null) {
 					start = Date.now();
@@ -163,9 +167,10 @@ export default class ApiClient {
 					state = new State(tl3, running, state.settings);
 					this.commit(start, state);
 				}
+				const duration = this.lastEnd - this.lastStart;
 				const ranges = state.timeline.getMissingRanges(
-					new Date(this.lastStart),
-					new Date(this.lastEnd)
+					new Date(this.lastStart - duration * this.padding),
+					new Date(this.lastEnd + duration * this.padding)
 				);
 				for (const range of ranges) {
 					start = Date.now();
@@ -304,7 +309,19 @@ export default class ApiClient {
 	}
 
 	getTimeline(start?: Date, end?: Date): Timeline {
+		if (!start || !end) {
+			start = new Date(this.lastStart);
+			end = new Date(this.lastEnd);
+		} else {
+			this.lastStart = start.getTime();
+			this.lastEnd = end.getTime();
+		}
+
 		let tl = this.state.getTimeline(start, end);
+
+		if (start.getTime() < tl.start.getTime() || end.getTime() > tl.end.getTime()) {
+			this.updateState();
+		}
 
 		if (typeof this.previewInterval != 'undefined') {
 			if (this.isPreviewAdd()) {
