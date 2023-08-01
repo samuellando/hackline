@@ -18,8 +18,8 @@ export default class Timeline {
 			) {
 				copy = intervals.intervals.slice();
 				this.trim(copy, start, end);
-				this.start = start;
-				this.end = end;
+				this.start = new Date(Math.max(start.getTime(), intervals.start.getTime()));
+				this.end = new Date(Math.min(end.getTime(), intervals.end.getTime()));
 			} else {
 				copy = intervals.intervals;
 				this.start = intervals.start;
@@ -30,13 +30,10 @@ export default class Timeline {
 			copy = intervals.slice();
 			if (start && end) {
 				this.trim(copy, start, end);
-				this.start = start;
-				this.end = end;
-			} else {
-				this.start = new Date(Math.min(...copy.map((e) => e.start.getTime())));
-				this.end = new Date(Math.max(...copy.map((e) => e.end.getTime())));
 			}
 			// Because there may be overlaps.
+			this.start = new Date(Math.min(...copy.map((e) => e.start.getTime())));
+			this.end = new Date(Math.max(...copy.map((e) => e.end.getTime())));
 			copy = this.cutOverlaps(copy);
 		}
 		this.intervals = copy;
@@ -202,40 +199,7 @@ export default class Timeline {
 
 	merge(timeline: Timeline): Timeline {
 		const intervals = this.intervals.concat(timeline.intervals);
-		intervals.sort((a, b) => a.start.getTime() - b.start.getTime());
-
-		const mergedTimeline: interval[] = [];
-		// Iterate over the combined timeline and merge overlapping or adjacent ranges
-		intervals.forEach((range) => {
-			const lastMergedRange = mergedTimeline[mergedTimeline.length - 1];
-
-			if (!lastMergedRange || range.start > lastMergedRange.end) {
-				// If the current range does not overlap with the last merged range,
-				// add it to the merged timeline
-				mergedTimeline.push(range);
-			} else {
-				if (range.end > lastMergedRange.end) {
-					if (range.id == lastMergedRange.id) {
-						mergedTimeline[mergedTimeline.length - 1] = {
-							id: lastMergedRange.id,
-							title: lastMergedRange.title,
-							start: lastMergedRange.start,
-							end: range.end
-						};
-					} else {
-						mergedTimeline[mergedTimeline.length - 1] = {
-							id: lastMergedRange.id,
-							title: lastMergedRange.title,
-							start: lastMergedRange.start,
-							end: range.start
-						};
-						mergedTimeline.push(range);
-					}
-				}
-			}
-		});
-
-		return new Timeline(mergedTimeline);
+		return new Timeline(intervals);
 	}
 
 	private cutOverlaps(intervals: interval[]): interval[] {
