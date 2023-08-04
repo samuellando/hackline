@@ -1,44 +1,75 @@
 import type { interval } from './types';
 
-/*
- * An immutable timeline.
+/**
+ * An immutable timeline, of non overlapping intervals.
+ *
+ * The timeline is immutable, so all methods return a new timeline.
+ * This is done to allow for object sharring accross the app.
+ *
+ * @property {interval[]} intervals in the timeline.
+ * @param {Date} start The start of the timeline, used to represent what range
+ * we are sure is accurate.
+ * @param {Date} end The end of the timeline, used to represent what range
+ * we are sure is accurate.
  */
 export default class Timeline {
 	readonly intervals: interval[];
 	readonly start: Date;
 	readonly end: Date;
 
+	/**
+	 * Creates the timeline form the given intervals.
+	 *
+	 * @param {interval[] | Timeline} intervals The intervals to use.
+	 * If a timeline is passed, it will not not copy the data to avoid unecessary mallocs.
+	 * If an array is passed, the data is shallow copied, since interval is immutable.
+	 *
+	 * The timeline will not have any overlaps, and will remove the overlaps using the following rules.
+	 * 1. An interval with a later start will cut off other intervals that started before it.
+	 * 2. An interval will cut around other intervals that started afater and ended before it ended.
+	 * 3. There can be any level of nesting of intervals.
+	 * 4. If two intervals start at the same time, the one that ends first will take priority.
+	 * 5. Any intervals created due to cutting around will have an id of -1.
+	 *
+	 * @param {Date} start (optional) The start of the timeline, used to represent what range
+	 * we are sure is accurate.
+	 *
+	 * @param {Date} end (optional) The end of the timeline, used to represent what range
+	 * we are sure is accurate.
+	 *
+	 * If start or end are not passed, the start end end from the intervals will be used.
+	 */
 	constructor(intervals: interval[] | Timeline, start?: Date, end?: Date) {
-		let copy: interval[];
+		let tl: interval[];
 		if (intervals instanceof Timeline) {
-			if (
-				start &&
-				end &&
-				(start.getTime() !== intervals.start.getTime() || end.getTime() !== intervals.end.getTime())
-			) {
-				copy = intervals.intervals.slice();
-				this.trim(copy, start, end);
-				this.start = new Date(Math.max(start.getTime(), intervals.start.getTime()));
-				this.end = new Date(Math.min(end.getTime(), intervals.end.getTime()));
-			} else {
-				copy = intervals.intervals;
-				this.start = intervals.start;
-				this.end = intervals.end;
-			}
+			tl = intervals.intervals;
+			this.start = intervals.start;
+			this.end = intervals.end;
 		} else {
 			// We need to make a copy here because it's not readonly.
-			copy = intervals.slice();
-			if (start && end) {
-				this.trim(copy, start, end);
-			}
+			tl = intervals.slice();
 			// Because there may be overlaps.
-			this.start = new Date(Math.min(...copy.map((e) => e.start.getTime())));
-			this.end = new Date(Math.max(...copy.map((e) => e.end.getTime())));
-			copy = this.cutOverlaps(copy);
+			tl = this.cutOverlaps(tl);
+			if (tl.length == 0) {
+				this.start = new Date(0);
+				this.end = new Date(0);
+			} else {
+				this.start = tl[0].start;
+				this.end = tl[tl.length - 1].end;
+			}
 		}
-		this.intervals = copy;
+		if (start && end) {
+			this.start = start;
+			this.end = end;
+		}
+		this.intervals = tl;
 	}
 
+	/**
+	 * Returns a timeline with the interval added. other intervals around it.
+	 *
+	 * @param {interval} interval The interval to add.
+	 */
 	add(interval: interval): Timeline {
 		const copy = this.intervals.slice();
 		// Cut existing intervals around the new one.
@@ -129,14 +160,24 @@ export default class Timeline {
 			copy.push(interval);
 		}
 
-		return new Timeline(copy);
+		return new Timeline(copy, this.start, this.end);
 	}
 
+	/**
+	 * Returns a timeline with the interval updated, currently only supports updating the title.
+	 *
+	 * @param {interval} interval the update interval.
+	 */
 	update(interval: interval): Timeline {
 		const copy = this.intervals.slice();
 		for (let i = 0; i < copy.length; i++) {
 			if (copy[i].id == interval.id) {
-				copy[i] = interval;
+				copy[i] = {
+					id: interval.id,
+					title: interval.title,
+					start: copy[i].start,
+					end: copy[i].end
+				};
 			}
 		}
 		return new Timeline(copy);
@@ -267,42 +308,6 @@ export default class Timeline {
 			}
 		}
 		return intervals;
-	}
-
-	private trim(intervals: interval[], start: Date, end: Date) {
-		for (let i = 0; i < intervals.length; i++) {
-			if (intervals[i].end < start) {
-				// Remove it.
-				intervals.splice(i, 1);
-				i--;
-			} else if (intervals[i].start < start) {
-				// Move the beginging.
-				intervals[i] = {
-					id: intervals[i].id,
-					title: intervals[i].title,
-					start: start,
-					end: intervals[i].end
-				};
-			} else {
-				break;
-			}
-		}
-		for (let i = intervals.length - 1; i >= 0; i--) {
-			if (intervals[i].start > end) {
-				// Remove it.
-				intervals.splice(i, 1);
-			} else if (intervals[i].end > end) {
-				// Move the begining.
-				intervals[i] = {
-					id: intervals[i].id,
-					title: intervals[i].title,
-					start: intervals[i].start,
-					end: end
-				};
-			} else {
-				break;
-			}
-		}
 	}
 
 	toObject(): serializableTimeline {
