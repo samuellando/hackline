@@ -25,13 +25,21 @@ export async function getState(id: string, start: Date, end: Date): Promise<Stat
 							{
 								start: {
 									gte: start,
-									lte: end
+									lt: end
 								}
 							},
 							{
 								end: {
-									gte: start,
+									gt: start,
 									lte: end
+								}
+							},
+							{
+								start: {
+									lt: start
+								},
+								end: {
+									gt: end
 								}
 							}
 						]
@@ -72,7 +80,7 @@ export async function getState(id: string, start: Date, end: Date): Promise<Stat
 		});
 	}
 
-	const timeline = new Timeline(data.intervals);
+	const timeline = new Timeline(data.intervals, start, end);
 	await fixSplices(id, timeline);
 	return new State(timeline, data.running, settings);
 }
