@@ -319,7 +319,7 @@ export default class ApiClient {
 
 		let tl = this.state.getTimeline(start, end);
 
-        /* todo: fix this
+		/* todo: fix this
 		if (start.getTime() < tl.start.getTime() || end.getTime() > tl.end.getTime()) {
             console.log('Timeline is out of bounds. Fetching...');
 			this.updateState();
