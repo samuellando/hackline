@@ -29,12 +29,12 @@ export async function getTimeline(id: string, start: Date, end: Date): Promise<T
 				{
 					start: {
 						gte: start,
-						lte: end
+						lt: end
 					}
 				},
 				{
 					end: {
-						gte: start,
+						gt: start,
 						lte: end
 					}
 				},
@@ -49,7 +49,7 @@ export async function getTimeline(id: string, start: Date, end: Date): Promise<T
 			]
 		}
 	});
-	const timeline = new Timeline(intervals);
+	const timeline = new Timeline(intervals, start, end);
 	if (timeline.getOutOfSyncRange() != null) {
 		await fixSplices(id, timeline);
 		return getTimeline(id, start, end);
@@ -60,6 +60,7 @@ export async function getTimeline(id: string, start: Date, end: Date): Promise<T
 
 export async function addInterval(id: string, interval: interval): Promise<interval> {
 	// Adjust the intervals we need to.
+	// Delete all intervals that are inside the new interval.
 	await prisma.interval.deleteMany({
 		where: {
 			userId: id,
@@ -74,18 +75,30 @@ export async function addInterval(id: string, interval: interval): Promise<inter
 		}
 	});
 
+	// Adjust all starts.
 	await prisma.interval.updateMany({
 		data: {
 			end: interval.start
 		},
 		where: {
 			userId: id,
+			end: {
+				gte: interval.start,
+				lte: interval.end
+			}
+		}
+	});
+
+	// Adjust ends starts.
+	await prisma.interval.updateMany({
+		data: {
+			start: interval.end
+		},
+		where: {
+			userId: id,
 			start: {
 				gte: interval.start,
 				lte: interval.end
-			},
-			end: {
-				gt: interval.end
 			}
 		}
 	});

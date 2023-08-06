@@ -355,14 +355,16 @@ export default class Timeline {
 
 	toObject(): serializableTimeline {
 		const copy = this.intervals.slice();
-		return { intervals: copy };
+		return { intervals: copy, start: this.start, end: this.end };
 	}
 
 	static fromSerializable(serializable: serializableTimeline): Timeline {
-		return new Timeline(serializable.intervals);
+		return new Timeline(serializable.intervals, serializable.start, serializable.end);
 	}
 }
 
 export type serializableTimeline = {
 	intervals: interval[];
+	start: Date;
+	end: Date;
 };
