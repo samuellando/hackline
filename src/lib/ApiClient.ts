@@ -15,6 +15,7 @@ function deepClone<T>(obj: T): T {
 enum previewModes {
 	edit,
 	add,
+    settings,
 	none
 }
 
@@ -208,6 +209,15 @@ export default class ApiClient {
 	isPreviewEdit() {
 		return this.previewMode == previewModes.edit;
 	}
+    
+    isPreviewSettings() {
+        return this.previewMode == previewModes.settings;
+    }
+
+    startPreviewSettings() {
+        this.previewMode = previewModes.settings;
+        this.previewSettings = deepClone(this.state.settings);
+    }
 
 	isPreview() {
 		return this.previewMode != previewModes.none;
