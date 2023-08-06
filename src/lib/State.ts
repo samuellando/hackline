@@ -21,9 +21,37 @@ export default class State {
 			end: new Date(),
 			id: -2
 		};
-		const copy = this.timeline.intervals.slice();
-		copy.push(interval);
-		return new Timeline(copy, start, end);
+		let copy = this.timeline.intervals.slice();
+		copy.unshift(interval);
+		// Remove or splice anything outside the range.
+		if (start && end) {
+			copy = copy.filter((interval) => {
+				return !(
+					interval.end.getTime() <= start.getTime() || interval.start.getTime() >= end.getTime()
+				);
+			});
+			copy.forEach((interval, index) => {
+				// Trim anything that starts before the start.
+				if (interval.start.getTime() < start.getTime()) {
+					copy[index] = {
+						title: interval.title,
+						start: start,
+						end: interval.end,
+						id: interval.id
+					};
+				}
+				// Trim anything that ends after the end.
+				if (interval.end.getTime() > end.getTime()) {
+					copy[index] = {
+						title: interval.title,
+						start: copy[index].start,
+						end: end,
+						id: interval.id
+					};
+				}
+			});
+		}
+		return new Timeline(copy, this.timeline.start, this.timeline.end);
 	}
 
 	getRunning(): running {
