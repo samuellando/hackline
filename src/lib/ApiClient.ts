@@ -27,7 +27,7 @@ export default class ApiClient {
 	private updateInterval: ReturnType<typeof setInterval> | null = null;
 
 	private previewMode: previewModes = previewModes.none;
-	private previewSettings: settings | undefined;
+	private previewState: State | undefined;
 	private previewInterval: interval | undefined;
 
 	private updateTimestamp: Writable<number> = writable(0);
@@ -161,7 +161,6 @@ export default class ApiClient {
 				const running = await this.trpc.getRunning.query();
 				state = new State(state.timeline, running, state.settings);
 				const range = state.getTimeline().getOutOfSyncRange();
-				console.log(range);
 				if (range != null) {
 					start = Date.now();
 					const tl2 = await this.trpc.getTimeline.query(range);
@@ -174,7 +173,6 @@ export default class ApiClient {
 					new Date(this.lastStart - duration * this.padding),
 					new Date(this.lastEnd + duration * this.padding)
 				);
-				console.log(ranges);
 				for (const range of ranges) {
 					start = Date.now();
 					const tl2 = await this.trpc.getTimeline.query(range);
@@ -189,18 +187,30 @@ export default class ApiClient {
 	}
 
 	previewAdd(interval: interval) {
-		const i = deepClone(interval);
 		this.previewMode = previewModes.add;
-		this.previewSettings = deepClone(this.state.settings);
-		this.previewInterval = i;
+		this.previewState = new State(
+			this.state.timeline.add(interval),
+			this.state.running,
+			this.state.settings
+		);
+		this.previewInterval = interval;
 		this.previewUpdates.update((n) => n + 1);
 	}
 
 	previewEdit(interval: interval) {
-		const i = deepClone(interval);
 		this.previewMode = previewModes.edit;
-		this.previewSettings = deepClone(this.state.settings);
-		this.previewInterval = i;
+		this.previewState = new State(
+			this.state.timeline.update(interval),
+			this.state.running,
+			this.state.settings
+		);
+		this.previewInterval = interval;
+		this.previewUpdates.update((n) => n + 1);
+	}
+
+	previewSettings() {
+		this.previewMode = previewModes.settings;
+		this.previewState = new State(this.state.timeline, this.state.running, this.state.settings);
 		this.previewUpdates.update((n) => n + 1);
 	}
 
@@ -216,11 +226,6 @@ export default class ApiClient {
 		return this.previewMode == previewModes.settings;
 	}
 
-	startPreviewSettings() {
-		this.previewMode = previewModes.settings;
-		this.previewSettings = deepClone(this.state.settings);
-	}
-
 	isPreview() {
 		return this.previewMode != previewModes.none;
 	}
@@ -229,21 +234,25 @@ export default class ApiClient {
 		if (this.isPreview() && typeof this.previewInterval != 'undefined') {
 			return deepClone(this.previewInterval);
 		} else {
-			throw new Error('Not in preview mode.');
+			throw new Error('Not in valid preview mode.');
 		}
 	}
 
 	stopPreview() {
 		this.previewMode = previewModes.none;
-		this.previewSettings = undefined;
+		this.previewState = undefined;
 		this.previewInterval = undefined;
 		this.previewUpdates.update((n) => n + 1);
 	}
 
 	getSettings(): settings {
-		if (this.isPreview() && typeof this.previewSettings != 'undefined') {
-			return this.previewSettings;
+		if (this.isPreview() && typeof this.previewState != 'undefined') {
+			return this.previewState.settings;
 		}
+		return this.state.settings;
+	}
+
+	getBaseSettings(): settings {
 		return this.state.settings;
 	}
 
@@ -262,11 +271,14 @@ export default class ApiClient {
 
 	setSettings(settings: settings): Promise<State> {
 		let state = this.state;
-		if (this.isPreview()) {
-			this.previewSettings = settings;
-			state = new State(state.timeline, state.running, settings);
+		if (this.isPreview() && typeof this.previewState != 'undefined') {
+			this.previewState = new State(
+				this.previewState.timeline,
+				this.previewState.running,
+				settings
+			);
 			this.previewUpdates.update((n) => n + 1);
-			return Promise.resolve(state);
+			return Promise.resolve(this.previewState);
 		} else {
 			state = new State(state.timeline, state.running, settings);
 			this.commit(Date.now(), state);
@@ -332,10 +344,10 @@ export default class ApiClient {
 		let tl = this.state.getTimeline(start, end);
 
 		/* todo: fix this
-		if (start.getTime() < tl.start.getTime() || end.getTime() > tl.end.getTime()) {
+        if (start.getTime() < tl.start.getTime() || end.getTime() > tl.end.getTime()) {
             console.log('Timeline is out of bounds. Fetching...');
-			this.updateState();
-		}
+            this.updateState();
+        }
         */
 
 		if (typeof this.previewInterval != 'undefined') {
@@ -349,20 +361,25 @@ export default class ApiClient {
 	}
 
 	timelineAdd(interval: interval | undefined = undefined): Promise<State> {
+		let state: State;
 		if (typeof interval === 'undefined') {
-			interval = this.getPreviewInterval();
+			if (typeof this.previewState != 'undefined') {
+				this.commit(Date.now(), this.previewState);
+				state = this.previewState;
+				interval = this.previewInterval;
+			} else {
+				throw new Error('No interval to add.');
+			}
 			this.stopPreview();
+		} else {
+			state = new State(this.state.timeline.add(interval), this.state.running, this.state.settings);
+			this.commit(Date.now(), state);
 		}
 
-		let state = new State(
-			this.state.timeline.add(interval),
-			this.state.running,
-			this.state.settings
-		);
 		this.syncQueue = this.syncQueue.then(async () => {
-			this.commit(Date.now(), state);
 			if (this.trpc != null) {
 				const n = await this.trpc.addInterval.mutate(interval as interval);
+				await this.trpc.setSettings.mutate(state.settings);
 				// So that we have the most up to date ID.
 				state = new State(state.timeline.add(n), state.running, state.settings);
 				this.commit(Date.now(), state);
@@ -379,19 +396,28 @@ export default class ApiClient {
 	}
 
 	timelineEdit(interval: interval | undefined = undefined): Promise<State> {
-		if (typeof interval == 'undefined') {
-			interval = this.getPreviewInterval();
+		let state: State;
+		if (typeof interval === 'undefined') {
+			if (typeof this.previewState != 'undefined') {
+				this.commit(Date.now(), this.previewState);
+				state = this.previewState;
+			} else {
+				throw new Error('No interval to add.');
+			}
 			this.stopPreview();
-		}
-		const state = new State(
-			this.state.timeline.update(interval),
-			this.state.running,
-			this.state.settings
-		);
-		this.syncQueue = this.syncQueue.then(async () => {
+		} else {
+			state = new State(
+				this.state.timeline.update(interval),
+				this.state.running,
+				this.state.settings
+			);
 			this.commit(Date.now(), state);
+		}
+
+		this.syncQueue = this.syncQueue.then(async () => {
 			if (this.trpc != null) {
 				await this.trpc.updateInterval.mutate(interval as interval);
+				await this.trpc.setSettings.mutate(state.settings);
 			}
 			return state;
 		});

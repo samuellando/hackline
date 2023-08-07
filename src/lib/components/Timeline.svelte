@@ -100,8 +100,18 @@
 				hoveredInterval = e;
 				hovering = true;
 			}
+			if (e.id == -1) {
+				ctx.strokeStyle = 'red';
+				ctx.lineWidth = 1;
+				ctx.strokeRect(
+					e.drawStart + ctx.lineWidth / 2,
+					ctx.lineWidth / 2,
+					e.drawEnd - e.drawStart - ctx.lineWidth,
+					drawHeight - ctx.lineWidth
+				);
+			}
 			if (
-				(apiClient.isPreviewEdit() && e.id == apiClient.getPreviewInterval().id) ||
+				(apiClient.isPreview() && e.id == apiClient.getPreviewInterval().id) ||
 				(hoveredInterval && e.id == hoveredInterval.id && !apiClient.isPreviewEdit())
 			) {
 				ctx.strokeStyle = apiClient.getSettingString('timeline-highlight') || 'black';
@@ -263,7 +273,7 @@
 		end = end >= start ? end : start + 15 * 60 * 1000;
 		let startD = new Date(start);
 		let endD = new Date(end);
-		let interval: interval = { id: -1, title: defaultTitle, start: startD, end: endD };
+		let interval: interval = { id: -3, title: defaultTitle, start: startD, end: endD };
 		apiClient.previewAdd(interval);
 	}
 
