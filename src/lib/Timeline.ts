@@ -269,8 +269,8 @@ export default class Timeline {
 
 	/**
 	 * Merges two timelines, and returns a new timeline.
-	 * Simply combines the two array of intervals, and creates a new timeline off of it. Removing any out of sync intervals 
-     * from the current timeline.
+	 * Simply combines the two array of intervals, and creates a new timeline off of it. Removing any out of sync intervals
+	 * from the current timeline.
 	 *
 	 * @param {Timeline} timeline The timeline to merge with.
 	 * @param {Date} start  Optional The start of the range. If missing uses of min of the two timelines.
@@ -278,9 +278,11 @@ export default class Timeline {
 	 * @returns {Timeline} The new timeline.
 	 */
 	merge(timeline: Timeline, start?: Date, end?: Date): Timeline {
-		const intervals = this.intervals.filter((e) => {
-            return e.id != -1;
-        }).concat(timeline.intervals);
+		const intervals = this.intervals
+			.filter((e) => {
+				return e.id != -1;
+			})
+			.concat(timeline.intervals);
 		if (!start) {
 			start = new Date(Math.min(this.start.getTime(), timeline.start.getTime()));
 		}

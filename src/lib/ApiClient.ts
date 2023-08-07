@@ -384,10 +384,10 @@ export default class ApiClient {
 				state = new State(state.timeline.add(n), state.running, state.settings);
 				this.commit(Date.now(), state);
 				const range = state.timeline.getOutOfSyncRange();
-                console.log(range);
+				console.log(range);
 				if (range != null) {
 					const tl2 = await this.trpc.getTimeline.query(range);
-                    console.log(tl2);
+					console.log(tl2);
 					state = new State(state.timeline.merge(tl2), state.running, state.settings);
 					this.commit(Date.now(), state);
 				}
