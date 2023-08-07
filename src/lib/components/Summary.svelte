@@ -64,17 +64,17 @@
 		let t = e.target as HTMLInputElement;
 		let colormap = (apiClient.getSetting('colormap') || {}) as { [key: string]: string };
 		colormap[title] = t.value;
-        apiClient.startPreviewSettings();
+		apiClient.startPreviewSettings();
 		apiClient.setSetting('colormap', colormap);
 	}
 
-    function commitColor(title: string) {
+	function commitColor(title: string) {
 		const colormapPreview = (apiClient.getSetting('colormap') || {}) as { [key: string]: string };
-        apiClient.stopPreview();
-        let colormap = (apiClient.getSetting('colormap') || {}) as { [key: string]: string };
-        colormap[title] = colormapPreview[title];
-        apiClient.setSetting('colormap', colormap);
-    }
+		apiClient.stopPreview();
+		let colormap = (apiClient.getSetting('colormap') || {}) as { [key: string]: string };
+		colormap[title] = colormapPreview[title];
+		apiClient.setSetting('colormap', colormap);
+	}
 
 	function addByTitle(title = '') {
 		let start = new Date((rangeStartM + rangeEndM) / 2);
@@ -99,7 +99,7 @@
 				on:input={(e) => updateColor(s.title, e)}
 				on:change={(e) => {
 					updateColor(s.title, e);
-                    commitColor(s.title);
+					commitColor(s.title);
 				}}
 			/>
 			<span class="w-56">

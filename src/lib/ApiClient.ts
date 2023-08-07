@@ -15,7 +15,7 @@ function deepClone<T>(obj: T): T {
 enum previewModes {
 	edit,
 	add,
-    settings,
+	settings,
 	none
 }
 
@@ -161,6 +161,7 @@ export default class ApiClient {
 				const running = await this.trpc.getRunning.query();
 				state = new State(state.timeline, running, state.settings);
 				const range = state.getTimeline().getOutOfSyncRange();
+                console.log(range);
 				if (range != null) {
 					start = Date.now();
 					const tl2 = await this.trpc.getTimeline.query(range);
@@ -173,6 +174,7 @@ export default class ApiClient {
 					new Date(this.lastStart - duration * this.padding),
 					new Date(this.lastEnd + duration * this.padding)
 				);
+                console.log(ranges);
 				for (const range of ranges) {
 					start = Date.now();
 					const tl2 = await this.trpc.getTimeline.query(range);
@@ -209,15 +211,15 @@ export default class ApiClient {
 	isPreviewEdit() {
 		return this.previewMode == previewModes.edit;
 	}
-    
-    isPreviewSettings() {
-        return this.previewMode == previewModes.settings;
-    }
 
-    startPreviewSettings() {
-        this.previewMode = previewModes.settings;
-        this.previewSettings = deepClone(this.state.settings);
-    }
+	isPreviewSettings() {
+		return this.previewMode == previewModes.settings;
+	}
+
+	startPreviewSettings() {
+		this.previewMode = previewModes.settings;
+		this.previewSettings = deepClone(this.state.settings);
+	}
 
 	isPreview() {
 		return this.previewMode != previewModes.none;
