@@ -1,7 +1,7 @@
 import State from '$lib/State';
 import type { settings, running, interval } from '$lib/types';
 import Timeline from '$lib/Timeline';
-import demoTimeline from '$lib/server/demoTimelineMig.json';
+import demoTimeline from '$lib/server/demoTimeline.json';
 import demoRunning from '$lib/server/demoRunning.json';
 import demoSettings from '$lib/server/demoSettings.json';
 import prisma from '$lib/server/prisma';

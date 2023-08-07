@@ -40,7 +40,9 @@ export default class Timeline {
 	constructor(intervals: interval[] | Timeline, start?: Date, end?: Date) {
 		let tl: interval[];
 		if (intervals instanceof Timeline) {
+			// We don't need to copy since it's immutable.
 			tl = intervals.intervals;
+			// For now assume we want to keep  the same start and end.
 			this.start = intervals.start;
 			this.end = intervals.end;
 		} else {

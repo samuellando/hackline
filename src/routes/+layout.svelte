@@ -28,7 +28,7 @@
 				apiClient = new ApiClient(trpcClient, state);
 			} else {
 				// For unauthenticated, dont provide a trpc client.
-				apiClient = new ApiClient(null, state);
+				apiClient = new ApiClient(undefined, state);
 			}
 			setContext('apiClient', apiClient);
 		}
