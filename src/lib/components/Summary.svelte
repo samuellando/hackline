@@ -79,7 +79,7 @@
 	function addByTitle(title = '') {
 		let start = new Date((rangeStartM + rangeEndM) / 2);
 		let end = new Date(start.getTime() + 15 * 60 * 1000);
-		let interval: interval = { id: -1, title: title, start: start, end: end };
+		let interval: interval = { id: -3, title: title, start: start, end: end };
 		apiClient.previewAdd(interval);
 	}
 
