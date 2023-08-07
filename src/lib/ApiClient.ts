@@ -21,6 +21,11 @@ enum previewModes {
 
 type trpcClient = ReturnType<typeof createTRPCClient<Router>>;
 
+/**
+ * A client for the API.
+ *
+ * This class handles the communication with the API, and keeps track of the state of the app.
+ */
 export default class ApiClient {
 	private state: State;
 	private pullInterval: ReturnType<typeof setInterval> | null = null;
@@ -30,7 +35,7 @@ export default class ApiClient {
 	private previewState: State | undefined;
 	private previewInterval: interval | undefined;
 
-	private updateTimestamp: Writable<number> = writable(0);
+	private updateTimestamp: Writable<Date> = writable(new Date(0));
 	private previewUpdates: Writable<number> = writable(0);
 
 	// Keep track of requested starts and ends for the timelines.
@@ -40,13 +45,22 @@ export default class ApiClient {
 	private syncQueue: Promise<State>;
 	private readyQueue: Promise<State>;
 
-	private trpc: trpcClient | null;
+	private trpc: trpcClient | undefined;
 
 	private padding: number;
 
+	/**
+	 * @param trpc The trpc client to use,optional if you don't want to connect to the server.
+	 * @param state The state to use, optional if you want to load it from local storage, or sync with the server.
+	 * @param pullInterval The interval to pull the full state from the server, in milliseconds.
+	 *                  Set to -1 to disable pulling.
+	 * @param updateInterval The interval to update the out of sync, missing and running from the server, in milliseconds.
+	 *                  Set to -1 to disable updating.
+	 * @param padding The padding to use when pulling the timeline from the server, as a multiple of the current timeline length.
+	 */
 	constructor(
-		trpc: trpcClient | null,
-		state: State | undefined = undefined,
+		trpc?: trpcClient,
+		state?: State,
 		pullInterval = 60000,
 		updateInterval = 10000,
 		padding = 2
@@ -57,8 +71,8 @@ export default class ApiClient {
 		this.state = State.empty();
 		this.syncQueue = Promise.resolve(this.state);
 
-		if (typeof state == 'undefined') {
-			// Get the state from local storage, or pull it from the server.
+		// If no state is provided, try to load if from memory, or sync with the server.
+		if (!state) {
 			let loaded = false;
 			if (typeof localStorage != 'undefined') {
 				console.log('Loading state from local storage.');
@@ -74,7 +88,6 @@ export default class ApiClient {
 				}
 			}
 			if (!loaded) {
-				// Pull the state from the server.
 				this.readyQueue = this.pullState();
 			} else {
 				this.readyQueue = this.syncQueue;
@@ -82,10 +95,10 @@ export default class ApiClient {
 		} else {
 			// Set this state.
 			console.log('using provided state.');
-			this.commit(Date.now(), state);
+			this.commit(new Date(), state);
 			this.readyQueue = this.syncQueue;
 		}
-		if (this.trpc != null) {
+		if (this.trpc) {
 			// Start the pull intervals.
 			this.pullInterval = setInterval(() => this.pullState(), pullInterval);
 			// Start the update interval.
@@ -109,14 +122,14 @@ export default class ApiClient {
 	/*
 	 * Can subscribe to updates to the state, and to previews.
 	 */
-	subscribe(f: Subscriber<number[]>) {
+	subscribe(f: Subscriber<(number | Date)[]>) {
 		return derived([this.updateTimestamp, this.previewUpdates as Writable<number>], ([lc, pu]) => [
 			lc,
 			pu
 		]).subscribe(f);
 	}
 
-	private commit(maxTimestamp: number, state: State): State {
+	private commit(maxTimestamp: Date, state: State): State {
 		if (maxTimestamp <= get(this.updateTimestamp)) {
 			console.log('Commit failed, state was updated locally.');
 		} else {
@@ -133,8 +146,8 @@ export default class ApiClient {
 	private pullState(): Promise<State> {
 		this.syncQueue = this.syncQueue.then(async () => {
 			console.log('Pulling full state from server.');
-			if (this.trpc != null) {
-				const start = Date.now();
+			if (this.trpc) {
+				const start = new Date();
 				const duration = this.lastEnd - this.lastStart;
 				const state = await this.trpc.getState.query({
 					start: new Date(this.lastStart - duration * this.padding),
@@ -157,12 +170,13 @@ export default class ApiClient {
 			console.log('Updateing state from server.');
 			let state = this.state;
 			if (this.trpc != null) {
-				let start = Date.now();
+				let start = new Date();
 				const running = await this.trpc.getRunning.query();
 				state = new State(state.timeline, running, state.settings);
+				this.commit(start, state);
 				const range = state.getTimeline().getOutOfSyncRange();
 				if (range != null) {
-					start = Date.now();
+					start = new Date();
 					const tl2 = await this.trpc.getTimeline.query(range);
 					const tl3 = state.timeline.merge(tl2);
 					state = new State(tl3, running, state.settings);
@@ -174,7 +188,7 @@ export default class ApiClient {
 					new Date(this.lastEnd + duration * this.padding)
 				);
 				for (const range of ranges) {
-					start = Date.now();
+					start = new Date();
 					const tl2 = await this.trpc.getTimeline.query(range);
 					const tl3 = state.timeline.merge(tl2);
 					state = new State(tl3, running, state.settings);
@@ -212,6 +226,10 @@ export default class ApiClient {
 		this.previewMode = previewModes.settings;
 		this.previewState = new State(this.state.timeline, this.state.running, this.state.settings);
 		this.previewUpdates.update((n) => n + 1);
+	}
+
+	getBaseSettings(): settings {
+		return this.state.settings;
 	}
 
 	isPreviewAdd() {
@@ -252,10 +270,6 @@ export default class ApiClient {
 		return this.state.settings;
 	}
 
-	getBaseSettings(): settings {
-		return this.state.settings;
-	}
-
 	getSetting(key: string): settingsValue {
 		return this.getSettings()[key];
 	}
@@ -281,12 +295,12 @@ export default class ApiClient {
 			return Promise.resolve(this.previewState);
 		} else {
 			state = new State(state.timeline, state.running, settings);
-			this.commit(Date.now(), state);
+			this.commit(new Date(), state);
 			this.syncQueue = this.syncQueue.then(async () => {
 				if (this.trpc != null) {
 					await this.trpc.setSettings.mutate(settings);
 				}
-				this.commit(Date.now(), state);
+				this.commit(new Date(), state);
 				return state;
 			});
 			return this.syncQueue;
@@ -326,7 +340,7 @@ export default class ApiClient {
 			if (this.trpc != null) {
 				await this.trpc.setRunning.mutate({ title: title });
 			}
-			this.commit(Date.now(), state);
+			this.commit(new Date(), state);
 			return state;
 		});
 		return this.syncQueue;
@@ -364,7 +378,7 @@ export default class ApiClient {
 		let state: State;
 		if (typeof interval === 'undefined') {
 			if (typeof this.previewState != 'undefined') {
-				this.commit(Date.now(), this.previewState);
+				this.commit(new Date(), this.previewState);
 				state = this.previewState;
 				interval = this.previewInterval;
 			} else {
@@ -373,7 +387,7 @@ export default class ApiClient {
 			this.stopPreview();
 		} else {
 			state = new State(this.state.timeline.add(interval), this.state.running, this.state.settings);
-			this.commit(Date.now(), state);
+			this.commit(new Date(), state);
 		}
 
 		this.syncQueue = this.syncQueue.then(async () => {
@@ -382,12 +396,12 @@ export default class ApiClient {
 				await this.trpc.setSettings.mutate(state.settings);
 				// So that we have the most up to date ID.
 				state = new State(state.timeline.add(n), state.running, state.settings);
-				this.commit(Date.now(), state);
 				const range = state.timeline.getOutOfSyncRange();
 				if (range != null) {
+					const start = new Date();
 					const tl2 = await this.trpc.getTimeline.query(range);
 					state = new State(state.timeline.merge(tl2), state.running, state.settings);
-					this.commit(Date.now(), state);
+					this.commit(start, state);
 				}
 			}
 			return state;
@@ -399,7 +413,7 @@ export default class ApiClient {
 		let state: State;
 		if (typeof interval === 'undefined') {
 			if (typeof this.previewState != 'undefined') {
-				this.commit(Date.now(), this.previewState);
+				this.commit(new Date(), this.previewState);
 				state = this.previewState;
 			} else {
 				throw new Error('No interval to add.');
@@ -411,7 +425,7 @@ export default class ApiClient {
 				this.state.running,
 				this.state.settings
 			);
-			this.commit(Date.now(), state);
+			this.commit(new Date(), state);
 		}
 
 		this.syncQueue = this.syncQueue.then(async () => {

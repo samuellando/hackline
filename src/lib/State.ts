@@ -7,12 +7,26 @@ export default class State {
 	readonly running: running;
 	readonly settings: settings;
 
+	/**
+	 * Crate a state of the app, with running, timeline and settings.
+	 *
+	 * @param timeline The timeline of the app.
+	 * @param running The running interval.
+	 * @param settings The settings of the app.
+	 */
 	constructor(timeline: Timeline, running: running, settings: settings) {
 		this.timeline = timeline;
 		this.running = running;
 		this.settings = JSON.parse(JSON.stringify(settings));
 	}
 
+	/**
+	 * Get the timeline, with running filled in, and trimmed to the start and end.
+	 *
+	 * @param start The start of the timeline.
+	 * @param end The end of the timeline.
+	 * @returns The timeline.
+	 */
 	getTimeline(start?: Date, end?: Date): Timeline {
 		// Fill with running.
 		const interval: interval = {
@@ -54,10 +68,16 @@ export default class State {
 		return new Timeline(copy, this.timeline.start, this.timeline.end);
 	}
 
+	/**
+	 * Get the current interval. Either running, or the interval that is at the current time.
+	 *
+	 * @returns The current interval.
+	 */
 	getRunning(): running {
 		const now = Date.now();
 		let running = this.running;
 		let lastEnd = 0;
+		// Look for a current interval, and keep track of the last end.
 		this.timeline.intervals.forEach((interval) => {
 			if (interval.start.getTime() <= now && interval.end.getTime() >= now) {
 				running = {
@@ -71,6 +91,7 @@ export default class State {
 			}
 		});
 
+		// If there is no current running interval, use the actuall running.
 		if (!running.end) {
 			if (lastEnd > running.start.getTime()) {
 				running = {

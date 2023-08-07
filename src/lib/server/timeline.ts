@@ -40,10 +40,10 @@ export async function getTimeline(id: string, start: Date, end: Date): Promise<T
 				},
 				{
 					start: {
-						lt: start
+						lte: start
 					},
 					end: {
-						gt: end
+						gte: end
 					}
 				}
 			]
@@ -75,7 +75,7 @@ export async function addInterval(id: string, interval: interval): Promise<inter
 		}
 	});
 
-	// Adjust all starts.
+	// Adjust all ends.
 	await prisma.interval.updateMany({
 		data: {
 			end: interval.start
@@ -89,7 +89,7 @@ export async function addInterval(id: string, interval: interval): Promise<inter
 		}
 	});
 
-	// Adjust ends starts.
+	// Adjust all starts.
 	await prisma.interval.updateMany({
 		data: {
 			start: interval.end
@@ -101,6 +101,30 @@ export async function addInterval(id: string, interval: interval): Promise<inter
 				lte: interval.end
 			}
 		}
+	});
+
+	// Get all the spliced intervals.
+	const spliced = await prisma.interval.findMany({
+		where: {
+			userId: id,
+			start: {
+				lt: interval.start
+			},
+			end: {
+				gt: interval.end
+			}
+		}
+	});
+	// Create the new intervals for spliced.
+	await prisma.interval.createMany({
+		data: spliced.map((e) => {
+			return {
+				title: e.title,
+				start: interval.end,
+				end: e.end,
+				userId: id
+			};
+		})
 	});
 
 	const n = await prisma.interval.create({

@@ -115,7 +115,7 @@
                 p-1 text-sm min-w-fit min-h-fit
                 font-mono
                 bg-[var(--primary)]
-                fixed
+                absolute
                 -translate-x-3/4
                 text-center
         "

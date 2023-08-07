@@ -1,7 +1,7 @@
 import prisma from '$lib/server/prisma';
 import bcrypt from 'bcrypt';
 
-export async function getUser(apiKey: string | null): Promise<string | null> {
+export async function getUser(apiKey?: string): Promise<string | null> {
 	if (!apiKey) {
 		return null;
 	}

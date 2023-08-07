@@ -7,7 +7,11 @@ export async function createContext(event: RequestEvent) {
 	let user;
 	if (!session?.user) {
 		const apiKey = event.request.headers.get('api-key');
-		user = await getUser(apiKey);
+		if (!apiKey) {
+			user = null;
+		} else {
+			user = await getUser(apiKey);
+		}
 	} else {
 		user = session.user.id;
 	}

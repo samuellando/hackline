@@ -40,7 +40,9 @@ export default class Timeline {
 	constructor(intervals: interval[] | Timeline, start?: Date, end?: Date) {
 		let tl: interval[];
 		if (intervals instanceof Timeline) {
+			// We don't need to copy since it's immutable.
 			tl = intervals.intervals;
+			// For now assume we want to keep  the same start and end.
 			this.start = intervals.start;
 			this.end = intervals.end;
 		} else {
@@ -269,7 +271,8 @@ export default class Timeline {
 
 	/**
 	 * Merges two timelines, and returns a new timeline.
-	 * Simply combines the two array of intervals, and creates a new timeline off of it.
+	 * Simply combines the two array of intervals, and creates a new timeline off of it. Removing any out of sync intervals
+	 * from the current timeline.
 	 *
 	 * @param {Timeline} timeline The timeline to merge with.
 	 * @param {Date} start  Optional The start of the range. If missing uses of min of the two timelines.
@@ -277,7 +280,11 @@ export default class Timeline {
 	 * @returns {Timeline} The new timeline.
 	 */
 	merge(timeline: Timeline, start?: Date, end?: Date): Timeline {
-		const intervals = this.intervals.concat(timeline.intervals);
+		const intervals = this.intervals
+			.filter((e) => {
+				return e.id != -1;
+			})
+			.concat(timeline.intervals);
 		if (!start) {
 			start = new Date(Math.min(this.start.getTime(), timeline.start.getTime()));
 		}
@@ -350,7 +357,7 @@ export default class Timeline {
 			// If there is a gap, it will create starts at the end of the intervals, we should ignore them.
 			if (start.getTime() != next.getTime()) {
 				intervals.push({
-					id: start.getTime() == ref.start.getTime() ? ref.id : -1,
+					id: start.getTime() == ref.start.getTime() ? ref.id : ref.id > 0 ? -1 : ref.id,
 					title: ref.title,
 					start: new Date(start),
 					end: new Date(next)
