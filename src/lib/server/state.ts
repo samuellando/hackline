@@ -6,45 +6,13 @@ import demoRunning from '$lib/server/demoRunning.json';
 import demoSettings from '$lib/server/demoSettings.json';
 import prisma from '$lib/server/prisma';
 import { newUser } from '$lib/server/user';
-import { fixSplices, getTimeline } from '$lib/server/timeline';
+import { getTimeline } from '$lib/server/timeline';
 
 export async function getState(id: string, start: Date, end: Date): Promise<State> {
 	let data;
 	try {
 		data = await prisma.user.findUniqueOrThrow({
 			select: {
-				intervals: {
-					select: {
-						start: true,
-						end: true,
-						title: true,
-						id: true
-					},
-					where: {
-						OR: [
-							{
-								start: {
-									gte: start,
-									lt: end
-								}
-							},
-							{
-								end: {
-									gt: start,
-									lte: end
-								}
-							},
-							{
-								start: {
-									lt: start
-								},
-								end: {
-									gt: end
-								}
-							}
-						]
-					}
-				},
 				running: {
 					select: {
 						title: true,
@@ -80,11 +48,7 @@ export async function getState(id: string, start: Date, end: Date): Promise<Stat
 		});
 	}
 
-    /*
-	const timeline = new Timeline(data.intervals, start, end);
-	await fixSplices(id, timeline);
-    */
-    const timeline = await getTimeline(id, start, end);
+	const timeline = await getTimeline(id, start, end);
 	return new State(timeline, data.running, settings);
 }
 

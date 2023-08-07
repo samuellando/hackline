@@ -161,7 +161,7 @@ export default class ApiClient {
 				const running = await this.trpc.getRunning.query();
 				state = new State(state.timeline, running, state.settings);
 				const range = state.getTimeline().getOutOfSyncRange();
-                console.log(range);
+				console.log(range);
 				if (range != null) {
 					start = Date.now();
 					const tl2 = await this.trpc.getTimeline.query(range);
@@ -174,7 +174,7 @@ export default class ApiClient {
 					new Date(this.lastStart - duration * this.padding),
 					new Date(this.lastEnd + duration * this.padding)
 				);
-                console.log(ranges);
+				console.log(ranges);
 				for (const range of ranges) {
 					start = Date.now();
 					const tl2 = await this.trpc.getTimeline.query(range);

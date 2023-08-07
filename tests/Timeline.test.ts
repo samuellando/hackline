@@ -301,9 +301,7 @@ describe('out of sync', () => {
 			{ start: new Date(450), end: new Date(500), title: '4', id: -1 },
 			{ start: new Date(550), end: new Date(600), title: '5', id: 5 }
 		];
-		const expected = [
-			{ start: new Date(250), end: new Date(300), title: '2', id: -1 },
-		];
+		const expected = [{ start: new Date(250), end: new Date(300), title: '2', id: -1 }];
 		const timeline = new Timeline(intervals, new Date(100), new Date(400));
 		const outOfSync = timeline.getOutOfSyncIntervals();
 		expect(outOfSync).toEqual(expected);
