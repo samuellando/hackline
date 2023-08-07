@@ -350,7 +350,7 @@ export default class Timeline {
 			// If there is a gap, it will create starts at the end of the intervals, we should ignore them.
 			if (start.getTime() != next.getTime()) {
 				intervals.push({
-					id: start.getTime() == ref.start.getTime() ? ref.id : ref.id > 0?-1:ref.id,
+					id: start.getTime() == ref.start.getTime() ? ref.id : ref.id > 0 ? -1 : ref.id,
 					title: ref.title,
 					start: new Date(start),
 					end: new Date(next)
