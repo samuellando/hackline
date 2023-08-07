@@ -193,17 +193,16 @@ export default class Timeline {
 	getOutOfSyncRange(): { start: Date; end: Date } | null {
 		let start = new Date();
 		let end = new Date(0);
-		this.intervals.forEach((e) => {
-			if (e.id === -1) {
-				if (e.start < start) {
-					start = e.start;
-				}
-				if (e.end > end) {
-					end = e.end;
-				}
+		const intervals = this.getOutOfSyncIntervals();
+		intervals.forEach((e) => {
+			if (e.start < start) {
+				start = e.start;
+			}
+			if (e.end > end) {
+				end = e.end;
 			}
 		});
-		if (start.getTime() >= new Date().getTime()) {
+		if (start.getTime() >= new Date().getTime() || intervals.length == 0) {
 			return null;
 		}
 		return { start: start, end: end };
@@ -218,7 +217,15 @@ export default class Timeline {
 		const result: interval[] = [];
 		this.intervals.forEach((e) => {
 			if (e.id === -1) {
-				result.push(e);
+				const i = {
+					id: e.id,
+					title: e.title,
+					start: new Date(Math.max(e.start.getTime(), this.start.getTime())),
+					end: new Date(Math.min(e.end.getTime(), this.end.getTime()))
+				};
+				if (i.start < i.end) {
+					result.push(i);
+				}
 			}
 		});
 		return result;

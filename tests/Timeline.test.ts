@@ -293,6 +293,19 @@ describe('out of sync', () => {
 		const outOfSync = timeline.getOutOfSyncIntervals();
 		expect(outOfSync).toEqual(expected);
 	});
+	test('get out of sync intervals, between start and end', () => {
+		const intervals: interval[] = [
+			{ start: new Date(100), end: new Date(200), title: '1', id: 1 },
+			{ start: new Date(250), end: new Date(300), title: '2', id: -1 },
+			{ start: new Date(350), end: new Date(400), title: '3', id: 3 },
+			{ start: new Date(450), end: new Date(500), title: '4', id: -1 },
+			{ start: new Date(550), end: new Date(600), title: '5', id: 5 }
+		];
+		const expected = [{ start: new Date(250), end: new Date(300), title: '2', id: -1 }];
+		const timeline = new Timeline(intervals, new Date(100), new Date(400));
+		const outOfSync = timeline.getOutOfSyncIntervals();
+		expect(outOfSync).toEqual(expected);
+	});
 	test('get out of sync ranges', () => {
 		const intervals: interval[] = [
 			{ start: new Date(100), end: new Date(200), title: '1', id: 1 },
