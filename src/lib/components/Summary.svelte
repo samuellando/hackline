@@ -64,7 +64,7 @@
 		let t = e.target as HTMLInputElement;
 		let colormap = (apiClient.getSetting('colormap') || {}) as { [key: string]: string };
 		colormap[title] = t.value;
-		apiClient.startPreviewSettings();
+		apiClient.previewSettings();
 		apiClient.setSetting('colormap', colormap);
 	}
 

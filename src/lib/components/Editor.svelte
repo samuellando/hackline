@@ -26,13 +26,8 @@
 		apiClient.subscribe(() => {
 			editing = apiClient.isPreviewEdit();
 			adding = apiClient.isPreviewAdd();
-			if (adding) {
-				editingInterval = apiClient.getPreviewInterval();
-			}
-			if (editing) {
-				editingInterval = apiClient.getPreviewInterval();
-			}
 			if (editing || adding) {
+				editingInterval = apiClient.getPreviewInterval();
 				color = (apiClient.getSetting('colormap') as { [key: string]: string })[
 					editingInterval.title
 				];
@@ -43,32 +38,36 @@
 	async function commitInterval() {
 		if (apiClient.isPreview()) {
 			let previewColormap = (apiClient.getSetting('colormap') || {}) as { [key: string]: string };
-			let i = apiClient.getPreviewInterval();
-			if (adding) {
-				await apiClient.timelineAdd();
-			}
-			if (editing) {
-				console.log('editing');
-				await apiClient.timelineEdit();
-			}
-			let colormap = (apiClient.getSetting('colormap') || {}) as { [key: string]: string };
+			let colormap = (apiClient.getBaseSettings()['colormap'] || {}) as { [key: string]: string };
+			// Copy over any changes to existing.
 			for (let key in colormap) {
 				if (key in previewColormap) {
 					colormap[key] = previewColormap[key];
 				}
 			}
-			colormap[i.title] = previewColormap[i.title];
+			colormap[editingInterval.title] = previewColormap[editingInterval.title];
 			apiClient.setSetting('colormap', colormap);
+
+			if (adding) {
+				await apiClient.timelineAdd();
+			}
+			if (editing) {
+				await apiClient.timelineEdit();
+			}
 		}
 	}
 
 	function updateTitle(i: interval) {
+		let colorSave = color;
 		if (adding) {
 			apiClient.previewAdd(i);
 		}
 		if (editing) {
 			apiClient.previewEdit(i);
 		}
+		let colormap = (apiClient.getSetting('colormap') || {}) as { [key: string]: string };
+		colormap[editingInterval.title] = colorSave;
+		apiClient.setSetting('colormap', colormap);
 	}
 
 	function updateColor(title: string, e: Event) {
