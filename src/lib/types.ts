@@ -32,3 +32,9 @@ export type palette = {
 	primary: string;
 	secondary: string;
 };
+
+export type stripeInfo = {
+    customerId: string | null;
+    paymentStatus: string | null;
+    createdAt: Date;
+}
