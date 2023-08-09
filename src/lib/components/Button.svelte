@@ -11,8 +11,11 @@
 <div style="--primary: {primary}; --secondary: {secondary}">
 	<button
 		class="
+    whitespace-nowrap
+    inline-flex
+    items-center
+    p-3 text-base
     border rounded-full
-    p-1 text-sm w-14 min-w-fit h-10
     font-mono
     text-[var(--secondary)] hover:text-[var(--primary)]
     bg-[var(--primary)] hover:bg-[var(--secondary)]

@@ -47,21 +47,48 @@
             w-full
         "
 >
-	<div class="pt-5 pr-10 flex gap-10 justify-end">
-		{#if data.session?.user && data.stripeInfo.paymentStatus !== 'inactive'}
-			<Button text="Timeline" onClick={() => goto('/app/timeline')} />
-			<Button text="Account" onClick={() => goto('/app/account')} />
-		{/if}
-		<Auth />
+	<div class="flex p-7">
+		<h1
+			class="
+            text-4xl
+            pr-20
+            font-bold
+            cursor-pointer
+            hover:underline
+            "
+			on:keyup={() => goto('/')}
+			on:click={() => goto('/')}
+		>
+			HackLine.io
+		</h1>
+		<div class="flex gap-6 items-center">
+			{#if data.session?.user && data.stripeInfo.paymentStatus !== 'inactive'}
+				<Button text="Timeline" onClick={() => goto('/app/timeline')} />
+				<Button text="Account" onClick={() => goto('/app/account')} />
+			{/if}
+			<Button text="Docs" onClick={() => goto('/docs')} />
+			<Button text="Guides" onClick={() => goto('/guides')} />
+			{#if !data.session?.user || data.stripeInfo.paymentStatus !== 'active'}
+				<Button text="Pricing" onClick={() => goto('/pricing')} />
+			{/if}
+		</div>
+		<div class="flex items-center justify-end basis-full gap-10">
+			{#if !data.session?.user}
+				<span
+					on:keyup={() => goto('/login')}
+					on:click={() => goto('/login')}
+					class="
+                    cursor-pointer
+                    text-xl
+                    font-bold
+                    hover:underline
+                "
+				>
+					Log in
+				</span>
+			{/if}
+			<Auth />
+		</div>
 	</div>
-	<h1
-		class="
-        mt-10
-        text-6xl
-        text-center
-   "
-	>
-		HackLine.io
-	</h1>
 	<slot />
 </div>

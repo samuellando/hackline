@@ -12,7 +12,6 @@ export async function getStripeInfo(userId: string): Promise<stripeInfo> {
 	});
 
 	// 7 days for free.
-	console.log(res, Date.now() - res.createdAt.getTime());
 	if (
 		Date.now() - res.createdAt.getTime() < 1000 * 60 * 60 * 24 * 7 &&
 		res.paymentStatus !== 'active'

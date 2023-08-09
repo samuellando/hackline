@@ -7,6 +7,9 @@
 	import Summary from '$lib/components/Summary.svelte';
 	import Editor from '$lib/components/Editor.svelte';
 	import Running from '$lib/components/Running.svelte';
+	import Button from '$lib/components/Button.svelte';
+	import { goto } from '$app/navigation';
+
 	let rangeStartM = moment().startOf('day').valueOf();
 	let rangeEndM = moment().valueOf();
 
@@ -18,26 +21,61 @@
 	});
 </script>
 
-<p class="text-center mt-20">
-	Hackline is a extensible time tracking tool designed for power users.
-	<br />
-	<br />
-	Use the simple and customizable web UI and automate with the API,
-	<br />
-	<br />
-	This is currently a rough minimal viable product, check out the live demo below.
-</p>
+<div class="flex flex-col h-screen">
+	<div class="flex mt-20 gap-20 justify-end flex-col sm:flex-row px-10 sm:px-28">
+		<p
+			class="
+    text-3xl
+    sm:text-6xl
+    text-center
+    sm:text-left
+    w-full
+    sm:w-1/4
+    "
+		>
+			Hackline is a <b>minimalist</b> and <b>extensible</b> time tracking tool designed for
+			<b>power users</b>.
+		</p>
+		<div
+			class="
+    w-full
+    sm:w-1/2
+    flex
+    flex-col
+    gap-10
+    text-center
+    sm:text-left
+    "
+		>
+			<p class="text-2xl sm:text-4xl">It's just a timeline.</p>
+			<img src="/images/timeline.png" alt="timeline" />
+			<p class="text-2xl sm:text-2xl w-full sm:w-1/2">
+				With a <b>RestAPI</b>, so you can build <b>integrations</b>,
+				<b>notebooks</b>, <b>dashboards</b>, and set up <b>automations</b>.
+			</p>
+			<div class="flex flex-row gap-5 items-center justify-center sm:justify-start">
+				<Button text="Demo it" onClick={() => goto('/#demo')} />
+				<span
+					on:click={() => goto('/#readmore')}
+					on:keyup={() => goto('/#readmore')}
+					class="cursor-pointer text-xl font-bold hover:underline">Read more ></span
+				>
+			</div>
+		</div>
+	</div>
 
-<h1 class="text-center text-4xl mt-20">Live Demo</h1>
-<p class="text-center mt-10 mb-20">
-	scroll on the timeline to zoom in and out.
-	<br />
-	<br />
-	SHIFT + scroll to pan.
-	<br />
-	<br />
-	Shift + click and drag to add a new interval.
-</p>
+	<div class="flex flex-grow bg-red" />
+</div>
+
+<h1
+	id="demo"
+	class="
+text-center text-5xl mt-
+"
+>
+	Live Demo
+</h1>
+
 {#if !loading}
 	<div class="mt-10 flex justify-center">
 		<Running />
@@ -63,3 +101,7 @@
 {:else}
 	Loading...
 {/if}
+
+<div id="readmore" class="flex flex-col h-screen">
+	<h1 id="demo" class="text-center text-5xl mt-28">How it works</h1>
+</div>

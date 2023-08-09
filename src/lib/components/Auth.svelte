@@ -7,5 +7,5 @@
 {#if $page.data.session?.user}
 	<Button onClick={signOut} text="Sign Out" />
 {:else}
-	<Button onClick={() => signIn('auth0')} text="Sign In" />
+	<Button onClick={() => signIn('auth0')} text="Try It" />
 {/if}
