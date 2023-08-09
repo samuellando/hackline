@@ -34,7 +34,7 @@ export type palette = {
 };
 
 export type stripeInfo = {
-    customerId: string | null;
-    paymentStatus: string | null;
-    createdAt: Date;
-}
+	customerId: string | null;
+	paymentStatus: string;
+	createdAt: Date | null;
+};

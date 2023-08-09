@@ -16,7 +16,7 @@ model User {
   email      String?  @unique
   name       String?
   customerId   String?
-  paymentStatus String? @default("inactive")
+  paymentStatus String @default("inactive")
   createdAt  DateTime @default(now())
   intervals  Interval[]
   running    Running?

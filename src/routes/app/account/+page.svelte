@@ -6,7 +6,7 @@
 	import { trpc } from '$lib/trpc/client';
 	import { page } from '$app/stores';
 	import Button from '$lib/components/Button.svelte';
-    import { goto } from '$app/navigation';
+	import { goto } from '$app/navigation';
 
 	export let data;
 	let stripeInfo = data.stripeInfo;
@@ -57,12 +57,12 @@
 {#if !loading}
 	<p>Api Key: {apiKey}</p>
 	<Button onClick={reset} text="Reset" />
-	{#if stripeInfo.customerId}
+	{#if stripeInfo.customerId && stripeInfo.paymentStatus == 'active'}
 		<form action="/app/payment?/dashboard" method="POST">
 			<button type="submit">Billing</button>
 		</form>
-        {:else}
-        <Button onClick={() => goto('/app/payment')} text="Subscribe" />
+	{:else}
+		<Button onClick={() => goto('/app/payment')} text="Subscribe" />
 	{/if}
 	<div>
 		<JSONEditor

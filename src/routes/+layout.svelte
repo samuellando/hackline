@@ -48,12 +48,9 @@
         "
 >
 	<div class="pt-5 pr-10 flex gap-10 justify-end">
-		{#if data.session?.user}
-			{#if $page.url.pathname.match(/^\/app\/timeline$/)}
-				<Button text="Account" onClick={() => goto('/app/account')} />
-			{:else}
-				<Button text="Back" onClick={() => goto('/app/timeline')} />
-			{/if}
+		{#if data.session?.user && data.stripeInfo.paymentStatus !== 'inactive'}
+			<Button text="Timeline" onClick={() => goto('/app/timeline')} />
+			<Button text="Account" onClick={() => goto('/app/account')} />
 		{/if}
 		<Auth />
 	</div>
