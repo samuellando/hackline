@@ -10,9 +10,13 @@ export const load: PageServerLoad = async (event) => {
 	if (stripeInfo.paymentStatus === 'active') throw redirect(303, '/app/timeline');
 };
 
-const stripe = new Stripe(env.STRIPE_SECRET, {
-	apiVersion: '2022-11-15'
-});
+let stripe: Stripe;
+
+if (env.STRIPE_SECRET) {
+	stripe = new Stripe(env.STRIPE_SECRET, {
+		apiVersion: '2022-11-15'
+	});
+}
 
 async function getInfo(event: RequestEvent) {
 	const session = await event.locals.getSession();

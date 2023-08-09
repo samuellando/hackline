@@ -3,13 +3,14 @@ import type { RequestEvent } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 import Stripe from 'stripe';
 
-if (!env.STRIPE_SECRET) throw new Error('Stripe secret not set');
-if (!env.STRIPE_ENDPOINT_SECRET) throw new Error('Stripe endpoint secret not set');
-
-const endpointSecret = env.STRIPE_ENDPOINT_SECRET;
-const stripe = new Stripe(env.STRIPE_SECRET, {
-	apiVersion: '2022-11-15'
-});
+let endpointSecret: string;
+let stripe: Stripe;
+if (env.STRIPE_SECRET && env.STRIPE_ENDPOINT_SECRET) {
+	endpointSecret = env.STRIPE_ENDPOINT_SECRET;
+	stripe = new Stripe(env.STRIPE_SECRET, {
+		apiVersion: '2022-11-15'
+	});
+}
 
 async function getEvent(event: RequestEvent) {
 	const IPS = [
