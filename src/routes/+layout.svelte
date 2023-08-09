@@ -33,11 +33,6 @@
 			setContext('apiClient', apiClient);
 		}
 	}
-
-	// Set up the API cleint
-	// - If the user is not authenticated, don't provide a trpc cleint, and dia
-	// Get the color pallete for the user.
-	// Update $page.data
 </script>
 
 <div
@@ -54,10 +49,10 @@
 >
 	<div class="pt-5 pr-10 flex gap-10 justify-end">
 		{#if data.session?.user}
-			{#if $page.url.pathname == '/timeline'}
-				<Button text="Settings" onClick={() => goto('/settings')} />
+			{#if $page.url.pathname.match(/^\/app\/timeline$/)}
+				<Button text="Account" onClick={() => goto('/app/account')} />
 			{:else}
-				<Button text="Back" onClick={() => goto('/timeline')} />
+				<Button text="Back" onClick={() => goto('/app/timeline')} />
 			{/if}
 		{/if}
 		<Auth />

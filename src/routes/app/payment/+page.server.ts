@@ -1,19 +1,14 @@
 import { redirect } from '@sveltejs/kit';
-import type { PageServerLoad } from './$types';
 import Stripe from 'stripe';
 import { getStripeInfo } from '$lib/server/stripe';
 import { env } from '$env/dynamic/private';
-
-export const load: PageServerLoad = async (event) => {
-    const {stripeInfo}  = await getInfo(event);
-    return { stripeInfo };
-};
+import type { RequestEvent } from '@sveltejs/kit';
 
 const stripe = new Stripe(env.STRIPE_SECRET, {
     apiVersion: '2022-11-15',
 });
 
-async function getInfo(event) {
+async function getInfo(event: RequestEvent) {
     const session = await event.locals.getSession();
     if (session?.user.id) {
         return {userId: session.user.id, stripeInfo: await getStripeInfo(session.user.id)};
@@ -23,7 +18,7 @@ async function getInfo(event) {
 }
 
 export const actions = {
-    subscribe: async (event) => {
+    subscribe: async (event: RequestEvent) => {
         const {userId, stripeInfo}  = await getInfo(event);
         if (stripeInfo.paymentStatus === 'active') throw redirect(303, '/timeline');
         const session = await stripe.checkout.sessions.create({
@@ -39,14 +34,14 @@ export const actions = {
             metadata: {
                 userId: userId
             },
-            success_url: `${event.url.origin}/pricing`,
-            cancel_url: `${event.url.origin}/pricing`,
+            success_url: `${event.url.origin}${event.url.pathname}`,
+            cancel_url: `${event.url.origin}${event.url.pathname}`,
         });
 
         if (!session?.url) throw redirect(303, '/');
         throw redirect(303, session.url);
     },
-    adopt: async (event) => {
+    adopt: async (event: RequestEvent) => {
         const {stripeInfo, userId} = await getInfo(event);
         if (stripeInfo.paymentStatus === 'active') throw redirect(303, '/timeline');
         const session = await stripe.checkout.sessions.create({
@@ -62,20 +57,20 @@ export const actions = {
                 userId: userId
             },
             mode: 'payment',
-            success_url: `${event.url.origin}/pricing`,
-            cancel_url: `${event.url.origin}/pricing`,
+            success_url: `${event.url.origin}${event.url.pathname}`,
+            cancel_url: `${event.url.origin}${event.url.pathname}`,
         });
 
         if (!session?.url) throw redirect(303, '/');
         throw redirect(303, session.url);
     },
-    dashboard: async (event) => {
+    dashboard: async (event: RequestEvent) => {
         // Check if the user is already subscribed.
         const {stripeInfo} = await getInfo(event);
         if (!stripeInfo.customerId) throw redirect(303, '/');
         const session = await stripe.billingPortal.sessions.create({
             customer: stripeInfo.customerId,
-            return_url: `${event.url.origin}/pricing`,
+            return_url: `${event.url.origin}/app/account`,
         });
 
         throw redirect(303, session.url);
