@@ -8,7 +8,7 @@
 	let secondary: string = (getContext('palette') as palette).secondary;
 </script>
 
-<div style="--secondary: {secondary}">
+<div style="--secondary: {secondary}" class="w-fit">
 	<button
 		class={`
     whitespace-nowrap

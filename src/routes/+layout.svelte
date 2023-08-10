@@ -35,6 +35,7 @@
 	}
 
 	let y = 0;
+	let dropdown = false;
 
 	function scroll(e: Event) {
 		y = (e.target as HTMLElement).scrollTop;
@@ -74,24 +75,78 @@
 				<Nav
 					className="
             text-4xl
-            mr-20
+            lg:mr-20
             "
 					onClick={() => goto('/#top')}
 					text="HackLine.io"
 				/>
-				<div class="flex gap-6 items-center">
+				<div
+					class={(dropdown ? 'flex' : 'hidden') +
+						` 
+                    lg:flex 
+                    fixed 
+                    lg:static 
+                    -z-10
+                    gap-6 
+                    items-center 
+                    flex-col 
+                    lg:flex-row 
+                    top-10 
+                    left-0
+                    justify-center 
+                    lg:justify-left
+                    w-full 
+                    lg:w-fit 
+                    border-b
+                    lg:border-0
+                    p-2
+                    pt-10
+                    lg:p-0
+                    bg-[var(--primary)]
+                    `}
+				>
 					{#if data.session?.user && data.stripeInfo.paymentStatus !== 'inactive'}
 						<Nav text="Timeline" onClick={() => goto('/app/timeline')} />
 						<Nav text="Account" onClick={() => goto('/app/account')} />
 					{/if}
-					<Nav text="Docs" onClick={() => goto('/#docs')} />
-					<Nav text="Guides" onClick={() => goto('/#guides')} />
-					{#if !data.session?.user || data.stripeInfo.paymentStatus !== 'active'}
-						<Nav text="Pricing" onClick={() => goto('/#pricing')} />
+					<Nav
+						text="Docs"
+						onClick={() => {
+							dropdown = false;
+							goto('/#docs');
+						}}
+					/>
+					<Nav
+						text="Guides"
+						onClick={() => {
+							dropdown = false;
+							goto('/#guides');
+						}}
+					/>
+					{#if !data.session?.user || data.stripeInfo.paymentStatus !== 'active' || $page.url.pathname == '/'}
+						<Nav
+							text="Pricing"
+							onClick={() => {
+								dropdown = false;
+								goto('/#pricing');
+							}}
+						/>
 					{/if}
+					<div class="lg:hidden inline">
+						<Auth />
+					</div>
 				</div>
-				<div class="basis-full">
+				<div class="basis-full lg:inline hidden">
 					<Auth />
+				</div>
+				<div class="basis-full flex justify-end lg:hidden inline">
+					<Nav
+						text={dropdown ? 'X' : '☰'}
+						className="text-5xl"
+						onClick={() => {
+							dropdown = !dropdown;
+						}}
+					/>
 				</div>
 			</div>
 		</div>
