@@ -54,29 +54,32 @@
 	}
 </script>
 
-{#if !loading}
-	<p>Api Key: {apiKey}</p>
-	<Button onClick={reset} text="Reset" />
-	{#if stripeInfo.customerId && stripeInfo.paymentStatus == 'active'}
-		<form action="/app/payment?/dashboard" method="POST">
-			<button type="submit">Billing</button>
-		</form>
-	{:else}
-		<Button onClick={() => goto('/app/payment')} text="Subscribe" />
-	{/if}
-	<div>
-		<JSONEditor
-			bind:content
-			mode={Mode.text}
-			onChange={(_b, _a, { contentErrors }) => {
-				errors = contentErrors;
-			}}
-		/>
-	</div>
-
-	{#if errors == null}
-		<div class="pt-5">
-			<Button onClick={save} text="Save" />
+<div class="flex flex-col min-h-screen">
+	<div class="basis-36" />
+	{#if !loading}
+		<p>Api Key: {apiKey}</p>
+		<Button onClick={reset} text="Reset" />
+		{#if stripeInfo.customerId && stripeInfo.paymentStatus == 'active'}
+			<form action="/app/payment?/dashboard" method="POST">
+				<button type="submit">Billing</button>
+			</form>
+		{:else}
+			<Button onClick={() => goto('/app/payment')} text="Subscribe" />
+		{/if}
+		<div>
+			<JSONEditor
+				bind:content
+				mode={Mode.text}
+				onChange={(_b, _a, { contentErrors }) => {
+					errors = contentErrors;
+				}}
+			/>
 		</div>
+
+		{#if errors == null}
+			<div class="pt-5">
+				<Button onClick={save} text="Save" />
+			</div>
+		{/if}
 	{/if}
-{/if}
+</div>

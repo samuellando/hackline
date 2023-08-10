@@ -2,7 +2,7 @@
 	import '../app.css';
 	import { page } from '$app/stores';
 	import Auth from '$lib/components/Auth.svelte';
-	import Button from '$lib/components/Button.svelte';
+	import Nav from '$lib/components/Nav.svelte';
 	import { goto } from '$app/navigation';
 	import { getContext, setContext } from 'svelte';
 	import type State from '$lib/State';
@@ -33,62 +33,68 @@
 			setContext('apiClient', apiClient);
 		}
 	}
+
+	let y = 0;
+
+	function scroll(e: Event) {
+		y = (e.target as HTMLElement).scrollTop;
+	}
 </script>
 
 <div
 	style="
-            background-color: {primary};
-            color: {secondary};
-        "
-	class="
+    --primary: {primary};
+    --secondary: {secondary};
+"
+>
+	<div
+		on:scroll={scroll}
+		class="
+            scroll-smooth
             font-mmono
             min-h-screen
-            h-fit
+            h-screen
+            overflow-auto
             w-full
+            bg-[var(--primary)]
+            text-[var(--secondary)]
+            border-b-1
+            border-[var(--secondary)]
         "
->
-	<div class="flex p-7">
-		<h1
+	>
+		<div
 			class="
-            text-4xl
-            pr-20
-            font-bold
-            cursor-pointer
-            hover:underline
-            "
-			on:keyup={() => goto('/')}
-			on:click={() => goto('/')}
+        fixed
+        w-full
+        {y > 0 ? 'bg-[var(--primary)] border-b' : ''}
+        border-[var(--secondary)]
+        "
 		>
-			HackLine.io
-		</h1>
-		<div class="flex gap-6 items-center">
-			{#if data.session?.user && data.stripeInfo.paymentStatus !== 'inactive'}
-				<Button text="Timeline" onClick={() => goto('/app/timeline')} />
-				<Button text="Account" onClick={() => goto('/app/account')} />
-			{/if}
-			<Button text="Docs" onClick={() => goto('/docs')} />
-			<Button text="Guides" onClick={() => goto('/guides')} />
-			{#if !data.session?.user || data.stripeInfo.paymentStatus !== 'active'}
-				<Button text="Pricing" onClick={() => goto('/pricing')} />
-			{/if}
+			<div class="flex pt-3 pb-2 px-7 items-center">
+				<Nav
+					className="
+            text-4xl
+            mr-20
+            "
+					onClick={() => goto('/#top')}
+					text="HackLine.io"
+				/>
+				<div class="flex gap-6 items-center">
+					{#if data.session?.user && data.stripeInfo.paymentStatus !== 'inactive'}
+						<Nav text="Timeline" onClick={() => goto('/app/timeline')} />
+						<Nav text="Account" onClick={() => goto('/app/account')} />
+					{/if}
+					<Nav text="Docs" onClick={() => goto('/#docs')} />
+					<Nav text="Guides" onClick={() => goto('/#guides')} />
+					{#if !data.session?.user || data.stripeInfo.paymentStatus !== 'active'}
+						<Nav text="Pricing" onClick={() => goto('/#pricing')} />
+					{/if}
+				</div>
+				<div class="basis-full">
+					<Auth />
+				</div>
+			</div>
 		</div>
-		<div class="flex items-center justify-end basis-full gap-10">
-			{#if !data.session?.user}
-				<span
-					on:keyup={() => goto('/login')}
-					on:click={() => goto('/login')}
-					class="
-                    cursor-pointer
-                    text-xl
-                    font-bold
-                    hover:underline
-                "
-				>
-					Log in
-				</span>
-			{/if}
-			<Auth />
-		</div>
+		<slot />
 	</div>
-	<slot />
 </div>

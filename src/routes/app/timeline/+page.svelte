@@ -37,30 +37,33 @@
 	let live: boolean;
 </script>
 
-{#if loading}
-	<h2>loading</h2>
-{:else}
-	<div id="timeline-container">
-		<div class="mt-10 flex justify-center">
-			<Running />
-		</div>
+<div class="flex flex-col h-screen">
+	<div class="basis-36" />
+	{#if loading}
+		<h2>loading</h2>
+	{:else}
+		<div>
+			<div class="mt-10 flex justify-center">
+				<Running />
+			</div>
 
-		<div class="mt-10 flex justify-between px-20">
-			<Live bind:live />
-			<RangeSelector bind:rangeStartM bind:rangeEndM bind:live />
-		</div>
+			<div class="mt-10 flex justify-between px-20">
+				<Live bind:live />
+				<RangeSelector bind:rangeStartM bind:rangeEndM bind:live />
+			</div>
 
-		<div class="flex justify-center mt-5">
-			<Timeline bind:rangeStartM bind:rangeEndM bind:live />
-		</div>
+			<div class="flex justify-center mt-5">
+				<Timeline bind:rangeStartM bind:rangeEndM bind:live />
+			</div>
 
-		<div class="flex justify-center">
-			<Editor />
-		</div>
+			<div class="flex justify-center">
+				<Editor />
+			</div>
 
-		<h1 class="text-2xl text-center">Summary</h1>
-		<div class="flex justify-center">
-			<Summary bind:rangeStartM bind:rangeEndM />
+			<h1 class="text-2xl text-center">Summary</h1>
+			<div class="flex justify-center">
+				<Summary bind:rangeStartM bind:rangeEndM />
+			</div>
 		</div>
-	</div>
-{/if}
+	{/if}
+</div>
