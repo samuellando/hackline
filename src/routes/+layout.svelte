@@ -87,6 +87,7 @@
                     fixed 
                     lg:static 
                     -z-10
+                    lg:z-0
                     gap-6 
                     items-center 
                     flex-col 
@@ -105,7 +106,7 @@
                     bg-[var(--primary)]
                     `}
 				>
-					{#if data.session?.user && data.stripeInfo.paymentStatus !== 'inactive'}
+					{#if data.session?.user}
 						<Nav text="Timeline" onClick={() => goto('/app/timeline')} />
 						<Nav text="Account" onClick={() => goto('/app/account')} />
 					{/if}

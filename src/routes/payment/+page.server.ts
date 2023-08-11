@@ -3,12 +3,6 @@ import Stripe from 'stripe';
 import { getStripeInfo } from '$lib/server/stripe';
 import { env } from '$env/dynamic/private';
 import type { RequestEvent } from '@sveltejs/kit';
-import type { PageServerLoad } from './$types';
-
-export const load: PageServerLoad = async (event) => {
-	const { stripeInfo } = await event.parent();
-	if (stripeInfo.paymentStatus === 'active') throw redirect(303, '/app/timeline');
-};
 
 let stripe: Stripe;
 
@@ -34,8 +28,7 @@ export const actions = {
 		const session = await stripe.checkout.sessions.create({
 			line_items: [
 				{
-					// Provide the exact Price ID (for example, pr_1234) of the product you want to sell
-					price: 'price_1Nct7XAal153k9FeEbSLyUwr',
+					price: 'price_1NcanJAal153k9FeWz00x1Ej',
 					quantity: 1
 				}
 			],
@@ -44,8 +37,8 @@ export const actions = {
 			metadata: {
 				userId: userId
 			},
-			success_url: `${event.url.origin}${event.url.pathname}`,
-			cancel_url: `${event.url.origin}${event.url.pathname}`
+			success_url: `${event.url.origin}/#pricing`,
+			cancel_url: `${event.url.origin}/#pricing`
 		});
 
 		if (!session?.url) throw redirect(303, '/');
@@ -57,8 +50,7 @@ export const actions = {
 		const session = await stripe.checkout.sessions.create({
 			line_items: [
 				{
-					// Provide the exact Price ID (for example, pr_1234) of the product you want to sell
-					price: 'price_1NcvLaAal153k9Fe48WQOHDg',
+					price: 'price_1NcanJAal153k9FeFSkfgzTi',
 					quantity: 1
 				}
 			],
@@ -68,8 +60,8 @@ export const actions = {
 				userId: userId
 			},
 			mode: 'payment',
-			success_url: `${event.url.origin}${event.url.pathname}`,
-			cancel_url: `${event.url.origin}${event.url.pathname}`
+			success_url: `${event.url.origin}/#pricing`,
+			cancel_url: `${event.url.origin}/#pricing`
 		});
 
 		if (!session?.url) throw redirect(303, '/');

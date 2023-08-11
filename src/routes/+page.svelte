@@ -194,21 +194,14 @@ text-center text-5xl mt-
 	</p>
 	<div id="pricing" class="basis-36" />
 	<p class="text-center text-5xl pl-36">Pricing</p>
-	<p>
-		Hackline is free for personal use.
-		<br />
-		<br />
-		Hackline is free for open source projects.
-		<br />
-		<br />
-		Hackline is free for non-profit organizations.
-		<br />
-		<br />
-		Hackline is free for students.
-		<br />
-		<br />
-		Hackline is free for teachers.
-		<br />
-	</p>
+	<h2>Status: {data.stripeInfo.paymentStatus}</h2>
+	{#if data.session?.user && data.stripeInfo.paymentStatus != 'active'}
+		<form action="/payment?/subscribe" method="POST">
+			<button type="submit">Subscribe</button>
+		</form>
+		<form action="/payment?/adopt" method="POST">
+			<button type="submit">Adopt</button>
+		</form>
+	{/if}
 	<div class="h-96" />
 </div>
