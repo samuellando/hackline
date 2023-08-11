@@ -4,22 +4,19 @@
 
 	export let onClick: () => void;
 	export let text: string;
-	let primary: string = (getContext('palette') as palette).primary;
+	export let className = '';
 	let secondary: string = (getContext('palette') as palette).secondary;
 </script>
 
-<div style="--primary: {primary}; --secondary: {secondary}">
+<div style="--secondary: {secondary}" class="w-fit">
 	<button
-		class="
+		class={`
     whitespace-nowrap
     inline-flex
     items-center
-    p-3 text-base
-    border rounded-full
     font-mono
-    text-[var(--secondary)] hover:text-[var(--primary)]
-    bg-[var(--primary)] hover:bg-[var(--secondary)]
-    "
+    font-bold
+    text-[var(--secondary)] hover:underline ` + className}
 		on:click={() => onClick()}
 		>{text}
 	</button>

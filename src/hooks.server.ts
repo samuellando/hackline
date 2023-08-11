@@ -28,7 +28,12 @@ export const authHandle = SvelteKitAuth({
 		Auth0Provider({
 			clientId: env.AUTH0_ID,
 			clientSecret: env.AUTH0_SECRET,
-			issuer: env.AUTH0_ISSUER
+			issuer: env.AUTH0_ISSUER,
+			authorization: {
+				params: {
+					prompt: 'login'
+				}
+			}
 		})
 	],
 	secret: env.AUTH_SECRET,

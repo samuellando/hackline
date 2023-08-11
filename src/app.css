@@ -12,3 +12,23 @@ input[type='color']::-webkit-color-swatch-wrapper {
 input[type='color']::-webkit-color-swatch {
 	border: none;
 }
+
+/* Works on Firefox */
+* {
+	scrollbar-width: thin;
+	scrollbar-color: blue none;
+}
+
+/* Works on Chrome, Edge, and Safari */
+*::-webkit-scrollbar {
+	width: 12px;
+}
+
+*::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+	border-radius: 20px;
+	background-color: #00000020;
+}

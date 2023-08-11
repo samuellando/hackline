@@ -2,7 +2,7 @@
 	import '../app.css';
 	import { page } from '$app/stores';
 	import Auth from '$lib/components/Auth.svelte';
-	import Button from '$lib/components/Button.svelte';
+	import Nav from '$lib/components/Nav.svelte';
 	import { goto } from '$app/navigation';
 	import { getContext, setContext } from 'svelte';
 	import type State from '$lib/State';
@@ -34,42 +34,123 @@
 		}
 	}
 
-	// Set up the API cleint
-	// - If the user is not authenticated, don't provide a trpc cleint, and dia
-	// Get the color pallete for the user.
-	// Update $page.data
+	let y = 0;
+	let dropdown = false;
+
+	function scroll(e: Event) {
+		y = (e.target as HTMLElement).scrollTop;
+	}
 </script>
 
 <div
 	style="
-            background-color: {primary};
-            color: {secondary};
-        "
-	class="
+    --primary: {primary};
+    --secondary: {secondary};
+"
+>
+	<div
+		on:scroll={scroll}
+		class="
+            scroll-smooth
             font-mmono
             min-h-screen
-            h-fit
+            h-screen
+            overflow-auto
             w-full
+            bg-[var(--primary)]
+            text-[var(--secondary)]
+            border-b-1
+            border-[var(--secondary)]
         "
->
-	<div class="pt-5 pr-10 flex gap-10 justify-end">
-		{#if data.session?.user}
-			{#if $page.url.pathname == '/timeline'}
-				<Button text="Settings" onClick={() => goto('/settings')} />
-			{:else}
-				<Button text="Back" onClick={() => goto('/timeline')} />
-			{/if}
-		{/if}
-		<Auth />
-	</div>
-	<h1
-		class="
-        mt-10
-        text-6xl
-        text-center
-   "
 	>
-		HackLine.io
-	</h1>
-	<slot />
+		<div
+			class="
+        fixed
+        w-full
+        {y > 0 ? 'bg-[var(--primary)] border-b' : ''}
+        border-[var(--secondary)]
+        "
+		>
+			<div class="flex pt-3 pb-2 px-7 items-center">
+				<Nav
+					className="
+            text-4xl
+            lg:mr-20
+            "
+					onClick={() => goto('/#top')}
+					text="HackLine.io"
+				/>
+				<div
+					class={(dropdown ? 'flex' : 'hidden') +
+						` 
+                    lg:flex 
+                    fixed 
+                    lg:static 
+                    -z-10
+                    lg:z-0
+                    gap-6 
+                    items-center 
+                    flex-col 
+                    lg:flex-row 
+                    top-10 
+                    left-0
+                    justify-center 
+                    lg:justify-left
+                    w-full 
+                    lg:w-fit 
+                    border-b
+                    lg:border-0
+                    p-2
+                    pt-10
+                    lg:p-0
+                    bg-[var(--primary)]
+                    `}
+				>
+					{#if data.session?.user}
+						<Nav text="Timeline" onClick={() => goto('/app/timeline')} />
+						<Nav text="Account" onClick={() => goto('/app/account')} />
+					{/if}
+					<Nav
+						text="Docs"
+						onClick={() => {
+							dropdown = false;
+							goto('/#docs');
+						}}
+					/>
+					<Nav
+						text="Guides"
+						onClick={() => {
+							dropdown = false;
+							goto('/#guides');
+						}}
+					/>
+					{#if !data.session?.user || data.stripeInfo.paymentStatus !== 'active' || $page.url.pathname == '/'}
+						<Nav
+							text="Pricing"
+							onClick={() => {
+								dropdown = false;
+								goto('/#pricing');
+							}}
+						/>
+					{/if}
+					<div class="lg:hidden inline">
+						<Auth />
+					</div>
+				</div>
+				<div class="basis-full lg:inline hidden">
+					<Auth />
+				</div>
+				<div class="basis-full flex justify-end lg:hidden inline">
+					<Nav
+						text={dropdown ? 'X' : '☰'}
+						className="text-5xl"
+						onClick={() => {
+							dropdown = !dropdown;
+						}}
+					/>
+				</div>
+			</div>
+		</div>
+		<slot />
+	</div>
 </div>
