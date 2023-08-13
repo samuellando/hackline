@@ -56,7 +56,7 @@
             min-h-screen
             h-screen
             overflow-auto
-            w-full
+            max-w-screen
             bg-[var(--primary)]
             text-[var(--secondary)]
             border-b-1
@@ -66,9 +66,10 @@
 		<div
 			class="
         fixed
-        w-full
+        w-screen
         {y > 0 ? 'bg-[var(--primary)] border-b' : ''}
         border-[var(--secondary)]
+        z-10
         "
 		>
 			<div class="flex pt-3 pb-2 px-7 items-center">
@@ -107,21 +108,26 @@
                     `}
 				>
 					{#if data.session?.user}
-						<Nav text="Timeline" onClick={() => goto('/app/timeline')} />
-						<Nav text="Account" onClick={() => goto('/app/account')} />
+						<Nav
+							text="Timeline"
+							onClick={() => {
+								dropdown = false;
+								goto('/app/timeline');
+							}}
+						/>
+						<Nav
+							text="Account"
+							onClick={() => {
+								dropdown = false;
+								goto('/app/account');
+							}}
+						/>
 					{/if}
 					<Nav
 						text="Docs"
 						onClick={() => {
 							dropdown = false;
 							goto('/#docs');
-						}}
-					/>
-					<Nav
-						text="Guides"
-						onClick={() => {
-							dropdown = false;
-							goto('/#guides');
 						}}
 					/>
 					{#if !data.session?.user || data.stripeInfo.paymentStatus !== 'active' || $page.url.pathname == '/'}

@@ -104,7 +104,7 @@
 
 <div style="--secondary: {secondary}">
 	{#if adding || editing}
-		<div class="flex gap-4 pb-4">
+		<div class="flex gap-4 pb-4 flex-wrap">
 			<input
 				class="
                     w-10 h-10

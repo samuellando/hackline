@@ -4,6 +4,7 @@
 	import type { interval, palette } from '$lib/types';
 	import { onMount } from 'svelte';
 	import Button from '$lib/components/Button.svelte';
+	import Nav from '$lib/components/Nav.svelte';
 	import type ApiClient from '$lib/ApiClient';
 	import { browser } from '$app/environment';
 	import { getContext } from 'svelte';
@@ -57,7 +58,10 @@
 				};
 			}
 		});
-		return Object.values(s);
+
+		let a = Object.values(s);
+		a.sort((a, b) => b.totalTime - a.totalTime);
+		return a;
 	}
 
 	function updateColor(title: string, e: Event) {
@@ -83,15 +87,22 @@
 		apiClient.previewAdd(interval);
 	}
 
+	function addRunning(title: string, duration: number) {
+		let start = new Date();
+		let end = new Date(start.getTime() + duration);
+		let interval: interval = { id: -3, title: title, start: start, end: end };
+		apiClient.timelineAdd(interval);
+	}
+
 	$: summary = getSummary(rangeStartM, rangeEndM);
 </script>
 
-<div class="text-center flex flex-col w-fit p-5">
+<div class="text-center flex flex-col w-fit max:w-screen">
 	{#each summary as s}
-		<div class="flex gap-4 pb-4 w-fit">
+		<div class="flex gap-4 p-4 max:w-screen justify-center flex-wrap items-center">
 			<input
 				class="
-                    w-10 h-10
+                    w-1/6 lg:w-10 h-10
                     border-0
                 "
 				type="color"
@@ -102,22 +113,20 @@
 					commitColor(s.title);
 				}}
 			/>
-			<span class="w-56">
+			<span class="w-2/6 lg:w-56">
 				{s.title}
 			</span>
-			<span class="w-96">
+			<span class="w-2/6 lg:w-56">
 				{durationToString(
 					s.totalTime,
 					apiClient.getSettingString('summary-duration-format') ||
-						'%y years %m months %d days %H hours %M minutes %S seconds'
+						'%y years %m months %d days %H:%M:%S'
 				)}
 			</span>
 			<Button onClick={() => apiClient.setRunning(s.title)} text="Run" />
 			<Button onClick={() => addByTitle(s.title)} text="Add" />
+			<Nav onClick={() => addRunning(s.title, 25 * 60 * 1000)} text="25" />
+			<Nav onClick={() => addRunning(s.title, 60 * 60 * 1000)} text="60" />
 		</div>
 	{/each}
-	<Button
-		text="Add"
-		onClick={() => addByTitle(apiClient.getSettingString('default-title') || 'productive')}
-	/>
 </div>

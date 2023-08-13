@@ -8,7 +8,7 @@
 	},
 	"default-title": "productive",
 	"running-duration-format": "%H:%M:%S",
-	"summary-duration-format": "%H hours %M minutes %S seconds",
+	"summary-duration-format": "%H:%M:%S",
 	"text-color": "#FFF1D0",
 	"timeline-background": "#b3b0ad",
 	"timeline-blur": "#00000040",
