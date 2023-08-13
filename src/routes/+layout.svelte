@@ -56,7 +56,7 @@
             min-h-screen
             h-screen
             overflow-auto
-            w-screen
+            max-w-screen
             bg-[var(--primary)]
             text-[var(--secondary)]
             border-b-1
@@ -66,7 +66,7 @@
 		<div
 			class="
         fixed
-        w-full
+        w-screen
         {y > 0 ? 'bg-[var(--primary)] border-b' : ''}
         border-[var(--secondary)]
         z-10
@@ -128,13 +128,6 @@
 						onClick={() => {
 							dropdown = false;
 							goto('/#docs');
-						}}
-					/>
-					<Nav
-						text="Guides"
-						onClick={() => {
-							dropdown = false;
-							goto('/#guides');
 						}}
 					/>
 					{#if !data.session?.user || data.stripeInfo.paymentStatus !== 'active' || $page.url.pathname == '/'}

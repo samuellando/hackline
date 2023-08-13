@@ -64,7 +64,7 @@
 				<button type="submit">Billing</button>
 			</form>
 		{:else}
-			<Button onClick={() => goto('/app/payment')} text="Subscribe" />
+			<Button onClick={() => goto('/#pricing')} text="Subscribe" />
 		{/if}
 		<div>
 			<JSONEditor

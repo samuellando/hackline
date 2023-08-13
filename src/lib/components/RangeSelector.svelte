@@ -109,64 +109,66 @@
 		style={match ? 'color:' + primary + '; background-color:' + secondary + ';' : null}>▼</button
 	>
 	{#if dropdown}
-		<div
-			class="
+		<div class="relative">
+			<div
+				class="
                 border rounded
                 p-1 text-sm min-w-fit min-h-fit
                 font-mono
                 bg-[var(--primary)]
                 absolute
-                -translate-x-3/4
                 text-center
+                -translate-x-3/4
         "
-		>
-			{#each options as option, i}
-				<button
-					class="
+			>
+				{#each options as option, i}
+					<button
+						class="
                         border rounded-r
                         p-1 text-sm w-96 h-10
                         font-mono
                         text-[var(--secondary)] hover:text-[var(--primary)]
                         bg-[var(--primary)] hover:bg-[var(--secondary)]
                     "
-					on:click={() => {
-						[rangeStartM, rangeEndM] = getRange(option);
-						dropdown = false;
-						selected = i;
-						live = option.moveBack == 0;
-					}}
-				>
-					{option.title}
-				</button>
-			{/each}
-			<div>
-				custom<br />
-				<input
-					class="
+						on:click={() => {
+							[rangeStartM, rangeEndM] = getRange(option);
+							dropdown = false;
+							selected = i;
+							live = option.moveBack == 0;
+						}}
+					>
+						{option.title}
+					</button>
+				{/each}
+				<div>
+					custom<br />
+					<input
+						class="
                         border rounded-r
                         p-1 text-sm w-40 h-10
                         font-mono
                         text-[var(--secondary)] hover:text-[var(--primary)]
                         bg-[var(--primary)] hover:bg-[var(--secondary)]
                     "
-					type="datetime-local"
-					bind:value={rangeStart}
-					on:input={updateRange}
-					on:change={() => (dropdown = false)}
-				/>
-				<input
-					class="
+						type="datetime-local"
+						bind:value={rangeStart}
+						on:input={updateRange}
+						on:change={() => (dropdown = false)}
+					/>
+					<input
+						class="
                         border rounded-r
                         p-1 text-sm w-40 h-10
                         font-mono
                         text-[var(--secondary)] hover:text-[var(--primary)]
                         bg-[var(--primary)] hover:bg-[var(--secondary)]
                     "
-					type="datetime-local"
-					bind:value={rangeEnd}
-					on:input={updateRange}
-					on:change={() => (dropdown = false)}
-				/>
+						type="datetime-local"
+						bind:value={rangeEnd}
+						on:input={updateRange}
+						on:change={() => (dropdown = false)}
+					/>
+				</div>
 			</div>
 		</div>
 	{/if}

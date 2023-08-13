@@ -44,7 +44,7 @@
 		<div class="grow" />
 	</div>
 {:else}
-	<div class="flex flex-col h-screen max-h-screen w-screen">
+	<div class="flex flex-col h-screen max-h-screen max-w-screen">
 		<div class="basis-56" />
 		<div class="flex justify-center">
 			<Running />
