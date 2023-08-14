@@ -241,8 +241,13 @@
 
 	<div id="docs" class="basis-36" />
 	<p class="text-center text-5xl">Docs</p>
-	<p class="text-center text-2xl"><a class="underline" href="#top">API Reference</a></p>
-	<p class="text-center text-2xl"><a class="underline" href="#top">How to use the API</a></p>
+	<p class="text-center text-2xl">
+		<a
+			class="underline"
+			href="https://hackline.stoplight.io/docs/hackline-io/branches/main/iax31zjanhgrc-rest-api"
+			>API Reference</a
+		>
+	</p>
 
 	<div class="h-96" />
 </div>
