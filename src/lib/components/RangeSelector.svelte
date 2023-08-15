@@ -54,28 +54,27 @@
 				.clone()
 				.subtract(o.width, (o.unit + 's') as moment.unitOfTime.DurationConstructor);
 		}
-		return [start.valueOf(), end.valueOf()];
+		return [start.toDate(), end.toDate()];
 	}
 
-	export let rangeStartM = moment().startOf('day').valueOf();
-	export let rangeEndM = moment().valueOf();
+	export let rangeStart: Date = moment().startOf('day').toDate();
+	export let rangeEnd: Date = moment().toDate();
 	export let live = true;
 
 	let dropdown = false;
 	let selected = 0;
 	$: match =
-		rangeStartM == getRange(options[selected])[0] &&
-		(rangeEndM == getRange(options[selected])[1] || live);
+		rangeStart.getTime() == getRange(options[selected])[0].getTime() &&
+		(rangeEnd.getTime() == getRange(options[selected])[1].getTime() || live);
 
-	$: rangeStart = toDateTimeString(rangeStartM);
-	$: rangeEnd = toDateTimeString(rangeEndM);
+	$: rangeStartString = toDateTimeString(rangeStart);
+	$: rangeEndString = toDateTimeString(rangeEnd);
 
 	function updateRange() {
-		rangeStartM = Date.parse(rangeStart);
-		rangeEndM = Date.parse(rangeEnd);
+		rangeStart = new Date(rangeStart);
+		rangeEnd = new Date(rangeEnd);
 		//rangeStartM = Math.max(rangeStartM, logs[0].start);
-		rangeStartM = Math.max(rangeStartM);
-		rangeEndM = Math.min(rangeEndM, new Date().getTime());
+		rangeEnd = new Date(Math.min(rangeEnd.getTime(), Date.now()));
 	}
 </script>
 
@@ -89,7 +88,7 @@
                 bg-[var(--primary)] hover:bg-[var(--secondary)]
             "
 		on:click={() => {
-			[rangeStartM, rangeEndM] = getRange(options[selected]);
+			[rangeStart, rangeEnd] = getRange(options[selected]);
 			live = options[selected].moveBack == 0;
 		}}
 		style={match ? 'color:' + primary + '; background-color:' + secondary + ';' : null}
@@ -131,7 +130,7 @@
                         bg-[var(--primary)] hover:bg-[var(--secondary)]
                     "
 						on:click={() => {
-							[rangeStartM, rangeEndM] = getRange(option);
+							[rangeStart, rangeEnd] = getRange(option);
 							dropdown = false;
 							selected = i;
 							live = option.moveBack == 0;
@@ -151,7 +150,7 @@
                         bg-[var(--primary)] hover:bg-[var(--secondary)]
                     "
 						type="datetime-local"
-						bind:value={rangeStart}
+						bind:value={rangeStartString}
 						on:input={updateRange}
 						on:change={() => (dropdown = false)}
 					/>
@@ -164,7 +163,7 @@
                         bg-[var(--primary)] hover:bg-[var(--secondary)]
                     "
 						type="datetime-local"
-						bind:value={rangeEnd}
+						bind:value={rangeEndString}
 						on:input={updateRange}
 						on:change={() => (dropdown = false)}
 					/>

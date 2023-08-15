@@ -16,8 +16,8 @@
 		secondary = (getContext('palette') as palette).secondary;
 	}
 
-	export let rangeStartM: number;
-	export let rangeEndM: number;
+	export let rangeStart: Date;
+	export let rangeEnd: Date;
 
 	type Summary = {
 		title: string;
@@ -33,11 +33,11 @@
 		});
 	});
 
-	function getSummary(rangeStart = rangeStartM, rangeEnd = rangeEndM) {
+	function getSummary(start: Date = rangeStart, end: Date = rangeEnd) {
 		let logs: interval[];
 		let colormap: { [title: string]: string };
 		if (typeof apiClient !== 'undefined') {
-			logs = apiClient.getTimeline(new Date(rangeStart), new Date(rangeEnd)).intervals.reverse();
+			logs = apiClient.getTimeline(start, end).intervals.reverse();
 			colormap = apiClient.getSetting('colormap') as { [key: string]: string };
 			if (colormap == null) {
 				colormap = {};
@@ -81,7 +81,7 @@
 	}
 
 	function addByTitle(title = '') {
-		let start = new Date((rangeStartM + rangeEndM) / 2);
+		let start = new Date((rangeStart.getTime() + rangeEnd.getTime()) / 2);
 		let end = new Date(start.getTime() + 15 * 60 * 1000);
 		let interval: interval = { id: -3, title: title, start: start, end: end };
 		apiClient.previewAdd(interval);
@@ -94,7 +94,7 @@
 		apiClient.timelineAdd(interval);
 	}
 
-	$: summary = getSummary(rangeStartM, rangeEndM);
+	$: summary = getSummary(rangeStart, rangeEnd);
 </script>
 
 <div class="text-center flex flex-col w-fit max:w-screen">

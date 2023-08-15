@@ -21,7 +21,7 @@
 		await apiClient.getReadyQueue();
 		interval = setInterval(() => {
 			if (live && !apiClient.isPreview()) {
-				rangeEndM = new Date().getTime();
+				rangeEnd = new Date();
 			}
 		}, 1000);
 		loading = false;
@@ -31,8 +31,8 @@
 		clearInterval(interval);
 	});
 
-	var rangeStartM: number;
-	var rangeEndM: number;
+	var rangeStart: Date;
+	var rangeEnd: Date;
 
 	let live: boolean;
 </script>
@@ -52,11 +52,11 @@
 
 		<div class="flex flex-col lg:flex-row justify-between px-20 items-center">
 			<Live bind:live />
-			<RangeSelector bind:rangeStartM bind:rangeEndM bind:live />
+			<RangeSelector bind:rangeStart bind:rangeEnd bind:live />
 		</div>
 
 		<div class="flex justify-center mt-2 hidden lg:inline">
-			<Timeline bind:rangeStartM bind:rangeEndM bind:live />
+			<Timeline bind:rangeStart bind:rangeEnd bind:live />
 		</div>
 
 		<div class="flex justify-center">
@@ -66,7 +66,7 @@
 		<h1 class="text-2xl text-center">Summary</h1>
 		<div class="flex justify-center max-h-96">
 			<div class="w-fit overflow-y-auto border border-[var(--secondary)]">
-				<Summary bind:rangeStartM bind:rangeEndM />
+				<Summary bind:rangeStart bind:rangeEnd />
 			</div>
 		</div>
 		<div class="grow" />
