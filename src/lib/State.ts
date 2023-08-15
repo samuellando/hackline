@@ -78,13 +78,28 @@ export default class State {
 		let running = this.running;
 		let lastEnd = 0;
 		// Look for a current interval, and keep track of the last end.
-		this.timeline.intervals.forEach((interval) => {
+		this.timeline.intervals.forEach((interval, i) => {
 			if (interval.start.getTime() <= now && interval.end.getTime() >= now) {
+				let fallback: running;
+				if (
+					i <= this.timeline.intervals.length - 2 &&
+					interval.end.getTime() == this.timeline.intervals[i + 1].start.getTime()
+				) {
+					const fb = this.timeline.intervals[i + 1];
+					fallback = {
+						title: fb.title,
+						start: fb.start,
+						end: fb.end,
+						fallback: this.running
+					};
+				} else {
+					fallback = this.running;
+				}
 				running = {
 					title: interval.title,
 					start: interval.start,
 					end: interval.end,
-					fallback: this.running
+					fallback: fallback
 				};
 			} else if (interval.end.getTime() > lastEnd) {
 				lastEnd = interval.end.getTime();

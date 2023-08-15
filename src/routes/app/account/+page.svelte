@@ -6,7 +6,6 @@
 	import { trpc } from '$lib/trpc/client';
 	import { page } from '$app/stores';
 	import Button from '$lib/components/Button.svelte';
-	import Nav from '$lib/components/Nav.svelte';
 	import { goto } from '$app/navigation';
 
 	export let data;

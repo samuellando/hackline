@@ -39,8 +39,18 @@ export function durationToString(millis: number, format: string, pad = 2) {
 	return s;
 }
 
-export function toDateTimeString(now: number) {
+export function toDateTimeString(now: number | Date) {
+	if (typeof now === 'number') {
+		now = new Date(now);
+	}
 	return moment(now).format(moment.HTML5_FMT.DATETIME_LOCAL);
+}
+
+export function toTimeString(now: number | Date) {
+	if (typeof now === 'number') {
+		now = new Date(now);
+	}
+	return moment(now).format('HH:mm:ss');
 }
 
 export function makeStepIterator(

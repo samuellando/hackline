@@ -3,7 +3,12 @@
 	import { onMount, onDestroy } from 'svelte';
 	import type { Unsubscriber } from 'svelte/store';
 	import { makeColorIterator } from '$lib/colors';
-	import { durationToString, toDateTimeString, getTimeDivisions } from '$lib/timePrint';
+	import {
+		getTimeDivisions,
+		toDateTimeString,
+		durationToString,
+		toTimeString
+	} from '$lib/timePrint';
 	import moment from 'moment';
 	import type ApiClient from '$lib/ApiClient';
 	import { browser } from '$app/environment';
@@ -14,14 +19,18 @@
 		apiClient = getContext('apiClient') as ApiClient;
 	}
 
-	export let rangeStartM: number = moment().startOf('day').valueOf();
-	export let rangeEndM: number = moment().valueOf();
+	export let rangeStart: Date = moment().startOf('day').toDate();
+	export let rangeEnd: Date = new Date();
+
+	// Re draw  when the range changes.
+	$: rangeStart, rangeEnd, drawTimeline();
+
 	export let live = true;
 
-	interface drawInterval extends interval {
+	interface coloredInterval extends interval {
 		color: string;
-		drawStart: number;
-		drawEnd: number;
+		drawStartPx: number;
+		drawEndPx: number;
 	}
 
 	let unsubscribe: Unsubscriber;
@@ -36,7 +45,115 @@
 		unsubscribe();
 	});
 
-	function toDrawInterval(i: interval, duration: number, width: number): drawInterval {
+	let x = -1;
+	let y = -1;
+	let drag = false;
+	let shiftHeld = false;
+	let curM = -1;
+	function mouseMove(event: MouseEvent) {
+		// Update the x and y values.
+		const canvas = <HTMLCanvasElement>document.getElementById('timeline');
+		const rect = canvas.getBoundingClientRect();
+		x = event.clientX - rect.left;
+		y = event.clientY - rect.top;
+
+		curM = (x / rect.width) * (rangeEnd.getTime() - rangeStart.getTime()) + rangeStart.getTime();
+
+		// Detect a relase of the shift key.
+		if (!event.shiftKey) {
+			shiftHeld = false;
+		}
+		// Check if a are adding an interval.
+		if (drag) {
+			// If we are pressing shift, then don't move the range, add an interval.
+			if (event.shiftKey) {
+				// Round to the nearest minute.
+				let curMin = Math.round(curM / 60000) * 60000;
+				let newInterval: interval;
+				// If already previewing, get the interval.
+				if (apiClient.isPreviewAdd() && shiftHeld) {
+					newInterval = apiClient.getPreviewInterval();
+				} else {
+					newInterval = getNewInterval(curMin, curMin);
+					shiftHeld = true;
+				}
+				// Update the preview interval time based on cur min.
+				if (curMin < newInterval.start.getTime()) {
+					newInterval = {
+						...newInterval,
+						start: new Date(curMin)
+					};
+				} else {
+					newInterval = {
+						...newInterval,
+						end: new Date(curMin)
+					};
+				}
+				apiClient.previewAdd(newInterval);
+			} else {
+				let oldS = rangeStart;
+				let oldE = rangeEnd;
+				let shift = (event.movementX / rect.width) * (rangeEnd.getTime() - rangeStart.getTime());
+				let rangeStartM = oldS.getTime() - shift;
+				let rangeEndM = oldE.getTime() - shift;
+
+				if (event.movementX > 0) {
+					live = false;
+				}
+				// If we passed the current time reset.
+				if (rangeEndM > new Date().getTime()) {
+					live = true;
+					rangeEnd = oldE;
+					rangeStart = oldS;
+				} else {
+					rangeStart = new Date(rangeStartM);
+					rangeEnd = new Date(rangeEndM);
+				}
+			}
+		}
+		drawTimeline();
+	}
+
+	function mouseOut() {
+		curM = -1;
+		x = -1;
+		y = -1;
+		drag = false;
+		drawTimeline();
+	}
+
+	function rangeScroll(e: WheelEvent) {
+		e.preventDefault();
+		if (curM < 0) {
+			return;
+		}
+
+		if (e.shiftKey) {
+			if (e.deltaY > 0) {
+				live = false;
+			}
+			if (!live) {
+				rangeEnd = new Date(rangeEnd.getTime() - e.deltaY * 10000);
+				rangeStart = new Date(rangeStart.getTime() - e.deltaY * 10000);
+			}
+		} else {
+			if (e.deltaY < 0) {
+				live = false;
+			}
+			let dur = rangeEnd.getTime() - rangeStart.getTime();
+			rangeEnd = new Date(rangeEnd.getTime() + (dur / 10000) * e.deltaY);
+			rangeStart = new Date(rangeStart.getTime() - (dur / 10000) * e.deltaY);
+		}
+
+		if (rangeEnd > new Date()) {
+			live = true;
+			rangeEnd = new Date();
+		}
+
+		drawTimeline();
+	}
+
+	function toColoredInterval(i: interval): coloredInterval {
 		let color: string;
 		let colormap = apiClient.getSetting('colormap') as { [key: string]: string };
 		if (colormap == null) {
@@ -50,15 +167,13 @@
 			apiClient.setSetting('colormap', colormap);
 		}
 
-		var startPx = ((i.start.getTime() - rangeStartM) / duration) * width;
-		var endPx = ((i.end.getTime() - rangeStartM) / duration) * width;
 		return {
 			title: i.title,
 			start: i.start,
 			end: i.end,
-			drawStart: startPx,
-			drawEnd: endPx,
 			color: color,
+			drawStartPx: -1,
+			drawEndPx: -1,
 			id: i.id
 		};
 	}
@@ -66,10 +181,9 @@
 	let hoveredInterval: interval | null = null;
 	function drawTimeline() {
 		// Get the timeline, and edit it depending on the state.
-		let timeline: interval[];
-		timeline = apiClient.getTimeline(new Date(rangeStartM), new Date(rangeEndM)).intervals;
 
 		const drawHeight = 150;
+
 		const canvas = <HTMLCanvasElement>document.getElementById('timeline');
 		if (canvas == null) {
 			return;
@@ -89,195 +203,200 @@
 		ctx.fillRect(0, 0, width, drawHeight);
 
 		// Convert the timeline.
-		var drawTimeline = timeline.map((e) => toDrawInterval(e, rangeEndM - rangeStartM, width));
+		let drawIntervals = apiClient
+			.getTimeline(rangeStart, rangeEnd)
+			.intervals.map(toColoredInterval);
+		drawIntervals = drawIntervals.map((e) => {
+			let dur = rangeEnd.getTime() - rangeStart.getTime();
+			let startPx = ((e.start.getTime() - rangeStart.getTime()) / dur) * width;
+			let endPx = ((e.end.getTime() - rangeStart.getTime()) / dur) * width;
+			return {
+				...e,
+				drawStartPx: startPx,
+				drawEndPx: endPx
+			};
+		});
+
 		// Draw the timeline
 		let hovering = false;
-		drawTimeline.forEach((e) => {
+		drawIntervals.forEach((e) => {
 			ctx.fillStyle = e.color;
-			ctx.fillRect(e.drawStart, 0, e.drawEnd - e.drawStart, drawHeight);
-			// Highlight the currently ohvered element
-			if (curM && !drag && x >= e.drawStart && x <= e.drawEnd && y >= 0 && y <= drawHeight) {
-				hoveredInterval = e;
-				hovering = true;
-			}
-			if (e.id == -1) {
-				ctx.strokeStyle = 'red';
+			ctx.fillRect(e.drawStartPx, 0, e.drawEndPx - e.drawStartPx, drawHeight);
+			// If the interval is out of sync color it red, green fro running.
+			if (e.id < 0) {
+				ctx.strokeStyle = e.id == -2 ? 'green' : 'red';
 				ctx.lineWidth = 1;
 				ctx.strokeRect(
-					e.drawStart + ctx.lineWidth / 2,
+					e.drawStartPx + ctx.lineWidth / 2,
 					ctx.lineWidth / 2,
-					e.drawEnd - e.drawStart - ctx.lineWidth,
+					e.drawEndPx - e.drawStartPx - ctx.lineWidth,
 					drawHeight - ctx.lineWidth
 				);
 			}
+			// Highlight the currently ohvered element
 			if (
-				(apiClient.isPreview() && e.id == apiClient.getPreviewInterval().id) ||
-				(hoveredInterval && e.id == hoveredInterval.id && !apiClient.isPreviewEdit())
+				!apiClient.isPreview() &&
+				x >= 0 &&
+				y >= 0 &&
+				y <= drawHeight &&
+				!drag &&
+				x >= e.drawStartPx &&
+				x <= e.drawEndPx
+			) {
+				hoveredInterval = e;
+				hovering = true;
+			}
+			// If this is the preview interval, or the hovered interval, highlight it.
+			if (
+				((apiClient.isPreviewAdd() || apiClient.isPreviewEdit()) &&
+					e.id == apiClient.getPreviewInterval().id) ||
+				(hovering && hoveredInterval && e == hoveredInterval && !apiClient.isPreviewEdit())
 			) {
 				ctx.strokeStyle = apiClient.getSettingString('timeline-highlight') || 'black';
 				ctx.lineWidth = 2;
 				ctx.strokeRect(
-					e.drawStart + ctx.lineWidth / 2,
+					e.drawStartPx + ctx.lineWidth / 2,
 					ctx.lineWidth / 2,
-					e.drawEnd - e.drawStart - ctx.lineWidth,
+					e.drawEndPx - e.drawStartPx - ctx.lineWidth,
 					drawHeight - ctx.lineWidth
 				);
 			}
 		});
+		// If no interval is hovered, reset the hovered interval.
 		if (!hovering) {
 			hoveredInterval = null;
 		}
 
-		// draw the cursor.
-		if (x >= 0 && x <= width && y > 0 && y <= drawHeight) {
-			// draw the cursor
-			ctx.strokeStyle = apiClient.getSettingString('timeline-cursor') || 'black';
-			ctx.lineWidth = 0.25;
-			ctx.beginPath();
-			ctx.moveTo(x, 0);
-			ctx.lineTo(x, drawHeight);
-			ctx.moveTo(0, y);
-			ctx.lineTo(width, y);
-			ctx.stroke();
-		}
-		// Fade out the other sections on add.
+		// Blur everything outside the add preview interval.
 		if (apiClient.isPreviewAdd()) {
 			ctx.fillStyle = apiClient.getSettingString('timeline-blur') || '#00000040';
-			var n = toDrawInterval(apiClient.getPreviewInterval(), rangeEndM - rangeStartM, width);
-			ctx.fillRect(0, 0, n.drawStart, drawHeight);
-			ctx.fillRect(n.drawEnd, 0, width - n.drawEnd, drawHeight);
+			let n = toColoredInterval(apiClient.getPreviewInterval());
+			n.drawStartPx =
+				((n.start.getTime() - rangeStart.getTime()) / (rangeEnd.getTime() - rangeStart.getTime())) *
+				width;
+			n.drawEndPx =
+				((n.end.getTime() - rangeStart.getTime()) / (rangeEnd.getTime() - rangeStart.getTime())) *
+				width;
+			ctx.fillRect(0, 0, n.drawStartPx, drawHeight);
+			ctx.fillRect(n.drawEndPx, 0, width - n.drawEndPx, drawHeight);
 		}
+
 		// x-axis
 		ctx.beginPath();
-		let divs = getTimeDivisions(rangeStartM, rangeEndM);
+		let divs = getTimeDivisions(rangeStart.getTime(), rangeEnd.getTime());
 		ctx.strokeStyle = apiClient.getSettingString('timeline-x-axis-hashes') || 'black';
 		ctx.fillStyle = apiClient.getSettingString('timeline-x-axis-text') || 'black';
 		ctx.lineWidth = 1;
 		ctx.font = apiClient.getSettingString('timeline-x-axis-font') || '15px serif';
 		divs.forEach((e: [number, string]) => {
-			let x = ((e[0] - rangeStartM) / (rangeEndM - rangeStartM)) * width;
+			let x = ((e[0] - rangeStart.getTime()) / (rangeEnd.getTime() - rangeStart.getTime())) * width;
 			ctx.moveTo(x, drawHeight);
 			ctx.lineTo(x, height);
 			ctx.fillText(e[1], x + 5, height - 5);
 		});
 		ctx.stroke();
-	}
 
-	let curM: number | null = null;
-	let drag = false;
-	let shiftHeld = false;
-	let x = -1;
-	let y = -1;
-	function mouseMove(event: MouseEvent) {
-		const canvas = <HTMLCanvasElement>document.getElementById('timeline');
-		const rect = canvas.getBoundingClientRect();
-		x = event.clientX - rect.left;
-		y = event.clientY - rect.top;
-		curM = (x / rect.width) * (rangeEndM - rangeStartM) + rangeStartM;
-
-		if (!event.shiftKey) {
-			shiftHeld = false;
+		// draw the cursor.
+		if (x >= 0 && x <= width && y > 0) {
+			// draw the cursor
+			ctx.strokeStyle = apiClient.getSettingString('timeline-cursor') || 'black';
+			ctx.lineWidth = 0.25;
+			ctx.beginPath();
+			ctx.moveTo(x, 0);
+			ctx.lineTo(x, height);
+			ctx.moveTo(0, y);
+			ctx.lineTo(width, y);
+			ctx.stroke();
 		}
 
-		if (drag) {
-			if (event.shiftKey) {
-				let curMin = Math.round(curM / 60000) * 60000;
-				let newInterval: interval;
-				if (apiClient.isPreviewAdd()) {
-					newInterval = apiClient.getPreviewInterval();
-				} else {
-					newInterval = {
-						id: -1,
-						title: 'Theres a problem here',
-						start: new Date(0),
-						end: new Date(0)
-					};
-				}
-				if (!apiClient.isPreviewAdd() || curM < newInterval.start.getTime() || !shiftHeld) {
-					addInterval(curMin, curMin);
-					shiftHeld = true;
-				} else {
-					newInterval = {
-						id: newInterval.id,
-						title: newInterval.title,
-						start: new Date(newInterval.start.getTime()),
-						end: new Date(curMin)
-					};
-					apiClient.previewAdd(newInterval);
-				}
+		// Draw the info panel.
+		if (x >= 0 && y >= 0 && (hoveredInterval != null || apiClient.isPreview())) {
+			let interval: interval;
+			if (apiClient.isPreview()) {
+				interval = apiClient.getPreviewInterval();
 			} else {
-				let oldS = rangeStartM;
-				let oldE = rangeEndM;
-				rangeStartM -= (event.movementX / rect.width) * (rangeEndM - rangeStartM);
-				rangeEndM -= (event.movementX / rect.width) * (rangeEndM - rangeStartM);
-
-				if (event.movementX > 0) {
-					live = false;
+				if (hoveredInterval == null) {
+					throw Error('hoveredInterval is null for info panel');
 				}
-				if (rangeEndM > new Date().getTime()) {
-					live = true;
-					rangeEndM = oldE;
-					rangeStartM = oldS;
+				interval = hoveredInterval;
+			}
+
+			let padding = 10;
+			let ipHeight = 75;
+			let ipWidth = 150;
+			let flipSensitivity = 0.5;
+
+			// Pick where to draw the info panel.
+			let ipx;
+			let ipy;
+			if (x + ipWidth * flipSensitivity + padding > width) {
+				ipx = x - ipWidth - padding;
+			} else {
+				ipx = x + padding;
+			}
+
+			if (y + ipHeight * flipSensitivity + padding > height) {
+				ipy = y - ipHeight - padding;
+			} else {
+				ipy = y + padding;
+			}
+
+			ctx.fillStyle = apiClient.getSettingString('timeline-blur') || '#00000040';
+			ctx.fillRect(ipx, ipy, ipWidth, ipHeight);
+
+			ctx.fillStyle = apiClient.getSettingString('timeline-x-axis-text') || 'white';
+			if (interval.id < 0) {
+				if (interval.id == -1) {
+					ctx.fillStyle = 'red';
+				} else {
+					ctx.fillStyle = 'green';
 				}
 			}
+
+			ctx.font = 'bold 15px serif';
+
+			ctx.fillText(interval.title, ipx + 5, ipy + 15, ipWidth - 10);
+			ctx.fillStyle = apiClient.getSettingString('timeline-x-axis-text') || 'white';
+			ctx.font = '15px serif';
+
+			ctx.fillText(
+				toTimeString(interval.start) + ' - ' + toTimeString(interval.end),
+				ipx + 5,
+				ipy + 30,
+				ipWidth - 10
+			);
+			ctx.fillText(
+				'Duration: ' +
+					durationToString(interval.end.getTime() - interval.start.getTime(), '%H:%M:%S'),
+				ipx + 5,
+				ipy + 45,
+				ipWidth - 10
+			);
+
+			ctx.fillText(toDateTimeString(new Date(curM)), ipx + 5, ipy + ipHeight - 10, ipWidth - 10);
+
+			ctx.stroke();
 		}
-		drawTimeline();
-	}
-
-	function mouseOut() {
-		curM = null;
-		x = -1;
-		y = -1;
-		drawTimeline();
-	}
-
-	function rangeScroll(e: WheelEvent) {
-		e.preventDefault();
-		if (!curM) {
-			return;
-		}
-
-		if (e.shiftKey) {
-			if (e.deltaY > 0) {
-				live = false;
-			}
-			if (!live) {
-				rangeEndM -= e.deltaY * 10000;
-				rangeStartM -= e.deltaY * 10000;
-			}
-		} else {
-			if (e.deltaY < 0) {
-				live = false;
-			}
-			rangeEndM += ((rangeEndM - curM) / 10000) * e.deltaY;
-			rangeStartM -= ((curM - rangeStartM) / 10000) * e.deltaY;
-		}
-
-		if (rangeEndM > new Date().getTime()) {
-			live = true;
-			rangeEndM = new Date().getTime();
-		}
-
-		drawTimeline();
 	}
 
 	function editInterval(i: interval | null) {
+		if (i != null && i.id == -2) {
+			alert("You can't edit the running interval.");
+		}
+		if (i != null && i.id == -1) {
+			alert("You can't edit an out of sync interval.");
+		}
 		if (i != null && i.id >= 0) {
 			apiClient.previewEdit(i);
 		}
 	}
 
-	function addInterval(start = -1, end = -1) {
+	function getNewInterval(start: number, end: number) {
 		let defaultTitle = apiClient.getSettingString('default-title') || 'productive';
-		start = start >= 0 ? start : (rangeStartM + rangeEndM) / 2;
-		end = end >= start ? end : start + 15 * 60 * 1000;
 		let startD = new Date(start);
 		let endD = new Date(end);
-		let interval: interval = { id: -3, title: defaultTitle, start: startD, end: endD };
-		apiClient.previewAdd(interval);
+		return { id: -3, title: defaultTitle, start: startD, end: endD };
 	}
-
-	$: rangeStartM, rangeEndM, drawTimeline();
 </script>
 
 <div class="w-full text-center">
@@ -303,23 +422,4 @@
 			editInterval(hoveredInterval);
 		}}
 	/>
-	<p>
-		{#if curM}
-			{new Date(curM)}
-		{/if}
-		&nbsp;
-		<br />
-		{#if hoveredInterval}
-			{hoveredInterval.title}
-			{toDateTimeString(hoveredInterval.start.getTime())} - {toDateTimeString(
-				hoveredInterval.end.getTime()
-			)}
-			{durationToString(
-				hoveredInterval.end.getTime() - hoveredInterval.start.getTime(),
-				apiClient.getSettingString('timeline-duration-format') || '%H hours %M minutes %S seconds'
-			)}
-		{:else}
-			&nbsp;
-		{/if}
-	</p>
 </div>
