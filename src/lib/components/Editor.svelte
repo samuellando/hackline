@@ -4,7 +4,7 @@
 	import type { interval } from '$lib/types';
 	import { onMount } from 'svelte';
 	import { toDateTimeString } from '$lib/timePrint';
-	import Button from '$lib/components/Button.svelte';
+	import Nav from '$lib/components/Nav.svelte';
 	import type ApiClient from '$lib/ApiClient';
 	import { browser } from '$app/environment';
 	import { getContext } from 'svelte';
@@ -12,9 +12,11 @@
 
 	let apiClient: ApiClient;
 	let secondary: string;
+	let primary: string;
 	if (browser) {
 		apiClient = getContext('apiClient') as ApiClient;
 		secondary = (getContext('palette') as palette).secondary as string;
+		secondary = (getContext('palette') as palette).primary as string;
 	}
 
 	var adding = false;
@@ -102,72 +104,80 @@
 	}
 </script>
 
-<div style="--secondary: {secondary}">
+<div class="relative w-screen" style="--secondary: {secondary} --primary: {primary}">
 	{#if adding || editing}
-		<div class="flex gap-4 pb-4 flex-wrap">
-			<input
-				class="
+		<div
+			class="w-5/6 lg:w-1/4 p-5 left-1/2 -translate-x-1/2 absolute bg-[var(--primary)] border border-[var(--secondary)]"
+		>
+			<div class="flex gap-4 pb-4 flex-wrap items-center justify-center">
+				<input
+					class="
                     w-10 h-10
                     border-0
                 "
-				type="color"
-				value={color}
-				on:input={(e) => updateColor(editingInterval.title, e)}
-			/>
-			<input
-				class="
-                    w-56
-                    bg-transparent
-                    border
-                    border-[var(--secondary)]
-                    p-2
-                "
-				type="text"
-				bind:value={editingInterval.title}
-				on:input={() => {
-					updateTitle(editingInterval);
-				}}
-			/>
-			<span class="w-96">
-				{durationToString(
-					editingInterval.end.getTime() - editingInterval.start.getTime(),
-					apiClient.getSettingString('summary-duration-format') ||
-						'%y years %m months %d days %H hours %M minutes %S seconds'
-				)}
-			</span>
-			{#if editing}
-				{toDateTimeString(editingInterval.start.getTime())}
-				-
-				{toDateTimeString(editingInterval.end.getTime())}
-			{/if}
-			{#if adding}
-				<input
-					class="
-                    w-56
-                    bg-transparent
-                    border
-                    border-[var(--secondary)]
-                    p-2
-                "
-					type="datetime-local"
-					value={toDateTimeString(editingInterval.start.getTime())}
-					on:input={updateStart}
+					type="color"
+					value={color}
+					on:input={(e) => updateColor(editingInterval.title, e)}
 				/>
 				<input
 					class="
-                    w-56
+                    w-3/4
                     bg-transparent
                     border
                     border-[var(--secondary)]
                     p-2
                 "
-					type="datetime-local"
-					value={toDateTimeString(editingInterval.end.getTime())}
-					on:input={updateEnd}
+					type="text"
+					bind:value={editingInterval.title}
+					on:input={() => {
+						updateTitle(editingInterval);
+					}}
 				/>
-			{/if}
-			<Button onClick={commitInterval} text="Add" />
-			<Button onClick={() => apiClient.stopPreview()} text="Cancel" />
+				{#if editing}
+					<span class="w-full text-center">
+						{toDateTimeString(editingInterval.start.getTime())}
+					</span>
+					<span class="w-full text-center"> - </span>
+					<span class="w-full text-center">
+						{toDateTimeString(editingInterval.end.getTime())}
+					</span>
+				{/if}
+				{#if adding}
+					<input
+						class="
+                        w-1/2
+                    bg-transparent
+                    border
+                    border-[var(--secondary)]
+                    p-2
+                "
+						type="datetime-local"
+						value={toDateTimeString(editingInterval.start.getTime())}
+						on:input={updateStart}
+					/>
+					<span class="w-full text-center"> - </span>
+					<input
+						class="
+                        w-1/2
+                    bg-transparent
+                    border
+                    border-[var(--secondary)]
+                    p-2
+                "
+						type="datetime-local"
+						value={toDateTimeString(editingInterval.end.getTime())}
+						on:input={updateEnd}
+					/>
+				{/if}
+				<span class="w-full text-center">
+					{durationToString(
+						editingInterval.end.getTime() - editingInterval.start.getTime(),
+						apiClient.getSettingString('summary-duration-format') || '%H:%M:%S'
+					)}
+				</span>
+				<Nav onClick={commitInterval} text="Add" />
+				<Nav onClick={() => apiClient.stopPreview()} text="Cancel" />
+			</div>
 		</div>
 	{/if}
 </div>
