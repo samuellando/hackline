@@ -118,6 +118,7 @@
 		curM = -1;
 		x = -1;
 		y = -1;
+		drag = false;
 		drawTimeline();
 	}
 
@@ -249,7 +250,7 @@
 			if (
 				((apiClient.isPreviewAdd() || apiClient.isPreviewEdit()) &&
 					e.id == apiClient.getPreviewInterval().id) ||
-				(hovering && hoveredInterval && e.id == hoveredInterval.id && !apiClient.isPreviewEdit())
+				(hovering && hoveredInterval && e == hoveredInterval && !apiClient.isPreviewEdit())
 			) {
 				ctx.strokeStyle = apiClient.getSettingString('timeline-highlight') || 'black';
 				ctx.lineWidth = 2;

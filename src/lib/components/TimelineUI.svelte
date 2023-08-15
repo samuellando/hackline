@@ -5,6 +5,7 @@
 	import Editor from '$lib/components/Editor.svelte';
 	import Running from '$lib/components/Running.svelte';
 	import RangeSelector from '$lib/components/RangeSelector.svelte';
+	import AddButton from '$lib/components/AddButton.svelte';
 	import Live from '$lib/components/Live.svelte';
 	import { browser } from '$app/environment';
 	import type ApiClient from '$lib/ApiClient';
@@ -52,7 +53,10 @@
 
 		<div class="flex flex-col lg:flex-row justify-between px-20 items-center">
 			<Live bind:live />
-			<RangeSelector bind:rangeStart bind:rangeEnd bind:live />
+			<div class="flex flex-row gap-5 items-center">
+				<AddButton {rangeStart} {rangeEnd} />
+				<RangeSelector bind:rangeStart bind:rangeEnd bind:live />
+			</div>
 		</div>
 
 		<div class="flex justify-center mt-2 hidden lg:inline">
