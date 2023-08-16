@@ -8,8 +8,25 @@ export async function GET(event: RequestEvent) {
 	const caller = router.createCaller(await createContext(event));
 
 	try {
-		const running = await caller.getRunning();
-		return new Response(JSON.stringify(running));
+		const DAY = 24 * 60 * 60 * 1000;
+		const end = new Date(Date.now() + DAY);
+		const start = new Date(Date.now() - DAY);
+		const state = await caller.getState({ start: start, end: end });
+		const running = state.getRunning();
+		let res;
+		if (running.end) {
+			res = {
+				...running,
+				start: running.start.getTime(),
+				end: running.end.getTime()
+			};
+		} else {
+			res = {
+				...running,
+				start: running.start.getTime()
+			};
+		}
+		return new Response(JSON.stringify(res));
 	} catch (e) {
 		if (e instanceof TRPCError) {
 			throw error(401, e.message);
@@ -28,7 +45,11 @@ export async function POST(event: RequestEvent) {
 	}
 
 	try {
-		const res = await caller.setRunning(running);
+		const created = await caller.setRunning(running);
+		const res = {
+			...created,
+			start: created.start.getTime()
+		};
 		return new Response(JSON.stringify(res));
 	} catch (e) {
 		if (e instanceof TRPCError) {
