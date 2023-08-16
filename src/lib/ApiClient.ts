@@ -228,10 +228,6 @@ export default class ApiClient {
 		this.previewUpdates.update((n) => n + 1);
 	}
 
-	getBaseSettings(): settings {
-		return this.state.settings;
-	}
-
 	isPreviewAdd() {
 		return this.previewMode == previewModes.add;
 	}
@@ -261,6 +257,14 @@ export default class ApiClient {
 		this.previewState = undefined;
 		this.previewInterval = undefined;
 		this.previewUpdates.update((n) => n + 1);
+	}
+
+	getBaseSettings(): settings {
+		return this.state.settings;
+	}
+
+	getBaseSetting(key: string): settingsValue {
+		return this.getBaseSettings()[key];
 	}
 
 	getSettings(): settings {

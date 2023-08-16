@@ -40,7 +40,7 @@
 	async function commitInterval() {
 		if (apiClient.isPreview()) {
 			let previewColormap = (apiClient.getSetting('colormap') || {}) as { [key: string]: string };
-			let colormap = (apiClient.getBaseSettings()['colormap'] || {}) as { [key: string]: string };
+			let colormap = (apiClient.getBaseSetting('colormap') || {}) as { [key: string]: string };
 			// Copy over any changes to existing.
 			for (let key in colormap) {
 				if (key in previewColormap) {
@@ -68,7 +68,19 @@
 			apiClient.previewEdit(i);
 		}
 		let colormap = (apiClient.getSetting('colormap') || {}) as { [key: string]: string };
-		colormap[editingInterval.title] = colorSave;
+		const baseColormap = (apiClient.getBaseSetting('colormap') || {}) as { [key: string]: string };
+		if (i.title in baseColormap) {
+			colorSave = baseColormap[i.title];
+		} else {
+			if (
+				Object.values(baseColormap).includes(colorSave) &&
+				Object.keys(colormap).includes(i.title)
+			) {
+				delete colormap[i.title];
+			} else {
+				colormap[i.title] = colorSave;
+			}
+		}
 		apiClient.setSetting('colormap', colormap);
 	}
 
